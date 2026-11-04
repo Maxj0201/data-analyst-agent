@@ -3,8 +3,11 @@
 The runner only depends on :class:`AgentFn`: a callable taking an :class:`AgentInput` and
 returning an :class:`AgentOutput` (sync or async). Built-in agents:
 
-- ``core``   – adapter around ``analyst_agent.core.loop`` (the real agent).
-- ``oracle`` – answers from the task's ground truth; used to smoke-test the harness itself.
+- ``core``    – adapter around ``analyst_agent.core.loop`` (the real agent).
+- ``dry-run`` – the real agent loop, tools and sandbox driven by the scripted offline
+  ``FakeLLM`` (:func:`analyst_agent.core.fake_llm.dry_run_llm`): no API key, no cost. Used in
+  CI to catch prompt / loop changes that break the pipeline; its answers are not analyses.
+- ``oracle``  – answers from the task's ground truth; used to smoke-test the harness itself.
 - ``module.path:callable`` – any other agent, e.g. a mock in tests.
 
 Trace convention: ``AgentOutput.trace`` is a list of JSON-serialisable event dicts. The scorers
@@ -134,7 +137,10 @@ def output_from_core(result: Any) -> AgentOutput:
     )
 
 
-def _run_core(question: str, paths: list[Path]) -> Any:
+LLMFactory = Callable[[str, Any], Any]  # (question, sandbox) -> LLM
+
+
+def _run_core(question: str, paths: list[Path], llm_factory: LLMFactory | None = None) -> Any:
     try:
         from analyst_agent.core import AgentLoop, LLMClient, Settings
         from analyst_agent.tools import (
@@ -158,13 +164,26 @@ def _run_core(question: str, paths: list[Path]) -> Any:
     # Per-task sandbox: tasks run concurrently, so the module-level sandbox must not be shared.
     with create_sandbox(datasets, artifacts_dir=settings.artifacts_dir) as sb:
         ctx = ToolContext(tables=sb.tables, artifacts_dir=settings.artifacts_dir, sandbox=sb)
-        loop = AgentLoop(LLMClient(settings), build_default_registry(), ctx, settings)
+        llm = llm_factory(question, sb) if llm_factory else LLMClient(settings)
+        loop = AgentLoop(llm, build_default_registry(), ctx, settings)
         return loop.run(question)
 
 
 async def core_agent(inp: AgentInput) -> AgentOutput:
     """Run the real agent (``AgentLoop``, sync) in a worker thread."""
     result = await asyncio.to_thread(_run_core, inp.question, list(inp.dataset_paths))
+    return output_from_core(result)
+
+
+def _dry_run_llm(question: str, sb: Any) -> Any:
+    from analyst_agent.core.fake_llm import dry_run_llm
+
+    return dry_run_llm(question, sb.tables[0], sb.run_sql)
+
+
+async def dry_run_agent(inp: AgentInput) -> AgentOutput:
+    """Run the real agent loop with the scripted offline LLM (no API calls)."""
+    result = await asyncio.to_thread(_run_core, inp.question, list(inp.dataset_paths), _dry_run_llm)
     return output_from_core(result)
 
 
@@ -214,10 +233,12 @@ def load_agent(spec: str, tasks: list[Task] | None = None) -> AgentFn:
     """
     if spec == "core":
         return core_agent
+    if spec == "dry-run":
+        return dry_run_agent
     if spec == "oracle":
         return OracleAgent(tasks or [])
     if ":" not in spec:
-        raise ValueError(f"unknown agent {spec!r}; use core, oracle or module:callable")
+        raise ValueError(f"unknown agent {spec!r}; use core, dry-run, oracle or module:callable")
     mod_name, attr = spec.split(":", 1)
     obj = getattr(importlib.import_module(mod_name), attr)
     if inspect.isclass(obj):

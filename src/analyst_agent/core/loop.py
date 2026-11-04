@@ -20,7 +20,7 @@ from typing import Any
 from analyst_agent.core.config import Settings, get_settings
 from analyst_agent.core.critic import Critic, CriticVerdict
 from analyst_agent.core.llm import LLM, CostTracker
-from analyst_agent.core.prompts import PLANNER_SYSTEM, REPORT_WRITER_SYSTEM
+from analyst_agent.core.prompts import PLANNER_SYSTEM, REPORT_WRITER_SYSTEM, prompt_versions
 from analyst_agent.tools.base import ToolContext
 from analyst_agent.tools.registry import TERMINAL_TOOL, ToolRegistry, wrap_untrusted
 
@@ -105,6 +105,7 @@ class AgentResult:
             "tool_calls": [asdict(r) for r in s.tool_results],
             "artifacts": s.artifacts,
             "cost": s.cost.to_dict(),
+            "prompts": prompt_versions(),
         }
 
 

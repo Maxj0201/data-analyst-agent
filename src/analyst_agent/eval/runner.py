@@ -2,10 +2,15 @@
 
 Each task runs under an asyncio semaphore (``concurrency``) with a per-task timeout. Results
 are appended to ``runs/<timestamp>/results.jsonl`` as soon as each task finishes, so an
-interrupted run keeps everything completed so far. ``meta.json`` records the configuration.
+interrupted run keeps everything completed so far. ``meta.json`` records the configuration
+and the prompt versions (:func:`analyst_agent.core.prompts.prompt_versions`).
 
-Note: a sync agent runs in a worker thread; on timeout the task is recorded as ``timeout``
-but the thread itself cannot be killed and finishes in the background.
+Isolation: by default (``isolation="process"``) every task runs in its own child process
+(see :mod:`analyst_agent.eval.isolation`) that is SIGKILLed, together with anything it
+spawned, when the timeout expires, so a hung agent cannot keep burning tokens or CPU after it
+is recorded as ``timeout``. ``isolation="inline"`` runs the agent in the runner's event loop
+(sync agents in a worker thread); it allows unpicklable agents such as closures in tests,
+but a timed-out sync agent then keeps running in the background.
 """
 
 from __future__ import annotations
@@ -18,12 +23,16 @@ import traceback
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
+from analyst_agent.core.prompts import prompt_versions
 from analyst_agent.eval.agent import AgentFn, AgentInput, AgentOutput, call_agent
+from analyst_agent.eval.isolation import AgentTimeout, check_picklable, run_in_subprocess
 from analyst_agent.eval.judge import Judge
 from analyst_agent.eval.schema import Task
 from analyst_agent.eval.scorers import Score, score_task
+
+Isolation = Literal["process", "inline"]
 
 
 @dataclass
@@ -31,6 +40,7 @@ class RunConfig:
     agent: str = "core"
     concurrency: int = 4
     timeout_s: float = 300.0
+    isolation: Isolation = "process"
     score: bool = True
     judge_model: str | None = None
     filters: dict[str, Any] = field(default_factory=dict)
@@ -84,6 +94,16 @@ def _git_sha() -> str | None:
         return None
 
 
+def _progress_mark(res: TaskResult) -> str:
+    if res.status != "ok":
+        return res.status.upper()
+    if res.passed:
+        return "PASS"
+    if res.score_details.get("method") == "unscored":
+        return "DONE"
+    return "SKIP" if res.score_details.get("skipped") else "FAIL"
+
+
 def new_run_dir(base: Path = Path("runs")) -> Path:
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     d = base / stamp
@@ -96,7 +116,12 @@ def new_run_dir(base: Path = Path("runs")) -> Path:
 
 
 async def run_task(
-    task: Task, agent: AgentFn, judge: Judge | None, timeout_s: float, score: bool = True
+    task: Task,
+    agent: AgentFn,
+    judge: Judge | None,
+    timeout_s: float,
+    score: bool = True,
+    isolation: Isolation = "process",
 ) -> TaskResult:
     started = _now()
     inp = AgentInput(task_id=task.id, question=task.question, dataset_paths=task.dataset_paths())
@@ -104,8 +129,13 @@ async def run_task(
     status, error = "ok", None
     out = AgentOutput()
     try:
-        out = await asyncio.wait_for(call_agent(agent, inp), timeout=timeout_s)
-    except TimeoutError:
+        if isolation == "process":
+            out = await run_in_subprocess(agent, inp, timeout_s)
+        elif isolation == "inline":
+            out = await asyncio.wait_for(call_agent(agent, inp), timeout=timeout_s)
+        else:
+            raise ValueError(f"unknown isolation {isolation!r}")
+    except (TimeoutError, AgentTimeout):
         status, error = "timeout", f"exceeded {timeout_s}s"
     except Exception as e:  # agent bugs must not kill the run
         status = "error"
@@ -157,6 +187,8 @@ async def run_tasks(
 ) -> tuple[Path, list[TaskResult]]:
     """Run ``tasks`` concurrently; return the run directory and results in task order."""
     config = config or RunConfig()
+    if config.isolation == "process":
+        check_picklable(agent)  # fail fast, before any run directory is written
     run_dir = run_dir or new_run_dir()
     run_dir.mkdir(parents=True, exist_ok=True)
     meta = {
@@ -165,6 +197,7 @@ async def run_tasks(
         "n_tasks": len(tasks),
         "task_ids": [t.id for t in tasks],
         "config": asdict(config),
+        "prompts": prompt_versions(),
     }
     (run_dir / "meta.json").write_text(json.dumps(meta, indent=2))
     results_path = run_dir / "results.jsonl"
@@ -175,15 +208,15 @@ async def run_tasks(
     async def one(task: Task) -> TaskResult:
         nonlocal done
         async with sem:
-            res = await run_task(task, agent, judge, config.timeout_s, config.score)
+            res = await run_task(
+                task, agent, judge, config.timeout_s, config.score, config.isolation
+            )
         async with lock:
             with open(results_path, "a") as f:
                 f.write(json.dumps(res.to_dict(), default=str) + "\n")
             done += 1
             if progress:
-                mark = (
-                    "PASS" if res.passed else res.status.upper() if res.status != "ok" else "FAIL"
-                )
+                mark = _progress_mark(res)
                 print(
                     f"[{done}/{len(tasks)}] {mark:7} {task.id} "
                     f"({res.latency_s:.1f}s, ${res.cost_usd:.4f})",

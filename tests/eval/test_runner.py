@@ -24,7 +24,7 @@ from tests.eval.conftest import MockJudge, echo_agent, make_task
 
 @pytest.mark.asyncio
 async def test_run_task_ok_and_scored() -> None:
-    res = await run_task(make_task("L1"), echo_agent(), None, timeout_s=5)
+    res = await run_task(make_task("L1"), echo_agent(), None, timeout_s=5, isolation="inline")
     assert res.status == "ok" and res.passed and res.cost_usd == 0.01
     assert res.score_details["method"] == "numeric"
 
@@ -37,7 +37,7 @@ async def test_sync_agent_supported() -> None:
             trace=[{"type": "tool_call", "name": "run_sql", "input": {"query": "SELECT 42"}}],
         )
 
-    res = await run_task(make_task("L1"), agent, None, timeout_s=5)
+    res = await run_task(make_task("L1"), agent, None, timeout_s=5, isolation="inline")
     assert res.passed and res.tool_calls == 1
 
 
@@ -51,9 +51,9 @@ async def test_timeout_and_error_are_recorded_not_raised() -> None:
         raise ValueError("kaput")
 
     t0 = time.perf_counter()
-    res = await run_task(make_task("L1"), slow, None, timeout_s=0.05)
+    res = await run_task(make_task("L1"), slow, None, timeout_s=0.05, isolation="inline")
     assert res.status == "timeout" and not res.passed and time.perf_counter() - t0 < 2
-    res = await run_task(make_task("L1"), broken, None, timeout_s=5)
+    res = await run_task(make_task("L1"), broken, None, timeout_s=5, isolation="inline")
     assert res.status == "error" and "kaput" in res.error
 
 
@@ -62,7 +62,7 @@ async def test_agent_reported_error_status() -> None:
     async def agent(inp: AgentInput) -> AgentOutput:
         return AgentOutput(status="error", error="API unreachable")
 
-    res = await run_task(make_task("L1"), agent, None, timeout_s=5)
+    res = await run_task(make_task("L1"), agent, None, timeout_s=5, isolation="inline")
     assert res.status == "error" and res.error == "API unreachable"
 
 
@@ -86,7 +86,11 @@ async def test_run_tasks_concurrency_and_jsonl(tmp_path: Path) -> None:
 
     tasks = [make_task("L1").model_copy(update={"id": f"t{i}"}) for i in range(7)]
     run_dir, results = await run_tasks(
-        tasks, agent, config=RunConfig(concurrency=2), run_dir=tmp_path / "run", progress=False
+        tasks,
+        agent,
+        config=RunConfig(concurrency=2, isolation="inline"),
+        run_dir=tmp_path / "run",
+        progress=False,
     )
     assert peak == 2
     assert [r.task_id for r in results] == [f"t{i}" for i in range(7)]
@@ -105,7 +109,7 @@ async def test_no_score_mode(tmp_path: Path) -> None:
         [make_task("L3")],
         echo_agent(),
         judge=judge,
-        config=RunConfig(score=False),
+        config=RunConfig(score=False, isolation="inline"),
         run_dir=tmp_path,
         progress=False,
     )
@@ -135,7 +139,11 @@ async def test_oracle_scores_full_marks_on_starter_benchmark(tmp_path: Path) -> 
 async def test_wrong_agent_fails_l1_l2(tmp_path: Path) -> None:
     tasks = load_tasks(difficulties=["L1", "L2"])
     _, results = await run_tasks(
-        tasks, echo_agent("I don't know."), run_dir=tmp_path, progress=False
+        tasks,
+        echo_agent("I don't know."),
+        config=RunConfig(isolation="inline"),
+        run_dir=tmp_path,
+        progress=False,
     )
     assert not any(r.passed for r in results)
 

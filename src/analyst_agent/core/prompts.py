@@ -1,4 +1,14 @@
-"""System prompts. Kept as constants (no timestamps / per-run values) so they stay cacheable."""
+"""System prompts. Kept as constants (no timestamps / per-run values) so they stay cacheable.
+
+Versioning: every prompt has a version string in :data:`PROMPTS`. Bump it whenever you change
+the prompt's text (including the shared :data:`UNTRUSTED_DATA_NOTICE`), then update the pinned
+fingerprint in ``tests/test_prompts.py``; that test fails if the text changes without a bump.
+:func:`prompt_versions` is written into every eval run's ``meta.json`` and every agent trace,
+and ``python -m analyst_agent.eval compare`` shows prompt differences between two runs.
+"""
+
+import hashlib
+from dataclasses import dataclass
 
 UNTRUSTED_DATA_NOTICE = """\
 ## Untrusted data
@@ -69,3 +79,27 @@ its results. Write the best Markdown report the evidence supports:
 - Clearly flag anything incomplete or unverified.
 
 {UNTRUSTED_DATA_NOTICE}"""
+
+
+@dataclass(frozen=True)
+class Prompt:
+    name: str
+    version: str
+    text: str
+
+    @property
+    def sha256(self) -> str:
+        """Short content fingerprint; catches edits that forgot to bump ``version``."""
+        return hashlib.sha256(self.text.encode()).hexdigest()[:12]
+
+
+PLANNER = Prompt("planner", "1.0.0", PLANNER_SYSTEM)
+CRITIC = Prompt("critic", "1.0.0", CRITIC_SYSTEM)
+REPORT_WRITER = Prompt("report_writer", "1.0.0", REPORT_WRITER_SYSTEM)
+
+PROMPTS: dict[str, Prompt] = {p.name: p for p in (PLANNER, CRITIC, REPORT_WRITER)}
+
+
+def prompt_versions() -> dict[str, dict[str, str]]:
+    """``{name: {"version": ..., "sha256": ...}}`` for run metadata."""
+    return {name: {"version": p.version, "sha256": p.sha256} for name, p in PROMPTS.items()}

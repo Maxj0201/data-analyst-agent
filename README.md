@@ -193,8 +193,26 @@ by the generator script, so it is correct by construction.
 ```bash
 uv run python -m analyst_agent.eval run -d L1 --limit 5      # cheap dev run
 uv run python -m analyst_agent.eval report runs/<timestamp>
-uv run python -m analyst_agent.eval compare runs/<a> runs/<b>
+uv run python -m analyst_agent.eval compare runs/<a> runs/<b>   # incl. prompt-version diffs
 ```
+
+Each task runs in its own child process (`--isolation process`, the default), which is killed
+together with any sandbox subprocesses when `--timeout` expires. Every run's `meta.json` records
+the prompt versions from `core/prompts.py`. Edit a prompt only together with a version bump;
+`tests/test_prompts.py` fails if the text changes and the version stays the same.
+
+CI (`eval-smoke` job) runs two offline checks on every PR. Neither makes any API calls:
+
+```bash
+uv run python -m analyst_agent.eval run --agent oracle --no-judge --limit 5 --fail-under 1.0 --fail-on-error
+```
+
+```bash
+uv run python -m analyst_agent.eval run --agent dry-run --no-score --limit 3 --fail-on-error
+```
+
+Without a judge, L3 rubric tasks are reported as *skipped* and left out of accuracy. The `dry-run`
+agent runs the real loop, tools and sandbox with the scripted `FakeLLM`.
 
 See [`benchmarks/README.md`](benchmarks/README.md) for task format and more options.
 

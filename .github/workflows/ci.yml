@@ -29,3 +29,38 @@ jobs:
         run: uv run ruff format --check .
       - name: Unit tests
         run: uv run pytest -q
+
+  eval-smoke:
+    # Offline end-to-end checks: no API key, no network to the LLM. Catches prompt / loop /
+    # harness changes that break the pipeline before they reach a paid eval run.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ANTHROPIC_API_KEY: ""
+      ANTHROPIC_BASE_URL: "http://127.0.0.1:9"
+      AGENT_ARTIFACTS_DIR: ${{ runner.temp }}/artifacts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked --all-extras
+      - name: Harness smoke (oracle agent must score 100%)
+        # Without a judge, L3 rubric tasks are reported as skipped and excluded from accuracy.
+        run: >-
+          uv run python -m analyst_agent.eval run --agent oracle --no-judge --limit 5
+          --fail-under 1.0 --fail-on-error --runs-dir ${{ runner.temp }}/runs/oracle
+      - name: Core agent dry run (scripted FakeLLM, 3 tasks)
+        # Real agent loop, tools and sandbox; only the LLM is scripted. Every task must run to
+        # completion (no error, timeout, max_turns or budget stop). Answers are not scored.
+        run: >-
+          uv run python -m analyst_agent.eval run --agent dry-run --no-score --limit 3
+          --timeout 120 --fail-on-error --runs-dir ${{ runner.temp }}/runs/dry-run
+      - name: Upload eval runs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-smoke-runs
+          path: ${{ runner.temp }}/runs

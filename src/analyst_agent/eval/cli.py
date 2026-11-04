@@ -11,8 +11,8 @@ import typer
 from analyst_agent.eval.agent import load_agent
 from analyst_agent.eval.config import EvalSettings
 from analyst_agent.eval.judge import LLMJudge
-from analyst_agent.eval.report import compare_runs, report_run
-from analyst_agent.eval.runner import RunConfig, new_run_dir, run_tasks
+from analyst_agent.eval.report import compare_runs, report_run, summarize
+from analyst_agent.eval.runner import RunConfig, load_results, new_run_dir, run_tasks
 from analyst_agent.eval.schema import DEFAULT_BENCHMARK_ROOT, load_tasks
 
 SETTINGS = EvalSettings()
@@ -45,7 +45,7 @@ def run(
     tag: Tag = None,
     task: TaskId = None,
     limit: Annotated[int | None, typer.Option(help="stratified sample of N tasks")] = None,
-    agent: Annotated[str, typer.Option(help="core | oracle | module:callable")] = "core",
+    agent: Annotated[str, typer.Option(help="core | dry-run | oracle | module:callable")] = "core",
     concurrency: Annotated[int, typer.Option(min=1)] = SETTINGS.eval_concurrency,
     timeout: Annotated[
         float, typer.Option(help="per-task timeout, seconds")
@@ -57,10 +57,27 @@ def run(
         bool, typer.Option(help="skip LLM judge (L3 fail, ADV rules only)")
     ] = False,
     no_score: bool = False,
+    isolation: Annotated[
+        str,
+        typer.Option(help="process: each task in a child process killed on timeout | inline"),
+    ] = "process",
+    fail_under: Annotated[
+        float | None,
+        typer.Option(help="exit 1 if accuracy over scored tasks is below this (0-1)"),
+    ] = None,
+    fail_on_error: Annotated[
+        bool,
+        typer.Option(
+            help="exit 1 if any task errored, timed out, or the agent stopped early "
+            "(max_turns / budget_exceeded)"
+        ),
+    ] = False,
     benchmarks: Path = DEFAULT_BENCHMARK_ROOT,
     runs_dir: Path = SETTINGS.eval_runs_dir,
 ) -> None:
     """Run the agent over the selected tasks and write runs/<timestamp>/."""
+    if isolation not in ("process", "inline"):
+        raise typer.BadParameter("--isolation must be 'process' or 'inline'")
     tasks = load_tasks(benchmarks, difficulty, tag, task, limit)
     if not tasks:
         raise typer.BadParameter("no tasks match the filters")
@@ -74,6 +91,7 @@ def run(
         agent=agent,
         concurrency=concurrency,
         timeout_s=timeout,
+        isolation=isolation,  # type: ignore[arg-type]
         score=not no_score,
         judge_model=None if judge is None else (judge_model or "AGENT_MODEL"),
         filters={"difficulty": difficulty, "tag": tag, "task": task, "limit": limit},
@@ -84,6 +102,31 @@ def run(
     md = report_run(run_dir)
     (run_dir / "report.md").write_text(md)
     typer.echo(md)
+    _gate(run_dir, fail_under, fail_on_error)
+
+
+INCOMPLETE_AGENT_STATUSES = {"max_turns", "budget_exceeded", "error"}
+
+
+def _gate(run_dir: Path, fail_under: float | None, fail_on_error: bool) -> None:
+    """Exit non-zero when the run misses the requested bar (used by CI)."""
+    results = load_results(run_dir)
+    s = summarize(results)
+    problems = []
+    if fail_on_error:
+        bad = [
+            f"{r['task_id']} ({r['status'] if r['status'] != 'ok' else r.get('agent_status')})"
+            for r in results
+            if r["status"] != "ok" or r.get("agent_status") in INCOMPLETE_AGENT_STATUSES
+        ]
+        if bad:
+            problems.append("did not complete: " + ", ".join(bad))
+    if fail_under is not None and (s["accuracy"] is None or s["accuracy"] < fail_under):
+        acc = "n/a" if s["accuracy"] is None else f"{s['accuracy']:.1%}"
+        problems.append(f"accuracy {acc} < {fail_under:.1%}")
+    if problems:
+        typer.secho("FAILED: " + "; ".join(problems), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1)
 
 
 @app.command()
