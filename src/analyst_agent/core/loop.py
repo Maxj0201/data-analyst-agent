@@ -251,7 +251,7 @@ class AgentLoop:
             if retriever is None:
                 from analyst_agent.semantic import default_retriever
 
-                retriever = default_retriever(s.semantic_metrics_dir)
+                retriever = default_retriever(s.resolved_semantic_metrics_dir)
             hits = retriever.retrieve(state.question, k=s.semantic_top_k, tables=self.ctx.tables)
         except Exception as exc:  # noqa: BLE001 - optional context must not break the run
             log.exception("semantic layer retrieval failed")

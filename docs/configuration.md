@@ -19,7 +19,7 @@ All three are **off by default**, independent of each other, and can be combined
 | Flag | What it turns on | CLI override (`ask`) | Eval override (`eval run`) |
 |---|---|---|---|
 | `AGENT_ROUTING_ENABLED` | One cheap router call labels the question L1/L2/L3 and picks the working model; escalates on a second critic "revise" or a repeated tool error ([model-routing.md](model-routing.md)). | `--routing/--no-routing` | `--routing/--no-routing` |
-| `AGENT_SEMANTIC_LAYER_ENABLED` | BM25 retrieval of governed metric definitions (`AGENT_SEMANTIC_METRICS_DIR`) into the first user message, plus extra planner rules. | `--semantic-layer/--no-semantic-layer` | env only |
+| `AGENT_SEMANTIC_LAYER_ENABLED` | BM25 retrieval of governed metric definitions (`AGENT_SEMANTIC_METRICS_DIR`) into the first user message, plus extra planner rules. | `--semantic-layer/--no-semantic-layer` | `--semantic-layer/--no-semantic-layer` |
 | `AGENT_APPROVAL_ENABLED` | Human-in-the-loop gate before costly/risky tool calls (large `EXPLAIN` estimate, `run_python`, budget fraction). | `--require-approval/--no-require-approval`; `--auto-approve` approves without prompting | gates are **auto-approved by default**; `--no-auto-approve` leaves no approver (gated steps are denied) |
 
 How each surface answers an approval request when `AGENT_APPROVAL_ENABLED=true`:
@@ -57,7 +57,7 @@ How each surface answers an approval request when `AGENT_APPROVAL_ENABLED=true`:
 | `AGENT_MODEL_L3` | *(unset)* | Model routing | Working model for L3 questions; unset = `AGENT_MODEL`. |
 | `AGENT_ROUTER_FALLBACK_TIER` | `L3` | Model routing | Tier used when the router call fails or returns unparseable output. |
 | `AGENT_SEMANTIC_LAYER_ENABLED` | `false` | Semantic layer | **Feature flag.** Retrieve governed metric definitions into the first user message. |
-| `AGENT_SEMANTIC_METRICS_DIR` | `benchmarks/metrics` | Semantic layer | Directory (or file) of `metrics.yaml` definitions. Relative paths resolve against the working directory; the Docker image ships `/app/benchmarks/metrics`. |
+| `AGENT_SEMANTIC_METRICS_DIR` | *(unset)* | Semantic layer | Directory (or file) of `metrics.yaml` definitions. Unset means the definitions shipped with the installed package (`analyst_agent/semantic/metrics` in a wheel, `benchmarks/metrics` in a source checkout), whatever the working directory. An explicit relative path resolves against the working directory. |
 | `AGENT_SEMANTIC_TOP_K` | `4` | Semantic layer | Metric definitions retrieved per question. |
 | `AGENT_APPROVAL_ENABLED` | `false` | Human-in-the-loop | **Feature flag.** Gate costly or risky tool calls behind a human approval. |
 | `AGENT_APPROVAL_ROW_THRESHOLD` | `1000000` | Human-in-the-loop | Gate `run_sql` when the `EXPLAIN` row estimate is above this (empty = never). |

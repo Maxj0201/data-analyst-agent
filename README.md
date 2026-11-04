@@ -215,7 +215,7 @@ An empty value means unset for optional settings.
 | Flag (default `false`) | Effect | Details |
 |---|---|---|
 | `AGENT_ROUTING_ENABLED` | One cheap router call (`AGENT_ROUTER_MODEL`) labels the question L1/L2/L3 and runs it on `AGENT_MODEL_L1/L2/L3`; escalates a tier on a second critic "revise" or the same tool erroring twice in a row (human denials never escalate). | [docs/model-routing.md](docs/model-routing.md) |
-| `AGENT_SEMANTIC_LAYER_ENABLED` | Retrieves the top `AGENT_SEMANTIC_TOP_K` governed metric definitions from `AGENT_SEMANTIC_METRICS_DIR` (default `benchmarks/metrics`) into the first user message, as labelled reference material. | [benchmarks/README.md](benchmarks/README.md#semantic-layer-metrics) |
+| `AGENT_SEMANTIC_LAYER_ENABLED` | Retrieves the top `AGENT_SEMANTIC_TOP_K` governed metric definitions from `AGENT_SEMANTIC_METRICS_DIR` (default: the definitions shipped with the package) into the first user message, as labelled reference material. | [benchmarks/README.md](benchmarks/README.md#semantic-layer-metrics) |
 | `AGENT_APPROVAL_ENABLED` | Pauses before costly or risky steps until a human approves. | [below](#human-in-the-loop-approval) |
 
 How each surface handles approval: the CLI prompts y/n (or `--auto-approve`); the API and UI wait

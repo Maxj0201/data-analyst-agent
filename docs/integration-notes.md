@@ -177,15 +177,16 @@ everything green before the next merge. Final suite: **520 passed, 0 skipped**.
   still makes the chart and report from numbers it pre-computed. The denial reaches the model as
   an error result, but the dry run cannot show a re-plan. `--no-auto-approve` in eval likewise
   only checks plumbing.
-- **The judge without a key counts as a failure, not a skip.** `eval run` without `--no-judge`
-  and without an API key scores L3 tasks as failed (`judge call failed: ...`). Only `--no-judge`
-  marks them skipped.
-- **The semantic layer has no eval CLI flag.** `--routing` exists, but the semantic layer is
-  env-only (`AGENT_SEMANTIC_LAYER_ENABLED`). The CLI does have `--semantic-layer`.
-- **`AGENT_SEMANTIC_METRICS_DIR` is relative to the working directory** (default
-  `benchmarks/metrics`). Running the CLI outside the repo root records a `semantic_error` and
-  continues without definitions, unless the variable is set. The Docker image sets it to an
-  absolute path.
+- ~~The judge without a key counts as a failure, not a skip~~ — resolved in
+  `fix/review-findings`: with no `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN`, `eval run` warns
+  and runs judge-less (L3 skipped, ADV rules only), and `LLMJudge` raises `JudgeUnavailable`,
+  which the scorers record as skipped.
+- ~~The semantic layer has no eval CLI flag~~ — resolved: `eval run --semantic-layer/
+  --no-semantic-layer`, recorded in `meta.json` as `config.semantic_layer_enabled`.
+- ~~`AGENT_SEMANTIC_METRICS_DIR` is relative to the working directory~~ — resolved: the
+  default is now unset, meaning the definitions shipped with the package (the wheel carries
+  `benchmarks/metrics` as `analyst_agent/semantic/metrics`; a source checkout reads
+  `<repo>/benchmarks/metrics`). Explicit relative paths still resolve against the cwd.
 - **`prompt_versions()` is static.** It lists every registered prompt, including
   `router` and `semantic_layer_rules` when those flags are off. It records what the code
   contains, not which prompts a run used; the run's flags are in the trace and the report.

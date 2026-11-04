@@ -10,7 +10,7 @@ import typer
 
 from analyst_agent.core.config import Settings
 from analyst_agent.eval.agent import load_agent
-from analyst_agent.eval.judge import LLMJudge
+from analyst_agent.eval.judge import LLMJudge, judge_configured
 from analyst_agent.eval.report import compare_runs, report_run, summarize
 from analyst_agent.eval.runner import RunConfig, load_results, new_run_dir, run_tasks
 from analyst_agent.eval.schema import DEFAULT_BENCHMARK_ROOT, load_tasks
@@ -54,7 +54,11 @@ def run(
         str | None, typer.Option(help="default: AGENT_JUDGE_MODEL, else AGENT_MODEL")
     ] = SETTINGS.judge_model,
     no_judge: Annotated[
-        bool, typer.Option(help="skip LLM judge (L3 fail, ADV rules only)")
+        bool,
+        typer.Option(
+            help="skip the LLM judge (L3 tasks skipped, ADV rules only); implied when no "
+            "ANTHROPIC_API_KEY is set"
+        ),
     ] = False,
     no_score: bool = False,
     isolation: Annotated[
@@ -79,6 +83,14 @@ def run(
             help="force model routing on/off for the core agent (default: AGENT_ROUTING_ENABLED)",
         ),
     ] = None,
+    semantic_layer: Annotated[
+        bool | None,
+        typer.Option(
+            "--semantic-layer/--no-semantic-layer",
+            help="force the semantic layer on/off for the core agent "
+            "(default: AGENT_SEMANTIC_LAYER_ENABLED)",
+        ),
+    ] = None,
     auto_approve: Annotated[
         bool,
         typer.Option(
@@ -96,7 +108,21 @@ def run(
     tasks = load_tasks(benchmarks, difficulty, tag, task, limit)
     if not tasks:
         raise typer.BadParameter("no tasks match the filters")
-    agent_fn = load_agent(agent, tasks, routing_enabled=routing, auto_approve=auto_approve)
+    agent_fn = load_agent(
+        agent,
+        tasks,
+        routing_enabled=routing,
+        auto_approve=auto_approve,
+        semantic_layer_enabled=semantic_layer,
+    )
+    if not (no_judge or no_score) and not judge_configured():
+        typer.secho(
+            "no judge configured (ANTHROPIC_API_KEY is not set): L3 tasks are skipped and ADV "
+            "tasks are scored by rules only",
+            fg=typer.colors.YELLOW,
+            err=True,
+        )
+        no_judge = True
     judge = (
         None
         if (no_judge or no_score)
@@ -110,6 +136,7 @@ def run(
         score=not no_score,
         judge_model=None if judge is None else (judge_model or "AGENT_MODEL"),
         routing_enabled=routing,
+        semantic_layer_enabled=semantic_layer,
         auto_approve=auto_approve,
         filters={"difficulty": difficulty, "tag": tag, "task": task, "limit": limit},
     )

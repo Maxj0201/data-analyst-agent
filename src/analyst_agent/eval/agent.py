@@ -194,6 +194,7 @@ def _run_core(
     llm_factory: LLMFactory | None = None,
     routing_enabled: bool | None = None,
     auto_approve: bool = True,
+    semantic_layer_enabled: bool | None = None,
 ) -> Any:
     try:
         from analyst_agent.core import AgentLoop, LLMClient, Settings
@@ -210,8 +211,13 @@ def _run_core(
             "--agent module:callable"
         ) from e
     settings = Settings()
+    overrides: dict[str, bool] = {}
     if routing_enabled is not None:  # eval A/B override of AGENT_ROUTING_ENABLED
-        settings = settings.model_copy(update={"routing_enabled": routing_enabled})
+        overrides["routing_enabled"] = routing_enabled
+    if semantic_layer_enabled is not None:  # ... and of AGENT_SEMANTIC_LAYER_ENABLED
+        overrides["semantic_layer_enabled"] = semantic_layer_enabled
+    if overrides:
+        settings = settings.model_copy(update=overrides)
     datasets: dict[str, Path] = {}
     for p in paths:
         name = table_name_for(p)
@@ -231,15 +237,25 @@ def _run_core(
 
 
 async def core_agent(
-    inp: AgentInput, routing_enabled: bool | None = None, auto_approve: bool = True
+    inp: AgentInput,
+    routing_enabled: bool | None = None,
+    auto_approve: bool = True,
+    semantic_layer_enabled: bool | None = None,
 ) -> AgentOutput:
     """Run the real agent (``AgentLoop``, sync) in a worker thread.
 
-    ``routing_enabled`` overrides ``AGENT_ROUTING_ENABLED`` for this run (eval A/B).
+    ``routing_enabled`` / ``semantic_layer_enabled`` override ``AGENT_ROUTING_ENABLED`` /
+    ``AGENT_SEMANTIC_LAYER_ENABLED`` for this run (eval A/B); ``None`` keeps the environment.
     ``auto_approve`` approves every human-in-the-loop gate (``AGENT_APPROVAL_ENABLED``).
     """
     result = await asyncio.to_thread(
-        _run_core, inp.question, list(inp.dataset_paths), None, routing_enabled, auto_approve
+        _run_core,
+        inp.question,
+        list(inp.dataset_paths),
+        None,
+        routing_enabled,
+        auto_approve,
+        semantic_layer_enabled,
     )
     return output_from_core(result)
 
@@ -251,7 +267,10 @@ def _dry_run_llm(question: str, sb: Any) -> Any:
 
 
 async def dry_run_agent(
-    inp: AgentInput, routing_enabled: bool | None = None, auto_approve: bool = True
+    inp: AgentInput,
+    routing_enabled: bool | None = None,
+    auto_approve: bool = True,
+    semantic_layer_enabled: bool | None = None,
 ) -> AgentOutput:
     """Run the real agent loop with the scripted offline LLM (no API calls)."""
     result = await asyncio.to_thread(
@@ -261,6 +280,7 @@ async def dry_run_agent(
         _dry_run_llm,
         routing_enabled,
         auto_approve,
+        semantic_layer_enabled,
     )
     return output_from_core(result)
 
@@ -276,20 +296,35 @@ class CoreAgent:
     dry_run: bool = False
     routing_enabled: bool | None = None
     auto_approve: bool = True
+    semantic_layer_enabled: bool | None = None
 
     async def __call__(self, inp: AgentInput) -> AgentOutput:
         fn = dry_run_agent if self.dry_run else core_agent
-        return await fn(inp, routing_enabled=self.routing_enabled, auto_approve=self.auto_approve)
+        return await fn(
+            inp,
+            routing_enabled=self.routing_enabled,
+            auto_approve=self.auto_approve,
+            semantic_layer_enabled=self.semantic_layer_enabled,
+        )
 
 
 def make_core_agent(
-    routing_enabled: bool | None = None, dry_run: bool = False, auto_approve: bool = True
+    routing_enabled: bool | None = None,
+    dry_run: bool = False,
+    auto_approve: bool = True,
+    semantic_layer_enabled: bool | None = None,
 ) -> AgentFn:
-    """``core`` (or ``dry-run``) agent with model routing forced on/off (``None`` = env) and
-    human-in-the-loop gates auto-approved (default) or left without an approver (denied)."""
-    if routing_enabled is None and auto_approve:
+    """``core`` (or ``dry-run``) agent with model routing and the semantic layer forced on/off
+    (``None`` = env) and human-in-the-loop gates auto-approved (default) or left without an
+    approver (denied)."""
+    if routing_enabled is None and semantic_layer_enabled is None and auto_approve:
         return dry_run_agent if dry_run else core_agent
-    return CoreAgent(dry_run=dry_run, routing_enabled=routing_enabled, auto_approve=auto_approve)
+    return CoreAgent(
+        dry_run=dry_run,
+        routing_enabled=routing_enabled,
+        auto_approve=auto_approve,
+        semantic_layer_enabled=semantic_layer_enabled,
+    )
 
 
 # --------------------------------------------------------------------------------------------
@@ -336,16 +371,21 @@ def load_agent(
     tasks: list[Task] | None = None,
     routing_enabled: bool | None = None,
     auto_approve: bool = True,
+    semantic_layer_enabled: bool | None = None,
 ) -> AgentFn:
     """Resolve ``core``, ``oracle`` or ``package.module:attr`` into an agent callable.
 
     If ``attr`` is a class or zero-arg factory returning a callable, it is instantiated.
-    ``routing_enabled`` and ``auto_approve`` only apply to ``core`` and ``dry-run``.
+    ``routing_enabled``, ``semantic_layer_enabled`` and ``auto_approve`` only apply to ``core``
+    and ``dry-run``.
     """
-    if spec == "core":
-        return make_core_agent(routing_enabled, auto_approve=auto_approve)
-    if spec == "dry-run":
-        return make_core_agent(routing_enabled, dry_run=True, auto_approve=auto_approve)
+    if spec in ("core", "dry-run"):
+        return make_core_agent(
+            routing_enabled,
+            dry_run=spec == "dry-run",
+            auto_approve=auto_approve,
+            semantic_layer_enabled=semantic_layer_enabled,
+        )
     if spec == "oracle":
         return OracleAgent(tasks or [])
     if ":" not in spec:

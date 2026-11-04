@@ -13,12 +13,25 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 from typing import Any, Protocol
 
 
 class JudgeError(RuntimeError):
     pass
+
+
+class JudgeUnavailable(JudgeError):
+    """No judge is configured (no credentials). Scorers mark the task skipped, not failed."""
+
+
+CREDENTIAL_ENV_VARS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
+
+
+def judge_configured() -> bool:
+    """Whether the default :class:`LLMJudge` has credentials to call the API."""
+    return any(os.environ.get(name) for name in CREDENTIAL_ENV_VARS)
 
 
 class Judge(Protocol):
@@ -66,6 +79,10 @@ class LLMJudge:
     @property
     def llm(self) -> Any:
         if self._llm is None:
+            if not judge_configured():
+                raise JudgeUnavailable(
+                    "no judge configured (set ANTHROPIC_API_KEY, or pass --no-judge)"
+                )
             try:
                 from analyst_agent.core.config import Settings
                 from analyst_agent.core.llm import CostTracker, LLMClient

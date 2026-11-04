@@ -15,6 +15,21 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_PACKAGE_DIR = Path(__file__).resolve().parents[1]  # .../analyst_agent
+
+
+def default_metrics_dir() -> Path:
+    """Metric definitions shipped with the installed package, independent of the cwd.
+
+    A built wheel carries them at ``analyst_agent/semantic/metrics`` (hatch ``force-include``
+    of ``benchmarks/metrics``); a source checkout (editable install) reads
+    ``<repo>/benchmarks/metrics`` next to ``src/``.
+    """
+    bundled = _PACKAGE_DIR / "semantic" / "metrics"
+    if bundled.is_dir():
+        return bundled
+    return _PACKAGE_DIR.parents[1] / "benchmarks" / "metrics"
+
 
 class Settings(BaseSettings):
     # An empty value means "unset" (None) for optional settings, e.g. AGENT_JOB_DB_PATH= or
@@ -60,7 +75,9 @@ class Settings(BaseSettings):
 
     # Semantic layer: retrieve governed metric definitions into the planner prompt.
     semantic_layer_enabled: bool = False
-    semantic_metrics_dir: Path = Path("benchmarks/metrics")
+    # None = the definitions that ship with the package (see default_metrics_dir()); an
+    # explicit relative path resolves against the working directory.
+    semantic_metrics_dir: Path | None = None
     semantic_top_k: int = 4
 
     # Human-in-the-loop approval (see core/approval.py). Off unless approval_enabled is set.
@@ -89,6 +106,10 @@ class Settings(BaseSettings):
     @property
     def uploads_dir(self) -> Path:
         return self.data_dir / "uploads"
+
+    @property
+    def resolved_semantic_metrics_dir(self) -> Path:
+        return self.semantic_metrics_dir or default_metrics_dir()
 
     @property
     def resolved_critic_model(self) -> str:
