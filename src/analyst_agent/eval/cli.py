@@ -3,16 +3,23 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
 from analyst_agent.core.config import Settings
 from analyst_agent.eval.agent import load_agent
-from analyst_agent.eval.judge import LLMJudge, judge_configured
+from analyst_agent.eval.judge import BatchJudge, LLMJudge, judge_configured
 from analyst_agent.eval.report import compare_runs, report_run, summarize
-from analyst_agent.eval.runner import RunConfig, load_results, new_run_dir, run_tasks
+from analyst_agent.eval.runner import (
+    ResumeError,
+    RunConfig,
+    load_results,
+    new_run_dir,
+    run_tasks,
+)
 from analyst_agent.eval.schema import (
     DEFAULT_BENCHMARK_ROOT,
     DESCRIPTOR_TAGS,
@@ -155,6 +162,28 @@ def run(
             "Running tasks finish, so the run can overshoot by up to --concurrency tasks",
         ),
     ] = None,
+    batch: Annotated[
+        bool,
+        typer.Option(
+            "--batch/--no-batch",
+            help="send the run's judge calls as one Message Batch (half price; verdicts arrive "
+            "once the last agent finishes). Falls back to direct calls when the SDK cannot "
+            "batch or the batch fails [default: AGENT_JUDGE_BATCH_ENABLED]",
+        ),
+    ] = SETTINGS.judge_batch_enabled,
+    resume: Annotated[
+        Path | None,
+        typer.Option(
+            help="continue an interrupted run in this directory: tasks already scored are "
+            "skipped, unstarted (crash, --budget-usd) tasks run, and finished tasks still "
+            "missing a judge verdict are re-graded without re-running the agent. Reuses the "
+            "run's task list, agent and options; pass --budget-usd to raise its cap",
+        ),
+    ] = None,
+    retry_errors: Annotated[
+        bool,
+        typer.Option(help="with --resume: also re-run tasks that errored or timed out"),
+    ] = False,
     benchmarks: Path = DEFAULT_BENCHMARK_ROOT,
     runs_dir: Path = SETTINGS.eval_runs_dir,
 ) -> None:
@@ -168,7 +197,36 @@ def run(
     configure_logging(level=SETTINGS.log_level if explicit else "WARNING")
     if isolation not in ("process", "inline"):
         raise typer.BadParameter("--isolation must be 'process' or 'inline'")
-    tasks = _select(benchmarks, difficulty, tag, task, limit, all_tags)
+    if retry_errors and resume is None:
+        raise typer.BadParameter("--retry-errors only applies with --resume")
+    if resume is not None:
+        if difficulty or tag or task or limit is not None or all_tags:
+            raise typer.BadParameter(
+                "--resume reuses the run's task list; drop the task filters", param_hint="--resume"
+            )
+        prev = _resume_options(resume)
+        cfg = prev["config"]
+        agent = cfg.get("agent", agent)
+        timeout = cfg.get("timeout_s", timeout)
+        isolation = cfg.get("isolation", isolation)
+        no_score = not cfg.get("score", True)
+        no_judge = no_judge or cfg.get("judge_model") is None
+        judge_model = (
+            None if cfg.get("judge_model") in (None, "AGENT_MODEL") else cfg["judge_model"]
+        )
+        routing = cfg.get("routing_enabled", routing)
+        semantic_layer = cfg.get("semantic_layer_enabled", semantic_layer)
+        auto_approve = cfg.get("auto_approve", auto_approve)
+        if budget_usd is None:
+            budget_usd = cfg.get("budget_usd")
+        difficulty, tag, task, limit, all_tags = (
+            (cfg.get("filters") or {}).get(k)
+            for k in ("difficulty", "tag", "task", "limit", "all_tags")
+        )
+        all_tags = bool(all_tags)
+        tasks = load_tasks(benchmarks, ids=prev["task_ids"])
+    else:
+        tasks = _select(benchmarks, difficulty, tag, task, limit, all_tags)
     if not tasks:
         raise typer.BadParameter("no tasks match the filters")
     agent_fn = load_agent(
@@ -186,11 +244,13 @@ def run(
             err=True,
         )
         no_judge = True
-    judge = (
+    judge: LLMJudge | BatchJudge | None = (
         None
         if (no_judge or no_score)
         else LLMJudge(model=judge_model, effort=SETTINGS.judge_effort)
     )
+    if batch and isinstance(judge, LLMJudge):
+        judge = BatchJudge(judge, poll_interval_s=SETTINGS.judge_batch_poll_s)
     config = RunConfig(
         agent=agent,
         concurrency=concurrency,
@@ -202,6 +262,7 @@ def run(
         semantic_layer_enabled=semantic_layer,
         auto_approve=auto_approve,
         budget_usd=budget_usd,
+        batch_judge=isinstance(judge, BatchJudge),
         filters={
             "difficulty": difficulty,
             "tag": tag,
@@ -210,13 +271,38 @@ def run(
             "limit": limit,
         },
     )
-    run_dir = new_run_dir(runs_dir)
-    typer.echo(f"running {len(tasks)} tasks -> {run_dir}")
-    asyncio.run(run_tasks(tasks, agent_fn, judge=judge, config=config, run_dir=run_dir))
+    run_dir = resume if resume is not None else new_run_dir(runs_dir)
+    typer.echo(f"{'resuming' if resume else 'running'} {len(tasks)} tasks -> {run_dir}")
+    try:
+        asyncio.run(
+            run_tasks(
+                tasks,
+                agent_fn,
+                judge=judge,
+                config=config,
+                run_dir=run_dir,
+                resume=resume is not None,
+                retry_errors=retry_errors,
+            )
+        )
+    except ResumeError as e:
+        typer.secho(f"cannot resume: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=2) from e
     md = report_run(run_dir)
     (run_dir / "report.md").write_text(md)
     typer.echo(md)
     _gate(run_dir, fail_under, fail_on_error)
+
+
+def _resume_options(run_dir: Path) -> dict[str, Any]:
+    """``meta.json`` of a run to resume (its config and task ids), or a CLI error."""
+    meta_path = run_dir / "meta.json"
+    if not meta_path.is_file():
+        raise typer.BadParameter(f"{run_dir} has no meta.json", param_hint="--resume")
+    meta = json.loads(meta_path.read_text())
+    if not meta.get("task_ids"):
+        raise typer.BadParameter(f"{meta_path} records no task_ids", param_hint="--resume")
+    return {"config": meta.get("config") or {}, "task_ids": meta["task_ids"]}
 
 
 INCOMPLETE_AGENT_STATUSES = {"max_turns", "budget_exceeded", "error"}
