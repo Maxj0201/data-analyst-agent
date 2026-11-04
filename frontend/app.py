@@ -206,7 +206,7 @@ def timeline_stats() -> str:
 def timeline_label(status: str | None = None) -> str:
     stats = timeline_stats()
     if status:
-        return f"Done — {status} · {stats}"
+        return f"Done — {safe_md(status)} · {stats}"  # st.status labels render Markdown
     return f"Agent working… · {stats}"
 
 
@@ -411,7 +411,11 @@ with st.sidebar:
         if active and active.get("questions"):
             st.markdown("**Example questions**")
             for i, q in enumerate(active["questions"]):
-                st.button(q, key=f"ex_{i}", on_click=on_example, args=(q,), width="stretch")
+                # Button labels render Markdown images: the catalog is operator-controlled,
+                # but keep every label image-inert like the rest of the UI.
+                st.button(
+                    safe_md(q), key=f"ex_{i}", on_click=on_example, args=(q,), width="stretch"
+                )
 
     with st.expander("Upload your own data", expanded=not samples):
         uploaded = st.file_uploader(
