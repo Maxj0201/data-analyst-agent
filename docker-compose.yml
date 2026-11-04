@@ -14,6 +14,12 @@ services:
       AGENT_DATA_DIR: /app/data
       AGENT_ARTIFACTS_DIR: /app/artifacts
       AGENT_JOB_DB_PATH: /app/data/jobs.sqlite3
+      AGENT_SEMANTIC_METRICS_DIR: /app/benchmarks/metrics  # baked into the image
+      # Feature flags: set in .env, or export before `docker compose up`, e.g.
+      #   AGENT_SEMANTIC_LAYER_ENABLED=true docker compose up --build
+      AGENT_ROUTING_ENABLED: ${AGENT_ROUTING_ENABLED:-false}
+      AGENT_SEMANTIC_LAYER_ENABLED: ${AGENT_SEMANTIC_LAYER_ENABLED:-false}
+      AGENT_APPROVAL_ENABLED: ${AGENT_APPROVAL_ENABLED:-false}
     ports:
       - "8000:8000"
     extra_hosts:

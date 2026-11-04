@@ -16,7 +16,11 @@ runs
 tests
 docs
 deploy
+# benchmarks/ is excluded (data, tasks, generator) except the semantic-layer metric
+# definitions, which the API image ships at /app/benchmarks/metrics.
 benchmarks
+!benchmarks/metrics
+!benchmarks/metrics/*.yaml
 *.md
 !README.md
 docker-compose*.yml

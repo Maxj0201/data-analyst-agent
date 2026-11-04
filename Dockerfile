@@ -65,10 +65,16 @@ CMD ["sh", "-c", "exec streamlit run frontend/app.py --server.address=0.0.0.0 --
 
 FROM runtime AS api
 COPY --from=builder-api --chown=app:app /app/.venv /app/.venv
+# Semantic-layer metric definitions (read-only, a few KB). Only benchmarks/metrics is in the
+# build context (.dockerignore); the benchmark data and tasks stay out of the image.
+COPY --chown=app:app benchmarks/metrics ./benchmarks/metrics
 RUN mkdir -p /app/data/uploads /app/artifacts && chown -R app:app /app/data /app/artifacts
 USER app
 # Cloud Run injects PORT=8080; locally and in compose it defaults to 8000.
-ENV PORT=8000
+# Feature flags (AGENT_ROUTING_ENABLED, AGENT_SEMANTIC_LAYER_ENABLED, AGENT_APPROVAL_ENABLED)
+# stay off unless set at run time; see docs/configuration.md.
+ENV PORT=8000 \
+    AGENT_SEMANTIC_METRICS_DIR=/app/benchmarks/metrics
 EXPOSE 8000
 VOLUME ["/app/data", "/app/artifacts"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
