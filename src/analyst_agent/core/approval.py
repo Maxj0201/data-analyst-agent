@@ -33,6 +33,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal, Protocol
 
+from analyst_agent.sandbox.duckdb_runner import _strip_leading_noise
 from analyst_agent.tools.base import ToolContext
 
 DecidedBy = Literal["human", "auto", "timeout", "unavailable"]
@@ -43,6 +44,9 @@ GATED_PYTHON_TOOL = "run_python"
 UNGATED_TOOLS = frozenset({"final_report"})
 
 _ids = itertools.count(1)
+
+# Leading ``EXPLAIN`` / ``EXPLAIN ANALYZE`` (after comments and whitespace are stripped).
+_EXPLAIN_RE = re.compile(r"EXPLAIN\b\s*(ANALY[SZ]E\b)?\s*", re.IGNORECASE)
 
 # DuckDB >= 1.1 prints "~1,234 rows" per operator; older versions print "EC: 1234".
 _EST_RE = re.compile(r"~\s*([\d,]+)\s+rows?\b|\bEC:\s*([\d,]+)", re.IGNORECASE)
@@ -197,8 +201,13 @@ class ApprovalPolicy:
 
         A query DuckDB cannot plan will fail identically when executed, so it is not gated.
         """
-        q = query.strip().rstrip(";").strip()
-        if not q or q.split(None, 1)[0].upper() == "EXPLAIN":
+        q = _strip_leading_noise(query).strip().rstrip(";").strip()
+        m = _EXPLAIN_RE.match(q)
+        if m:
+            if not m.group(1):
+                return None  # plain EXPLAIN only plans; nothing is executed
+            q = q[m.end() :]  # EXPLAIN ANALYZE runs the query: gate on the inner query
+        if not q:
             return None
         res = ctx.run_sql(f"EXPLAIN {q}")
         if not res.ok:
