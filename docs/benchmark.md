@@ -24,6 +24,9 @@ Intended uses:
   tag" table);
 - a cheap CI smoke test (`--agent oracle` and `--agent dry-run`).
 
+The five headline experiments (model, critic, semantic layer, routing, structured report) and
+their cost estimates are in [eval-runbook.md](eval-runbook.md).
+
 It is **not** a measure of general analytics ability or a public leaderboard: the data is
 synthetic, the questions and rubrics are in the repository, and the set is small (see
 [Known limitations](#known-limitations)).

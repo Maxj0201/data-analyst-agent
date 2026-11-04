@@ -89,6 +89,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
         "adversarial_pass_rate": adv["accuracy"] if adv else None,
         "errors": sum(r["status"] == "error" for r in results),
         "timeouts": sum(r["status"] == "timeout" for r in results),
+        "over_budget": sum(r["status"] == "over_budget" for r in results),
         "total_cost_usd": sum(costs),
         "mean_cost_usd": sum(costs) / n if n else None,
         "latency_p50_s": percentile(lat, 50) if lat else None,
@@ -293,6 +294,7 @@ def _usd(x: float | None) -> str:
 HEADLINE = [
     ("Tasks", "n", str),
     ("Skipped (not gradable)", "skipped", str),
+    ("Not started (--budget-usd)", "over_budget", str),
     ("Accuracy (scored)", "accuracy", _pct),
     ("Adversarial pass rate", "adversarial_pass_rate", _pct),
     ("Errors / timeouts", None, None),

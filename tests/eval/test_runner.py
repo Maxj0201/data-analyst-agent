@@ -103,6 +103,56 @@ async def test_run_tasks_concurrency_and_jsonl(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_budget_usd_stops_starting_tasks(tmp_path: Path) -> None:
+    from analyst_agent.eval.report import render_report, summarize
+
+    started: list[str] = []
+
+    async def agent(inp: AgentInput) -> AgentOutput:
+        started.append(inp.task_id)
+        return AgentOutput(answer="42", cost_usd=0.4)
+
+    class CostlyJudge(MockJudge):
+        cost = 0.25  # judge spend counts towards the cap too
+
+    tasks = [make_task("L1").model_copy(update={"id": f"t{i}"}) for i in range(5)]
+    run_dir, results = await run_tasks(
+        tasks,
+        agent,
+        judge=CostlyJudge(),
+        config=RunConfig(concurrency=1, isolation="inline", budget_usd=1.0),
+        run_dir=tmp_path / "run",
+        progress=False,
+    )
+    # 0.25 (judge) + 0.4 + 0.4 = 1.05 >= 1.0 after two tasks: the other three never start.
+    assert started == ["t0", "t1"]
+    assert [r.status for r in results] == ["ok", "ok"] + ["over_budget"] * 3
+    assert all(r.score_details["skipped"] for r in results[2:])
+    meta = json.loads((run_dir / "meta.json").read_text())
+    assert meta["config"]["budget_usd"] == 1.0
+    assert meta["budget"] == {"usd": 1.0, "exhausted": True, "tasks_not_started": 3}
+    assert meta["spend_usd"] == pytest.approx(1.05)
+    rows = load_results(run_dir)
+    s = summarize(rows)
+    assert s["over_budget"] == 3 and s["skipped"] == 3 and s["accuracy"] == 1.0
+    assert "| Not started (--budget-usd) | 3 |" in render_report(rows)
+
+
+@pytest.mark.asyncio
+async def test_no_budget_runs_everything(tmp_path: Path) -> None:
+    tasks = [make_task("L1").model_copy(update={"id": f"t{i}"}) for i in range(3)]
+    run_dir, results = await run_tasks(
+        tasks,
+        echo_agent(),
+        config=RunConfig(isolation="inline"),
+        run_dir=tmp_path / "run",
+        progress=False,
+    )
+    assert all(r.status == "ok" for r in results)
+    assert "budget" not in json.loads((run_dir / "meta.json").read_text())
+
+
+@pytest.mark.asyncio
 async def test_no_score_mode(tmp_path: Path) -> None:
     judge = MockJudge()
     _, results = await run_tasks(

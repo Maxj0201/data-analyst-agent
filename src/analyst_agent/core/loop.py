@@ -683,6 +683,15 @@ class AgentLoop:
                 "Token budget exhausted before the critic could review the draft (unverified).",
             )
             return True, "Report accepted without review (budget exhausted)."
+        if s.max_critic_rounds <= 0:
+            # Critic switched off (AGENT_MAX_CRITIC_ROUNDS=0, e.g. the eval critic ablation):
+            # accept the first draft unreviewed, with no critic call.
+            self._stop(
+                state,
+                RunStatus.COMPLETED_WITH_ISSUES,
+                "Critic disabled (AGENT_MAX_CRITIC_ROUNDS=0); unverified.",
+            )
+            return True, "Report accepted without review (critic disabled)."
 
         state.critic_rounds += 1
         notes = self._consistency_notes(state)

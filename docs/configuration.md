@@ -44,7 +44,7 @@ How each surface answers an approval request when `AGENT_APPROVAL_ENABLED=true`:
 | `AGENT_REFUSAL_FALLBACK` | `true` | Agent core | Send the server-side refusal-fallback beta (only to models that support it). |
 | `AGENT_MAX_TURNS` | `15` | Agent core | Max agent turns per run (escalations grant one extra turn each). |
 | `AGENT_TOKEN_BUDGET` | `400000` | Agent core | Token budget per run (input + output + cache). |
-| `AGENT_MAX_CRITIC_ROUNDS` | `2` | Agent core | Max critic reviews per run. |
+| `AGENT_MAX_CRITIC_ROUNDS` | `2` | Agent core | Max critic reviews per run. `0` switches the critic off: the first `final_report` is accepted unreviewed (`completed_with_issues`), as in the critic ablation of [eval-runbook.md](eval-runbook.md). |
 | `AGENT_MAX_RETRIES` | `4` | Agent core | Retries for transient API errors. |
 | `AGENT_RETRY_BASE_DELAY` | `1.0` | Agent core | First retry delay, seconds (exponential backoff). |
 | `AGENT_RETRY_MAX_DELAY` | `30.0` | Agent core | Max retry delay, seconds. |
