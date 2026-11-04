@@ -92,15 +92,24 @@ data: the sandbox never interpolates data values into SQL.
 |---|---|---|
 | Separate interpreter | A fresh `python -s -B` subprocess for every call, in its own session/process group | OS boundary |
 | Wall-clock timeout | 60 s (configurable), then `SIGKILL` to the whole process group. Ignoring signals or catching exceptions doesn't help | OS |
-| Memory | `RLIMIT_AS` (default 1 GiB) via `resource.setrlimit` before `exec`. Allocation bombs raise `MemoryError` → `MemoryLimitExceeded` | OS |
-| Other rlimits | `RLIMIT_CPU` (timeout + 5 s), `RLIMIT_FSIZE` 64 MiB (a full disk or giant files), `RLIMIT_NOFILE` 256, no core dumps. Hard limit = soft limit, so the child cannot raise them | OS |
+| Memory | `RLIMIT_AS` (default 1 GiB) via `resource.setrlimit`, applied by the child's `sitecustomize` before any other code (no `preexec_fn`, which can deadlock in a threaded server). Allocation bombs raise `MemoryError` → `MemoryLimitExceeded` | OS |
+| Other rlimits | `RLIMIT_CPU` (timeout + 5 s), `RLIMIT_FSIZE` 64 MiB (a full disk or giant files), `RLIMIT_NOFILE` 256, no core dumps. Hard limit = soft limit, and seccomp blocks `setrlimit`/`prlimit64`, so the child cannot raise them | OS |
+| seccomp-bpf (`_child/_oslock.py`) | Installed on every thread just before user code. `execve`/`execveat`, `fork`/`vfork`, `clone` without `CLONE_THREAD`, `clone3`, sockets other than `AF_UNIX`, `ptrace`, `process_vm_*`, `setrlimit`/`prlimit64`, `unshare`, `bpf`, `io_uring_setup` and foreign-ABI syscalls fail. Required on Linux: if it cannot be installed, the bootstrap refuses to run | Kernel |
+| Landlock (`_child/_oslock.py`) | Same moment. Reads only under the read roots (interpreter, site-packages, fonts, tzdata, matplotlib cache), writes only in the temp dir, no `execve` of anything, no TCP bind/connect (ABI 4+), no signals to outside processes (ABI 6+). Best effort: kernels without Landlock (< 5.13, some gVisor setups) log `[sandbox] Landlock unavailable` to stderr and fall back to the audit hook | Kernel |
 | Scrubbed environment | Only `PATH`, `HOME`/`TMPDIR` (= the temp dir), locale, matplotlib and thread settings. **No** API keys, proxy variables or cloud credentials reach the child | OS |
 | Temp cwd | A new `TemporaryDirectory`, deleted after the run. Only allowlisted file types are copied out, never via symlinks | OS |
 | Output caps | stdout/stderr go to files (bounded by `RLIMIT_FSIZE`) and only the first 64 KiB is read back | OS |
 | Socket block | `sitecustomize.py` replaces `socket.socket`, `_socket.socket`, `create_connection`, `getaddrinfo`, … at interpreter start-up | Python |
 | Audit hook (PEP 578) | Installed by `sitecustomize` before any user code runs; it cannot be removed. It denies: all `socket.*` events, `urllib`/`http.client`/`ftplib`/`smtplib`/…; `subprocess`, `os.system`, `exec*`, `spawn*`, `fork`, `pty`; `os.kill`/`killpg`; `resource.setrlimit`; **writes** (open for write, `os.open` with write flags, remove/rename/mkdir/chmod/symlink/link/truncate/`shutil.*`) outside the temp dir; **reads** and directory listings outside an allowlist (the temp dir, the Python installation and site-packages, fonts, tzdata). Once the bootstrap locks it for user code, it also denies `ctypes.*` and `gc.get_objects/referrers`. Paths are `realpath`-resolved, so `../` and symlinks don't escape | Python |
 | Import allowlist | User code may import only `pandas`, `numpy`, `matplotlib`, `scipy` and a small set of pure-computation stdlib modules (`math`, `statistics`, `datetime`, `json`, `re`, `collections`, …). This is enforced twice: by the audit hook (first-time imports) and by a guarded `__import__` in the user namespace (modules pandas already loaded, such as `os`, `subprocess`, `ctypes`, `pickle`) | Python |
-| Fail closed | If the guard didn't load, the bootstrap refuses to run user code | — |
+| Fail closed | If the guard didn't load, or seccomp could not be installed (Linux), the bootstrap refuses to run user code | — |
+
+Why the kernel layers exist: the review in `docs/review.md` (H1, H2) showed that native code
+reachable from the allowed libraries bypasses the audit hook. `_posixsubprocess.fork_exec`
+(reachable as `pd.io.common.os.sys.modules[...]`, no import needed, no audit event) started a
+shell, and pyarrow (loaded by pandas) read and wrote arbitrary files with its own C++ I/O
+(`pyarrow.input_stream(...)`, `DataFrame.to_parquet('/anywhere')`). Regression tests for both
+are in `tests/sandbox/test_python_security.py`.
 
 The matplotlib font cache is built once by a trusted process into a private, owner-only
 directory. The sandbox can read it but not write it, so one run cannot poison the next.
@@ -120,17 +129,18 @@ Be honest about this before exposing the agent to untrusted users:
   memory through a native-code bug in numpy/pandas, or via some C-level library path that
   never raises an audit event (C extensions calling libc `open`/`connect` directly are not
   audited). These guards stop the LLM's honest mistakes and casual injected instructions.
-  They will not stop a skilled human adversary. The OS-level layers (process, rlimits,
-  timeout, scrubbed env, temp dir) are the real boundary, and those still run **as the same
-  Unix user** as the parent, with that user's network access.
-- **Network isolation is not kernel-enforced.** A process without the Python guards would
-  have the host's network. For production, run the API/worker in a container with no
-  egress (`docker run --network none`, a Kubernetes NetworkPolicy, or Cloud Run with egress
-  restricted to a VPC that has no route out), or wrap the child in a network namespace
-  (`unshare -n`, nsjail, bubblewrap, gVisor).
-- **Filesystem isolation is not kernel-enforced** either. Use a read-only root filesystem,
-  a non-root user, and mount only the data directory you intend to expose. Don't run as root:
-  `RLIMIT_NPROC` is not applied, and root bypasses many limits.
+  They will not stop a skilled human adversary. The kernel layers (seccomp, Landlock) and
+  the OS-level layers (process, rlimits, timeout, scrubbed env, temp dir) are the real
+  boundary. They still run **as the same Unix user** as the parent.
+- **Network isolation is seccomp-enforced, not namespace-enforced.** The filter refuses
+  every non-`AF_UNIX` socket. Defence in depth for production: run the API/worker in a
+  container with no egress (`docker run --network none`, a Kubernetes NetworkPolicy, or
+  Cloud Run with egress restricted to a VPC that has no route out), or wrap the child in a
+  network namespace (nsjail, bubblewrap, gVisor).
+- **Filesystem isolation depends on Landlock.** On kernels without it, only the audit hook
+  limits file access, and native code can bypass the hook (see above). Check stderr for
+  `[sandbox] Landlock unavailable`. Use a read-only root filesystem, a non-root user, and
+  mount only the data directory you intend to expose. Don't run as root.
 - **Reads from the Python installation are allowed** (libraries need them). Don't install
   secrets inside the venv.
 - **CPU fairness / concurrency:** each call is limited, but many concurrent calls can still
@@ -143,8 +153,9 @@ Be honest about this before exposing the agent to untrusted users:
 - **Side channels and timing** (e.g. inferring host load) are out of scope.
 - **DuckDB engine bugs**, if a crafted `SELECT` could trigger one in a read-only, locked
   database, are out of scope; we rely on upstream DuckDB.
-- **Not portable:** `resource` and `preexec_fn` are POSIX-only. The Python runner targets
-  Linux and macOS (rlimit behaviour on macOS is weaker, especially `RLIMIT_AS`).
+- **Not portable:** the kernel layers are Linux-only (x86_64 and aarch64). On macOS the
+  runner still works with rlimits and the Python guards only, and says so on stderr
+  (rlimit behaviour on macOS is weaker, especially `RLIMIT_AS`).
 
 ## Tuning
 
