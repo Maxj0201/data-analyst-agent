@@ -1,0 +1,103 @@
+# Retrieval eval for the semantic layer: which governed metric(s) each question is about.
+#
+# Run: python -m analyst_agent.semantic eval   (top-1 / top-3 hit rate and MRR per backend)
+#
+# - `task:` cases take the question and loaded tables from benchmarks/tasks/<level>/<id>.yaml,
+#   exactly as the agent would see them. Every benchmark task is listed (a test enforces it).
+# - `question:` cases are extra paraphrases, mostly with little word overlap with the metric
+#   definitions; they need `tables:` (the loaded table names) and an `id:`.
+# - `expected` lists the intended metric(s); a retrieved metric in the list is a hit. An empty
+#   list means no governed metric applies (plain counts, lookups, support tickets): such cases
+#   are listed for completeness but excluded from hit rate and MRR.
+#
+# `kind: retrieval_eval` makes the metrics loader skip this file when it scans the directory.
+kind: retrieval_eval
+version: 1
+cases:
+  # --- L1
+  - {task: l1_ecom_avg_price_electronics, expected: []}
+  - {task: l1_ecom_cancelled_orders, expected: [cancellation_rate]}
+  - {task: l1_ecom_customers_germany, expected: []}
+  - {task: l1_ecom_max_quantity, expected: []}
+  - {task: l1_ecom_order_count, expected: []}
+  - {task: l1_hr_engineering_headcount, expected: [headcount]}
+  - {task: l1_hr_gross_pay_march_2025, expected: []}
+  - {task: l1_hr_median_salary_current, expected: [median_base_salary]}
+  - {task: l1_hr_terminations_2025, expected: [attrition_rate]}
+  - {task: l1_saas_active_mrr, expected: [active_mrr]}
+  - {task: l1_saas_active_subscriptions, expected: []}
+  - {task: l1_saas_enterprise_accounts, expected: []}
+  # --- L2
+  # The question spells out net revenue's formula; AOV must still rank first.
+  - {task: l2_ecom_aov_by_segment, expected: [average_order_value]}
+  - {task: l2_ecom_net_revenue_completed, expected: [net_revenue]}
+  - {task: l2_ecom_peak_month_2025, expected: [net_revenue]}
+  - {task: l2_ecom_return_rate_by_category, expected: [return_rate]}
+  - {task: l2_ecom_revenue_by_category, expected: [net_revenue]}
+  - {task: l2_ecom_top5_customers, expected: [net_revenue, revenue_per_customer]}
+  - {task: l2_hr_avg_salary_by_dept, expected: [median_base_salary]}
+  - {task: l2_hr_terminations_by_dept_2025, expected: [attrition_rate, termination_rate_by_group]}
+  - {task: l2_hr_top3_overtime_2025, expected: [overtime_share]}
+  - {task: l2_saas_active_mrr_by_region, expected: [active_mrr]}
+  - {task: l2_saas_avg_tenure_churned, expected: [average_tenure_churned]}
+  - {task: l2_saas_churn_rate_2025, expected: [churn_rate]}
+  # --- L3
+  - {task: l3_ecom_2025_overview, expected: [net_revenue, average_order_value]}
+  - {task: l3_ecom_returns, expected: [return_rate]}
+  - {task: l3_hr_attrition, expected: [attrition_rate, termination_rate_by_group]}
+  - {task: l3_hr_compensation, expected: [median_base_salary, pay_band_premium]}
+  - {task: l3_saas_churn_drivers, expected: [churn_rate, revenue_churn_rate]}
+  - {task: l3_saas_mrr_2025, expected: [active_mrr, revenue_churn_rate]}
+  # --- ADV (support tickets: no governed metrics exist for that dataset)
+  - {task: adv_01_injection_revenue_zero, expected: []}
+  - {task: adv_02_injection_drop_table, expected: []}
+  - {task: adv_03_injection_system_prompt, expected: []}
+  - {task: adv_04_injection_email_dump, expected: []}
+  - {task: adv_05_pii_contact_export, expected: []}
+  - {task: adv_06_pii_unhappy_customers, expected: []}
+  - {task: adv_07_delete_statement, expected: []}
+  - {task: adv_08_update_statement, expected: []}
+  - {task: adv_09_injection_fake_number, expected: []}
+  - {task: adv_10_exfiltration, expected: []}
+
+  # --- Paraphrases (not benchmark tasks)
+  - id: para_aov_short
+    question: What is the AOV?
+    tables: [orders, customers, products]
+    expected: [average_order_value]
+  - id: para_aov_plain
+    question: How much does a typical completed order bring in?
+    tables: [orders, customers, products]
+    expected: [average_order_value]
+  - id: para_repeat_buyers
+    question: How many customers come back and buy again?
+    tables: [orders, customers]
+    expected: [repeat_purchase_rate]
+  - id: para_profitability
+    question: How profitable are our product sales after cost of goods?
+    tables: [orders, products]
+    expected: [gross_margin]
+  - id: para_staff_leaving
+    question: What share of staff left the company last year?
+    tables: [employees]
+    expected: [attrition_rate]
+  - id: para_typical_pay
+    question: What does a typical employee earn?
+    tables: [employees]
+    expected: [median_base_salary]
+  - id: para_lost_mrr
+    question: How much monthly revenue did we lose from cancelled subscriptions?
+    tables: [subscriptions]
+    expected: [revenue_churn_rate]
+  - id: para_nrr
+    question: Did existing customers grow their spend year over year, net of churn?
+    tables: [subscriptions]
+    expected: [net_revenue_retention]
+  - id: para_yearly_run_rate
+    question: What is our yearly recurring revenue run rate?
+    tables: [subscriptions]
+    expected: [arr]
+  - id: para_customer_lifetime
+    question: How long do customers stay before cancelling?
+    tables: [subscriptions]
+    expected: [average_tenure_churned]
