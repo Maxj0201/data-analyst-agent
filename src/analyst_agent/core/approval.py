@@ -24,6 +24,7 @@ returned to the model as a tool error so it can re-plan. Approvers:
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import itertools
 import re
 import threading
@@ -269,28 +270,43 @@ class ApprovalBroker:
         self._waiters: dict[str, _Waiter] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None
+        self._closed = False
 
     # ---- loop management
 
     def _ensure_loop(self) -> asyncio.AbstractEventLoop:
         with self._lock:
-            if self._loop is None:
+            if self._loop is None and not self._closed:
                 loop = asyncio.new_event_loop()
                 thread = threading.Thread(
                     target=loop.run_forever, name="approval-broker", daemon=True
                 )
                 thread.start()
                 self._loop, self._thread = loop, thread
-            return self._loop
+            return self._loop  # type: ignore[return-value]  # None only once closed
 
     def close(self) -> None:
+        """Deny every pending request, let the waiters return, then stop the private loop."""
         with self._lock:
-            loop, self._loop = self._loop, None
-            waiters = list(self._waiters.values())
+            self._closed = True
+            loop = self._loop
+            for w in self._waiters.values():
+                if w.decision is None:
+                    w.decision = ApprovalDecision(
+                        approved=False, decided_by="unavailable", note="approval service closed"
+                    )
+                if loop is not None:
+                    loop.call_soon_threadsafe(w.event.set)
         if loop is None:
             return
-        for w in waiters:  # unblock anyone still waiting: treat as denied
-            loop.call_soon_threadsafe(w.event.set)
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            with self._lock:
+                if not self._waiters:
+                    break
+            time.sleep(0.01)
+        with self._lock:
+            self._loop = None
         loop.call_soon_threadsafe(loop.stop)
         if self._thread is not None:
             self._thread.join(timeout=2)
@@ -326,14 +342,15 @@ class ApprovalBroker:
     def request(self, job_id: str, action: PendingAction) -> ApprovalDecision:
         timeout = action.timeout_s if action.timeout_s is not None else self.timeout_s
         action.timeout_s = timeout
-        loop = self._ensure_loop()
         started = time.monotonic()
-
-        async def _register() -> _Waiter:
-            return _Waiter(action=action, event=asyncio.Event())
-
-        waiter = asyncio.run_coroutine_threadsafe(_register(), loop).result()
+        loop = self._ensure_loop()
+        # asyncio.Event binds to a loop on first wait, so it may be created on this thread.
+        waiter = _Waiter(action=action, event=asyncio.Event())
         with self._lock:
+            if self._closed:
+                return ApprovalDecision(
+                    approved=False, decided_by="unavailable", note="approval service closed"
+                )
             self._waiters[job_id] = waiter
 
         async def _wait() -> bool:
@@ -344,7 +361,10 @@ class ApprovalBroker:
                 return False
 
         try:
-            asyncio.run_coroutine_threadsafe(_wait(), loop).result()
+            # The extra margin only matters if the loop dies; wait_for enforces the timeout.
+            asyncio.run_coroutine_threadsafe(_wait(), loop).result(timeout=timeout + 5)
+        except concurrent.futures.TimeoutError:
+            pass
         finally:
             with self._lock:
                 decision = waiter.decision
