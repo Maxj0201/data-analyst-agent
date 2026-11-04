@@ -137,8 +137,12 @@ def output_from_core(result: Any) -> AgentOutput:
 def _run_core(question: str, paths: list[Path]) -> Any:
     try:
         from analyst_agent.core import AgentLoop, LLMClient, Settings
-        from analyst_agent.tools import ToolContext, build_default_registry, create_sandbox
-        from analyst_agent.tools.sandbox_iface import table_name_for
+        from analyst_agent.tools import (
+            ToolContext,
+            build_default_registry,
+            create_sandbox,
+            table_name_for,
+        )
     except ImportError as e:  # pragma: no cover - depends on feat/agent-core
         raise RuntimeError(
             "analyst_agent.core is not available yet; merge feat/agent-core or pass "
@@ -152,7 +156,7 @@ def _run_core(question: str, paths: list[Path]) -> Any:
             raise ValueError(f"two dataset files map to table name {name!r}")
         datasets[name] = p
     ctx = ToolContext(
-        sandbox=create_sandbox(datasets),
+        sandbox=create_sandbox(datasets, artifacts_dir=settings.artifacts_dir),
         tables=list(datasets),
         artifacts_dir=settings.artifacts_dir,
     )

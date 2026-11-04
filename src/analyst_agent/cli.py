@@ -3,19 +3,14 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
+from analyst_agent.tools.base import table_name_for
+
 app = typer.Typer(add_completion=False, help="Autonomous data analyst agent.")
-
-
-def table_name_for(path: Path) -> str:
-    """File name -> SQL-friendly table name (``Sales 2024.csv`` -> ``sales_2024``)."""
-    name = re.sub(r"\W+", "_", path.stem).strip("_").lower() or "data"
-    return f"t_{name}" if name[0].isdigit() else name
 
 
 @app.callback()

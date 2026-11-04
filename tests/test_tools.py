@@ -148,3 +148,23 @@ def test_cli_ask(sales_csv, tmp_path, monkeypatch):
     assert "Status: completed" in result.output and "Cost:" in result.output
     assert trace.exists()
     assert loop_mod.RunStatus.COMPLETED.value in trace.read_text()
+
+
+def test_per_run_sandbox_isolated_from_module_level(tmp_path):
+    """ToolContext.sandbox (used by the API job pool and the eval runner) takes precedence over
+    the process-wide module-level sandbox, so concurrent runs cannot see each other's tables."""
+    from analyst_agent import sandbox
+    from analyst_agent.tools import ToolContext, create_sandbox
+
+    a, b = tmp_path / "a.csv", tmp_path / "b.csv"
+    a.write_text("x\n1\n2\n")
+    b.write_text("y\n9\n")
+    sandbox.load_data({"b": b}, artifacts_dir=tmp_path / "art")
+    reg = build_default_registry()
+    with create_sandbox({"a": a}, artifacts_dir=tmp_path / "art") as sb:
+        ctx = ToolContext(tables=["a"], artifacts_dir=tmp_path / "art", sandbox=sb)
+        ok = reg.execute("run_sql", {"query": "SELECT SUM(x) AS s FROM a"}, ctx)
+        assert not ok.is_error and ok.data["rows"] == [{"s": 3}]
+        assert reg.execute("run_sql", {"query": "SELECT * FROM b"}, ctx).is_error
+        py = reg.execute("run_python", {"code": "print(int(df.x.sum()))"}, ctx)
+        assert not py.is_error and "3" in py.content
