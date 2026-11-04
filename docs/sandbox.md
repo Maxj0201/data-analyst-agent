@@ -94,13 +94,13 @@ data: the sandbox never interpolates data values into SQL.
 | Wall-clock timeout | 60 s (configurable), then `SIGKILL` to the whole process group. Ignoring signals or catching exceptions doesn't help | OS |
 | Memory | `RLIMIT_AS` (default 1 GiB) via `resource.setrlimit`, applied by the child's `sitecustomize` before any other code (no `preexec_fn`, which can deadlock in a threaded server). Allocation bombs raise `MemoryError` → `MemoryLimitExceeded` | OS |
 | Other rlimits | `RLIMIT_CPU` (timeout + 5 s), `RLIMIT_FSIZE` 64 MiB (a full disk or giant files), `RLIMIT_NOFILE` 256, no core dumps. Hard limit = soft limit, and seccomp blocks `setrlimit`/`prlimit64`, so the child cannot raise them | OS |
-| seccomp-bpf (`_child/_oslock.py`) | Installed on every thread just before user code. `execve`/`execveat`, `fork`/`vfork`, `clone` without `CLONE_THREAD`, `clone3`, sockets other than `AF_UNIX`, `ptrace`, `process_vm_*`, `setrlimit`/`prlimit64`, `unshare`, `bpf`, `io_uring_setup` and foreign-ABI syscalls fail. Required on Linux: if it cannot be installed, the bootstrap refuses to run | Kernel |
+| seccomp-bpf (`_child/_oslock.py`) | Installed on every thread just before user code. These fail with `EPERM`: `execve`/`execveat`, `fork`/`vfork`, `clone` without `CLONE_THREAD`; **every** `socket()`, `AF_UNIX` included; `ptrace`, `process_vm_*`, `pidfd_*`, `kcmp`; signals to any process but itself (`kill`/`tgkill`/`rt_*sigqueueinfo` are checked against the child's pid); rlimit, priority and scheduler changes; namespace and mount syscalls; `chmod`/`chown`/`utimes`/xattr changes (path and fd forms) and `chattr`-style `ioctl`s; and host-wide syscalls that need a capability the service may hold as root (`reboot`, `init_module`, `kexec_*`, `sethostname`, `settimeofday`/`clock_settime`, `syslog`, `swapon`, `acct`, `iopl`, …). `clone3` and every syscall numbered 463 or higher (newer than anything the interpreter uses) get `ENOSYS`. Foreign-ABI (i386/x32) syscalls are refused. The full list is `_DENIED` / `_SELF_ONLY` / `_IOCTL_DENIED` in `_oslock.py`. Required on Linux: if it cannot be installed, the bootstrap refuses to run | Kernel |
 | Landlock (`_child/_oslock.py`) | Same moment. Reads only under the read roots (interpreter, site-packages, fonts, tzdata, matplotlib cache), writes only in the temp dir, no `execve` of anything, no TCP bind/connect (ABI 4+), no signals to outside processes (ABI 6+). Best effort: kernels without Landlock (< 5.13, some gVisor setups) log `[sandbox] Landlock unavailable` to stderr and fall back to the audit hook | Kernel |
 | Scrubbed environment | Only `PATH`, `HOME`/`TMPDIR` (= the temp dir), locale, matplotlib and thread settings. **No** API keys, proxy variables or cloud credentials reach the child | OS |
 | Temp cwd | A new `TemporaryDirectory`, deleted after the run. Only allowlisted file types are copied out, never via symlinks | OS |
 | Output caps | stdout/stderr go to files (bounded by `RLIMIT_FSIZE`) and only the first 64 KiB is read back | OS |
 | Socket block | `sitecustomize.py` replaces `socket.socket`, `_socket.socket`, `create_connection`, `getaddrinfo`, … at interpreter start-up | Python |
-| Audit hook (PEP 578) | Installed by `sitecustomize` before any user code runs; it cannot be removed. It denies: all `socket.*` events, `urllib`/`http.client`/`ftplib`/`smtplib`/…; `subprocess`, `os.system`, `exec*`, `spawn*`, `fork`, `pty`; `os.kill`/`killpg`; `resource.setrlimit`; **writes** (open for write, `os.open` with write flags, remove/rename/mkdir/chmod/symlink/link/truncate/`shutil.*`) outside the temp dir; **reads** and directory listings outside an allowlist (the temp dir, the Python installation and site-packages, fonts, tzdata). Once the bootstrap locks it for user code, it also denies `ctypes.*` and `gc.get_objects/referrers`. Paths are `realpath`-resolved, so `../` and symlinks don't escape | Python |
+| Audit hook (PEP 578) | Installed by `sitecustomize` before any user code runs; it cannot be removed. It denies: all `socket.*` events, `urllib`/`http.client`/`ftplib`/`smtplib`/…; `subprocess`, `os.system`, `exec*`, `spawn*`, `fork`, `pty`; `os.kill`/`killpg`; `resource.setrlimit`; **writes** (open for write, `os.open` with write flags, remove/rename/mkdir/chmod/symlink/link/truncate/`shutil.*`) outside the temp dir; **reads** and directory listings outside an allowlist (the temp dir, the Python installation and site-packages, fonts, tzdata). Once the bootstrap locks it for user code, it also denies `ctypes.*` and `gc.get_objects/referrers`. Paths are `realpath`-resolved, so `../` and symlinks don't escape. The user-phase checks (ctypes, gc, imports) are a **second hook**, added when the bootstrap locks the sandbox. It holds no mutable state, and binds its builtins at install time | Python |
 | Import allowlist | User code may import only `pandas`, `numpy`, `matplotlib`, `scipy` and a small set of pure-computation stdlib modules (`math`, `statistics`, `datetime`, `json`, `re`, `collections`, …). This is enforced twice: by the audit hook (first-time imports) and by a guarded `__import__` in the user namespace (modules pandas already loaded, such as `os`, `subprocess`, `ctypes`, `pickle`) | Python |
 | Fail closed | If the guard didn't load, or seccomp could not be installed (Linux), the bootstrap refuses to run user code | — |
 
@@ -111,6 +111,10 @@ shell, and pyarrow (loaded by pandas) read and wrote arbitrary files with its ow
 (`pyarrow.input_stream(...)`, `DataFrame.to_parquet('/anywhere')`). Regression tests for both
 are in `tests/sandbox/test_python_security.py`.
 
+Cost: the kernel layers take about 2 ms per `run_python` call, against a call of about 1 s
+(mostly importing pandas, numpy, matplotlib and scipy). See
+[sandbox-performance.md](sandbox-performance.md).
+
 The matplotlib font cache is built once by a trusted process into a private, owner-only
 directory. The sandbox can read it but not write it, so one run cannot poison the next.
 
@@ -118,6 +122,95 @@ The test suite (`tests/sandbox/test_python_security.py`) runs every filesystem, 
 process attack **twice**. The first run is as written. The second first steals the real
 `__import__` from pandas' builtins to get around the import allowlist. Both must be blocked,
 so the deeper layers are tested on their own.
+
+## Escape fuzzing
+
+`tests/sandbox/test_fuzz_escape.py` builds 500 adversarial snippets from a grammar. Each one
+combines an attack, a way to reach the module it needs, an encoding of the module name, a
+path trick, an optional attack on the Python guards, and a wrapper:
+
+| Axis | Values |
+|---|---|
+| Attacks (185) | process execution (`os.system`, `subprocess`, `posix_spawn`, `execv`, `fork`+`exec`, `_posixsubprocess.fork_exec`, `pty`, ctypes `system()`, `multiprocessing`); fork, thread and spawn bombs; reads of a secret outside the sandbox through `open`, `os.open`, pandas, numpy, pyarrow (`input_stream`, `OSFile`, `fs`, `csv`), `mmap`, `linecache`, `shutil`, `codecs`, `sendfile`; writes and deletes outside it, including the shared matplotlib cache (`to_parquet`, `np.save`, `savefig`, `rename`, `link`, `symlink`, `sqlite3`, `zipfile`, …); chmod/chown/utime/xattr/`chattr` on outside and on readable files; TCP, UDP, HTTP, SMTP and `AF_UNIX` connections (including the original `_socket` class from `__mro__`); signals to another process, to the parent and to `-1`; rlimit, priority, affinity and realtime-scheduling changes; memory, CPU, recursion and file-size exhaustion; pickle payloads (`os.system`, `check_call`, `exec`, `open`); `/proc/<ppid>/{environ,mem,cwd,fd}`, `/proc/self/{mem,root,cwd}`, `/proc/sysrq-trigger`, `/proc/sys`, `/sys`, `/dev/{kmsg,mem}`; raw syscalls (`reboot`, `init_module`, `mount`, `setns`, `syslog`, `perf_event_open`, `ptrace`, `pidfd_open`, `socket`, `setxattrat`, …) |
+| Module routes | `__import__`, `__builtins__['__import__']`, the real `__import__` from `vars(pd)['__builtins__']` or `np.__dict__`, `sys.modules` via `pd.io.common.os.sys`, `exec(compile('import x', 'lib.py', 'exec'), {})`, `object.__subclasses__()` → `os._wrap_close.__init__.__globals__` |
+| Name encodings | literal, `chr` list, hex, reversed, rot13, base64 via `codecs`, JSON `\u` escapes, concatenation |
+| Path tricks | absolute, `/proc/self/root/…`, `../` runs, `//`, `/./`, bytes, `pathlib`, symlink or hard link in the work dir, a `__fspath__` that answers differently on each call, a `str` subclass |
+| Attacks on the guards | reset the audit hook's state through a traceback's `tb_frame.f_locals`; monkeypatch `posixpath._joinrealpath`; make `builtins.isinstance` lie |
+| Wrappers | plain, in a function, swallowing `try`, `exec(str)`, `exec` with fresh globals and a library file name |
+| Mode | `full` (production), or `kernel`: the Python guards are removed (`tests/sandbox/_layers.py`), so seccomp, Landlock and the rlimits are tested on their own |
+
+Each snippet must be blocked (no effect) or killed within limits (8 s timeout plus slack).
+The oracles are external: a marker file that a spawned shell would create, a secret token
+that must not appear in the output, canary files outside the sandbox (content, mode, owner,
+times, xattrs), TCP/UDP/UNIX listeners, and a victim process that must survive. Where an
+effect can only be seen from inside (an rlimit that really changed, a syscall that reached
+the kernel), the snippet prints a token. The test is marked `slow` (about 3 minutes on 4
+cores), is deselected by default, and runs nightly (`.github/workflows/nightly.yml`). Run it
+locally with:
+
+```bash
+uv run pytest -m slow tests/sandbox/test_fuzz_escape.py
+```
+
+`SANDBOX_FUZZ_SEED`, `SANDBOX_FUZZ_N` and `SANDBOX_FUZZ_REPORT` (a JSON report) are
+optional. A cheap test that the corpus compiles and covers every attack runs in normal CI.
+
+### Found by the fuzzer and fixed
+
+Run against the code before this change, 88 of the 500 snippets (38 distinct attacks) got
+through (seed 20261104), and 3 `AF_UNIX` connections reached the host listener. All are fixed, each with a fast regression test in `tests/sandbox/test_python_security.py` that
+fails on the old code. "Full" means production mode: it worked with every layer on. The runs were as root (as in
+the dev container used here). The production image runs as the unprivileged `app` user,
+where the capability-gated rows fail anyway, but renicing or pinning the service's other
+processes, and chmod/utime/xattr changes on files the service owns (uploads, the job
+database), still work.
+
+| Gap | Mode | Fix |
+|---|---|---|
+| `os.setpriority` / `os.sched_setaffinity` on **another process** of the service user (any user may lower its own processes' priority). As root, also `setpriority(0, -20)` and `SCHED_FIFO` for the sandbox itself, after which a busy loop starves a host core until the CPU limit. No audit event covers these | **full** | seccomp: deny `setpriority`, `ioprio_set`, `sched_set{param,scheduler,affinity,attr}` |
+| `chattr` (`FS_IOC_SETFLAGS`, e.g. `+i`) through `fcntl.ioctl` on any file the sandbox may read and owns (as root: any). No audit event, and Landlock ABI ≤ 7 mediates only device ioctls | **full** | seccomp: refuse `FS_IOC_SETFLAGS`, `FS_IOC32_SETFLAGS`, `FS_IOC_FSSETXATTR`, `TIOCSTI`, `TIOCLINUX` on every fd |
+| The audit hook's user-phase flag sat in a dict that any `SandboxViolation` traceback exposed (`tb.tb_frame.f_locals`). Resetting it re-enabled ctypes, `gc.get_objects` and imports | full (Python layer) | User-phase checks moved to a separate hook with no mutable state, which binds its builtins at install time |
+| `connect()` to a **pathname `AF_UNIX` socket** outside the sandbox (e.g. `/var/run/docker.sock`): Landlock ABI ≤ 7 does not mediate it, and seccomp allowed `AF_UNIX` | kernel | seccomp: deny every `socket()` |
+| `chmod`, `chown`, `utime` and `setxattr` on files outside the sandbox (even ones it cannot read, e.g. `chmod 000` on the job database), and `fchmod`/`fchown`/`futimens`/`fsetxattr` through a **read-only** fd on readable files: Landlock does not mediate metadata changes | kernel | seccomp: deny the `chmod`/`chown`/`utime*`/`*xattr` families |
+| As root, `reboot`, `init_module`/`finit_module`, `kexec_load`, `sethostname`, `settimeofday`/`clock_settime`, `mount`/`umount2`/`pivot_root`/`chroot`/`setns`, `swapoff`, `acct`, `syslog` (kernel log), `perf_event_open`, `keyctl`, `userfaultfd`, `open_by_handle_at` and `mknodat` all reached the kernel. Landlock covers none of them | kernel | seccomp: deny |
+| `pidfd_open` / `kcmp` on other processes, and `kill(-1, 0)` (Landlock's signal scoping needs ABI 6) | kernel | seccomp: deny `pidfd_*`, `kcmp`, `tkill`; `kill`/`tgkill`/`rt_*sigqueueinfo` only to the child's own pid |
+| Syscalls newer than the filter (`setxattrat`, 463) were allowed by default | kernel | seccomp: every syscall ≥ 463 gets `ENOSYS` |
+
+"Kernel" rows needed the Python guards out of the way first. The fuzzer removes them
+directly. A real attacker needs a bypass, and the remaining gaps below show the Python layer
+has several.
+
+### Known gaps (not fixed)
+
+- **File metadata is readable everywhere.** `stat`, `lstat`, `access`, `readlink`, `statx`
+  and `getxattr` work on any path the service user can resolve, so code can learn whether
+  `/root/.ssh/id_rsa` exists, plus sizes, owners and mtimes. Landlock does not mediate path
+  lookups, and seccomp cannot filter on path arguments. Mitigation: run the worker in a
+  container or mount namespace that holds only what it needs.
+- **All of `/usr` is readable when the venv is built on the system Python.** The read roots
+  include `sys.base_prefix`, which is `/usr` here. Don't keep secrets under `/usr`; the
+  `python:3.11-slim` image uses `/usr/local`.
+- **The import allowlist trusts the code's file name.**
+  `exec(compile('import ctypes', 'lib.py', 'exec'), {})` imports any module, because the
+  check looks for user code by its file name (`<analysis>`). The modules are still subject to
+  the audit hook (e.g. every ctypes call is denied) and to the kernel layer. There is no
+  reliable in-process fix: user code can choose any file name and any globals.
+- **The audit hook's path checks can be subverted from Python.** Monkeypatching
+  `posixpath._joinrealpath`, making `builtins.isinstance` lie, or passing a `__fspath__` that
+  changes its answer makes the hook approve any path. In every such fuzz case Landlock
+  stopped the access. Without Landlock, file isolation does not hold against a determined
+  attacker (see above).
+- **Disk exhaustion.** `RLIMIT_FSIZE` caps each file at 64 MiB, but nothing caps the number of
+  files in the work dir, so a run can fill the temp filesystem before its timeout. The fuzzer
+  deliberately doesn't do this. Mitigation: a size-limited tmpfs or a quota for the sandbox
+  temp dir.
+- **seccomp is a deny list.** Syscalls numbered below 463 that are not listed are allowed,
+  e.g. `inotify_add_watch` on a readable path (it reveals file activity) or `personality`.
+  An allow list would be stronger, but brittle across glibc, numpy, pyarrow and scipy
+  versions.
+- **Memory corruption** (e.g. out-of-bounds views with `np.lib.stride_tricks.as_strided`)
+  defeats every Python-level guard. This was already listed below. Only the kernel layer and
+  the OS limits hold then.
 
 ## What is NOT protected against
 
@@ -133,7 +226,7 @@ Be honest about this before exposing the agent to untrusted users:
   the OS-level layers (process, rlimits, timeout, scrubbed env, temp dir) are the real
   boundary. They still run **as the same Unix user** as the parent.
 - **Network isolation is seccomp-enforced, not namespace-enforced.** The filter refuses
-  every non-`AF_UNIX` socket. Defence in depth for production: run the API/worker in a
+  every `socket()` call, `AF_UNIX` included. Defence in depth for production: run the API/worker in a
   container with no egress (`docker run --network none`, a Kubernetes NetworkPolicy, or
   Cloud Run with egress restricted to a VPC that has no route out), or wrap the child in a
   network namespace (nsjail, bubblewrap, gVisor).

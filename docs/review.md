@@ -78,6 +78,10 @@ can read anything the service user can. That includes `/proc/<api pid>/environ`,
 (i386/x32). The filter is required on Linux: if it cannot be installed, the bootstrap refuses
 to run user code.
 
+> **Later:** the escape fuzzer extended this filter (every `socket`, `AF_UNIX` included;
+> signals to other processes; scheduler, metadata and host-wide syscalls). See
+> [sandbox.md](sandbox.md#found-by-the-fuzzer-and-fixed).
+
 **Tests:** `tests/sandbox/test_python_security.py::test_fork_exec_via_module_attribute_is_blocked`
 and `::test_seccomp_filter_program_is_well_formed`.
 
