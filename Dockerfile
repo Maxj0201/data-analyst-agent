@@ -76,7 +76,10 @@ CMD ["sh", "-c", "exec streamlit run frontend/app.py --server.address=0.0.0.0 --
 FROM runtime AS api
 COPY --from=builder-api --chown=app:app /app/.venv /app/.venv
 # Semantic-layer metric definitions ship inside the installed wheel
-# (analyst_agent/semantic/metrics), so AGENT_SEMANTIC_METRICS_DIR stays unset.
+# (analyst_agent/semantic/metrics), so AGENT_SEMANTIC_METRICS_DIR stays unset. The sample CSVs
+# served by GET /datasets/samples (read-only, <1 MB) are copied here; the benchmark tasks and
+# generator stay out of the image (.dockerignore).
+COPY --chown=app:app benchmarks/data ./benchmarks/data
 RUN mkdir -p /app/data/uploads /app/artifacts && chown -R app:app /app/data /app/artifacts
 USER app
 # Cloud Run injects PORT=8080; locally and in compose it defaults to 8000.
@@ -85,7 +88,8 @@ USER app
 # HF_HOME: where the embeddings backend (INSTALL_EMBEDDINGS=true) caches its model; on the
 # data volume so it survives restarts.
 ENV PORT=8000 \
-    HF_HOME=/app/data/huggingface
+    HF_HOME=/app/data/huggingface \
+    AGENT_SAMPLES_DIR=/app/benchmarks/data
 EXPOSE 8000
 VOLUME ["/app/data", "/app/artifacts"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

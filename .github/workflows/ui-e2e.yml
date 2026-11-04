@@ -1,0 +1,54 @@
+name: UI e2e
+
+# Headless Chromium drives the Streamlit UI against the real API, AgentLoop, sandbox and
+# ApprovalBroker; only the LLM is scripted (core.fake_llm.dry_run_llm), so no API key is used.
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - "src/analyst_agent/api/**"
+      - "src/analyst_agent/core/approval.py"
+      - "src/analyst_agent/core/fake_llm.py"
+      - "scripts/ui-e2e/**"
+      - ".github/workflows/ui-e2e.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ui-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PLAYWRIGHT_VERSION: "1.63.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Python dependencies
+        run: uv sync --locked --all-extras
+      - name: Install Playwright + Chromium
+        working-directory: scripts/ui-e2e
+        run: |
+          npm install --no-save --no-package-lock "playwright@${PLAYWRIGHT_VERSION}"
+          npx playwright install --with-deps chromium
+      - name: Run UI e2e (approve + deny, every feature flag on)
+        run: scripts/ui-e2e/run.sh "${{ runner.temp }}/ui-e2e"
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-e2e
+          path: |
+            ${{ runner.temp }}/ui-e2e/*.png
+            ${{ runner.temp }}/ui-e2e/*.log
+          if-no-files-found: ignore

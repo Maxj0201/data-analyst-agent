@@ -65,6 +65,7 @@ def test_feature_flags_default_off() -> None:
         or s.approval_enabled
         or s.structured_report_enabled
         or s.memory_enabled
+        or s.samples_enabled
     )
 
 

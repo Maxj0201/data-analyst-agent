@@ -4,21 +4,35 @@ Talks to the FastAPI service only over HTTP, so it runs in its own container.
 
     AGENT_API_URL=http://localhost:8000 streamlit run frontend/app.py
 
+Pick a bundled sample in the sidebar (API with ``AGENT_SAMPLES_ENABLED=true``) or upload a file,
+ask a question, and watch the step timeline stream in. Gated steps (``AGENT_APPROVAL_ENABLED``)
+pause the run on an approve / deny card.
+
 On Cloud Run, set ``AGENT_API_ID_TOKEN=true`` to call a private API service with a Google ID
 token from the metadata server (see deploy/cloudrun.md).
 """
 
 from __future__ import annotations
 
+import html
 import json
 import os
 import threading
 import time
 from collections.abc import Generator, Iterator
+from typing import Any
 
 import httpx
 import streamlit as st
-from render import code_span, describe, report_markdown, safe_md
+from render import code_span, report_parts, safe_md
+from ui_helpers import (
+    Step,
+    iter_sse,
+    model_costs,
+    scalar_numbers,
+    step_html,
+    step_view,
+)
 
 API_URL = os.environ.get("AGENT_API_URL", "http://localhost:8000").rstrip("/")
 USE_ID_TOKEN = os.environ.get("AGENT_API_ID_TOKEN", "").lower() in {"1", "true", "yes"}
@@ -27,6 +41,36 @@ METADATA_TOKEN_URL = (
 )
 
 st.set_page_config(page_title="Data Analyst Agent", page_icon="📊", layout="centered")
+
+CSS = """
+<style>
+#MainMenu, footer, [data-testid="stToolbar"] {visibility: hidden;}
+.block-container {padding-top: 2.5rem; max-width: 840px;}
+h1 {font-weight: 650; letter-spacing: -0.02em;}
+button[kind^="primary"] {background: #4f46e5; border-color: #4f46e5;}
+button[kind^="primary"]:hover {background: #4338ca; border-color: #4338ca;}
+.step {display: flex; gap: .7rem; align-items: flex-start; font-size: .92rem; line-height: 1.5;}
+.step-tag {flex: 0 0 4.8rem; text-align: center; font-size: .66rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em; border-radius: 999px; padding: .15rem 0;
+  margin-top: .12rem; background: rgba(100, 116, 139, .14); color: rgb(100, 116, 139);}
+.tone-ok .step-tag {background: rgba(22, 163, 74, .14); color: rgb(22, 163, 74);}
+.tone-warn .step-tag {background: rgba(217, 119, 6, .16); color: rgb(217, 119, 6);}
+.tone-error .step-tag {background: rgba(220, 38, 38, .14); color: rgb(220, 38, 38);}
+.step-body {flex: 1; min-width: 0; overflow-wrap: anywhere;}
+.step-body code {font-size: .85em; padding: .05rem .3rem; border-radius: .25rem;
+  background: rgba(100, 116, 139, .12);}
+.step-detail {white-space: pre-wrap; opacity: .85; margin-top: .15rem;}
+.step-list {margin: .2rem 0 0 1.1rem; padding: 0; opacity: .85;}
+.step details summary {cursor: pointer; font-size: .8rem; opacity: .65;}
+.step details pre {font-size: .78rem; max-height: 18rem; overflow: auto; padding: .5rem;
+  border-radius: .4rem; background: rgba(100, 116, 139, .08); white-space: pre;}
+.ds-meta {color: rgb(120, 120, 130); font-size: .85rem;}
+</style>
+"""
+st.markdown(CSS, unsafe_allow_html=True)
+
+
+# ---- API client ----------------------------------------------------------------------------
 
 
 class GoogleIdTokenAuth(httpx.Auth):
@@ -61,33 +105,255 @@ def api() -> httpx.Client:
     return httpx.Client(base_url=API_URL, timeout=httpx.Timeout(30.0, read=None), auth=auth)
 
 
-def stream_events(job_id: str, after: int = 0) -> Iterator[tuple[str, dict]]:
+@st.cache_data(ttl=300, show_spinner=False)
+def load_samples() -> list[dict[str, Any]]:
+    try:
+        resp = api().get("/datasets/samples", timeout=5)
+    except httpx.HTTPError:
+        return []
+    return resp.json() if resp.status_code == 200 else []  # older API: no samples route
+
+
+@st.cache_data(show_spinner=False, max_entries=64)
+def fetch_artifact(url: str) -> bytes | None:
+    # Fetched server-side: the viewer's browser may not be able to reach the API.
+    resp = api().get(url)
+    return resp.content if resp.status_code == 200 else None
+
+
+def detail_of(resp: httpx.Response) -> str:
+    """An API error message, safe to show as Markdown (it can echo dataset values)."""
+    try:
+        return safe_md(resp.json().get("detail", resp.text))
+    except ValueError:
+        return safe_md(resp.text)
+
+
+def stream_events(job_id: str, after: int = 0) -> Iterator[tuple[str, dict[str, Any]]]:
     """Yield ``(event, data)`` from the job's SSE stream (events after seq ``after``)."""
     headers = {"Last-Event-ID": str(after)} if after else {}
     with api().stream("GET", f"/jobs/{job_id}/events", headers=headers) as resp:
         resp.raise_for_status()
-        name, data = None, []
-        for line in resp.iter_lines():
-            if line.startswith("event:"):
-                name = line[6:].strip()
-            elif line.startswith("data:"):
-                data.append(line[5:].strip())
-            elif line == "":
-                if name and data:
-                    yield name, json.loads("\n".join(data))
-                    if name == "end":
-                        return
-                name, data = None, []
+        yield from iter_sse(resp.iter_lines())
 
 
-def render_cost(job: dict) -> None:
+# ---- state ---------------------------------------------------------------------------------
+
+S = st.session_state
+S.setdefault("dataset", None)  # {dataset_id, filename, columns, title, source, ...}
+S.setdefault("events", [])  # [(event, data)] of the current job, as streamed
+S.setdefault("job_id", None)
+S.setdefault("following", False)
+S.setdefault("pending", None)
+S.setdefault("last_seq", 0)
+S.setdefault("auto_ask", None)
+
+
+def reset_job() -> None:
+    S.update(job_id=None, events=[], following=False, pending=None, last_seq=0, final_status=None)
+
+
+def use_dataset(info: dict[str, Any], source: str) -> None:
+    S.dataset = {**info, "source": source}
+    reset_job()
+
+
+def start_job(question: str) -> None:
+    resp = api().post("/ask", json={"dataset_id": S.dataset["dataset_id"], "question": question})
+    if resp.status_code != 202:
+        st.error(detail_of(resp))
+        return
+    reset_job()
+    S.update(job_id=resp.json()["job_id"], following=True, asked=question)
+
+
+def on_sample_change() -> None:
+    sample = next((s for s in load_samples() if s["dataset_id"] == S.sample_pick), None)
+    if sample:
+        use_dataset(sample, "sample")
+
+
+def on_example(question: str) -> None:
+    S.question = question
+    S.auto_ask = question
+
+
+# ---- rendering -----------------------------------------------------------------------------
+
+
+def render_step(step: Step) -> None:
+    st.html(step_html(step))
+    if step.code:
+        st.code(step.code, language=step.lang or None, wrap_lines=True)
+
+
+def render_event(event: str, data: dict[str, Any]) -> None:
+    step = step_view(event, data)
+    if step is not None:
+        render_step(step)
+
+
+def running_cost() -> float:
+    return sum(float(d.get("usd") or 0) for e, d in S.events if e == "llm_call")
+
+
+def timeline_stats() -> str:
+    steps = sum(1 for e, d in S.events if step_view(e, d) is not None)
+    calls = sum(1 for e, _ in S.events if e == "llm_call")
+    return f"{steps} steps · {calls} LLM calls · ${running_cost():.4f}"
+
+
+def timeline_label(status: str | None = None) -> str:
+    stats = timeline_stats()
+    if status:
+        return f"Done — {status} · {stats}"
+    return f"Agent working… · {stats}"
+
+
+def follow_job(job_id: str) -> None:
+    """Stream the job's steps; stop early when it needs approval (the card takes over)."""
+    with st.status(timeline_label(), expanded=True) as box:
+        for event, data in S.events:
+            render_event(event, data)
+        for event, data in stream_events(job_id, after=S.last_seq):
+            S.last_seq = data.get("seq", S.last_seq)
+            if event != "end":
+                S.events.append((event, data))
+            if event == "llm_call":
+                box.update(label=timeline_label())
+            render_event(event, data)
+            if event == "approval_required":
+                S.pending = data
+                box.update(label="Waiting for your approval…", state="running")
+                st.rerun()
+            if event == "end":
+                S.following = False
+                S.final_status = data.get("status")
+                st.rerun()
+
+
+def render_timeline() -> None:
+    """The step log after a rerun (job paused or finished)."""
+    if S.pending:
+        # Not an st.status: Streamlit keeps an expander's previous open/closed state across
+        # reruns and ignores ``expanded``, so the steps the human is approving could be hidden.
+        with st.container(border=True):
+            st.markdown(f"**Waiting for your approval…** · {timeline_stats()}")
+            for event, data in S.events:
+                render_event(event, data)
+        return
+    status = S.get("final_status")
+    state = "error" if status == "failed" else "complete"
+    with st.status(timeline_label(status), state=state, expanded=False):
+        for event, data in S.events:
+            render_event(event, data)
+
+
+def render_approval_panel(job_id: str, action: dict[str, Any]) -> None:
+    """Approve / deny a gated step (``POST /jobs/{id}/approve``)."""
+    decision = None
+    with st.container(border=True):
+        st.markdown(f"#### ✋ Approve {code_span(action.get('tool'))}?")
+        for reason in action.get("reasons") or []:
+            st.markdown(f"- {safe_md(reason)}")
+        args = action.get("input") or {}
+        src = args.get("query") or args.get("code")
+        if src:
+            st.code(src, language="sql" if action.get("tool") == "run_sql" else "python")
+        if action.get("timeout_s"):
+            st.caption(f"Denied automatically after {action['timeout_s']:g}s without a decision.")
+        note = st.text_input("Note for the agent (optional)", key=f"note_{action.get('id')}")
+        c1, c2 = st.columns(2)
+        if c1.button("Approve", type="primary", width="stretch", key=f"ok_{action.get('id')}"):
+            decision = True
+        if c2.button("Deny", width="stretch", key=f"no_{action.get('id')}"):
+            decision = False
+    if decision is None:
+        return
+    resp = api().post(
+        f"/jobs/{job_id}/approve",
+        json={"approve": decision, "note": note or None, "action_id": action.get("id")},
+    )
+    if resp.status_code == 409:
+        st.warning(detail_of(resp))
+    elif resp.status_code != 200:
+        st.error(detail_of(resp))
+        return
+    S.pending = None
+    st.rerun()
+
+
+def render_report(job: dict[str, Any], markdown: str) -> None:
+    result = job.get("result") or {}
+    numbers = scalar_numbers(result.get("key_numbers") or {})
+    if numbers:
+        st.markdown("**Key numbers**")
+        for i in range(0, len(numbers), 3):
+            cols = st.columns(3)
+            for col, (label, value) in zip(cols, numbers[i : i + 3], strict=False):
+                # Metric labels render Markdown, images included: names come from the model.
+                col.metric(safe_md(label), value)
+
+    # Charts render only from this job's own /artifacts URLs, fetched server-side; any other
+    # image in the report (data-steered URLs included) stays inert text (render.report_parts).
+    artifacts = result.get("artifacts") or []
+    shown: set[str] = set()
+    for kind, value, caption in report_parts(markdown, [a["url"] for a in artifacts]):
+        if kind == "md":
+            st.markdown(value)
+        elif img := fetch_artifact(value):
+            st.image(img, caption=caption or None, width="stretch")
+            shown.add(value)
+    # Charts the report doesn't reference still belong with it.
+    for art in artifacts:
+        if art["url"] not in shown and (img := fetch_artifact(art["url"])):
+            st.image(img, caption=safe_md(art["path"].rsplit("/", 1)[-1]), width="stretch")
+
+
+def render_costs(job: dict[str, Any], trace: list[tuple[str, dict[str, Any]]]) -> None:
     cost = job.get("cost") or {}
+    duration = job.get("duration_seconds")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Cost", f"${cost.get('usd', 0):.4f}")
     c2.metric("Input tokens", f"{cost.get('input_tokens', 0):,}")
     c3.metric("Output tokens", f"{cost.get('output_tokens', 0):,}")
-    duration = job.get("duration_seconds")
     c4.metric("Time", f"{duration:.1f}s" if duration else "—")
+    rows = model_costs(trace)
+    if not rows:
+        st.caption("No LLM calls recorded.")
+        return
+    st.dataframe(
+        rows,
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "model": "Model",
+            "purposes": "Used for",
+            "calls": st.column_config.NumberColumn("Calls"),
+            "input_tokens": st.column_config.NumberColumn("Input", format="localized"),
+            "output_tokens": st.column_config.NumberColumn("Output", format="localized"),
+            "cache_read_tokens": st.column_config.NumberColumn("Cache read", format="localized"),
+            "cache_write_tokens": st.column_config.NumberColumn("Cache write", format="localized"),
+            "usd": st.column_config.NumberColumn("USD", format="$%.4f"),
+            "latency_ms": st.column_config.NumberColumn("Latency (ms)", format="localized"),
+        },
+    )
+    if cost.get("cache_read_tokens"):
+        st.caption(f"Prompt cache: {cost['cache_read_tokens']:,} input tokens read from cache.")
+
+
+def render_trace(job_id: str, trace: list[dict[str, Any]]) -> None:
+    types = sorted({e["type"] for e in trace})
+    picked = st.multiselect("Event types", types, default=types, key=f"trace_types_{job_id}")
+    shown = [e for e in trace if e["type"] in picked]
+    st.caption(f"{len(shown)} of {len(trace)} events · expand an event to see its payload")
+    st.json(shown, expanded=1)
+    st.download_button(
+        "Download trace (JSON)",
+        json.dumps(trace, indent=2, default=str),
+        file_name=f"{job_id}-trace.json",
+        mime="application/json",
+    )
 
 
 def render_result(job_id: str) -> None:
@@ -98,163 +364,131 @@ def render_result(job_id: str) -> None:
     elif status == "partial":
         st.warning("The agent stopped early (budget or turn limit); the report may be incomplete.")
 
-    render_cost(job)
-
+    trace = job.get("trace") or []
+    pairs = [(e["type"], e.get("data") or {}) for e in trace]
     resp = api().get(f"/jobs/{job_id}/report")
-    if resp.status_code == 200:
-        st.divider()
-        # Charts are fetched server-side below: the browser may not be able to reach the API.
-        st.markdown(report_markdown(resp.text))
+    report = resp.text if resp.status_code == 200 else ""
 
-    artifacts = (job.get("result") or {}).get("artifacts") or []
-    if artifacts:
-        st.subheader("Charts")
-        for art in artifacts:
-            img = api().get(art["url"])
-            if img.status_code == 200:
-                st.image(img.content, caption=art["path"], width="stretch")
-
-    key_numbers = (job.get("result") or {}).get("key_numbers")
-    if key_numbers:
-        with st.expander("Key numbers"):
-            st.json(key_numbers)
+    tab_report, tab_cost, tab_trace = st.tabs(["Report", "Cost & tokens", "Raw trace"])
+    with tab_report:
+        if report:
+            render_report(job, report)
+        else:
+            st.info("No report was produced.")
+    with tab_cost:
+        render_costs(job, pairs)
+    with tab_trace:
+        render_trace(job_id, trace)
 
 
-def follow_job(job_id: str) -> None:
-    """Stream the job's steps; stop early when it needs approval (the panel takes over)."""
-    with st.status("Agent working…", expanded=True) as box:
-        for line in st.session_state.steps:
-            st.markdown(line)
-        for event, data in stream_events(job_id, after=st.session_state.get("last_seq", 0)):
-            st.session_state.last_seq = data.get("seq", st.session_state.get("last_seq", 0))
-            if event == "llm_call":
-                st.session_state.running_cost = st.session_state.get("running_cost", 0.0) + float(
-                    data.get("usd") or 0
-                )
-                box.update(label=f"Agent working… (${st.session_state.running_cost:.4f} so far)")
-            line = describe(event, data)
-            if line:
-                st.session_state.steps.append(line)
-                st.markdown(line)
-            if event == "approval_required":
-                st.session_state.pending = data
-                box.update(label="Waiting for your approval…", state="running")
-                st.rerun()
-            if event == "end":
-                st.session_state.following = False
-                ok = data.get("status") != "failed"
-                box.update(
-                    label=f"Done — {data.get('status')}",
-                    state="complete" if ok else "error",
-                    expanded=False,
-                )
-                st.rerun()
+# ---- sidebar -------------------------------------------------------------------------------
 
+samples = load_samples()
+with st.sidebar:
+    st.markdown("### Try it")
+    if samples:
+        by_id = {s["dataset_id"]: s for s in samples}
+        if S.dataset is None:
+            use_dataset(samples[0], "sample")
+        current = S.dataset["dataset_id"] if S.dataset["source"] == "sample" else None
+        S.setdefault("sample_pick", current or samples[0]["dataset_id"])
+        st.selectbox(
+            "Sample dataset",
+            list(by_id),
+            format_func=lambda i: by_id[i]["title"],
+            key="sample_pick",
+            on_change=on_sample_change,
+        )
+        if S.dataset["source"] == "upload":
+            st.button(
+                "Use this sample instead",
+                on_click=on_sample_change,
+                width="stretch",
+                type="tertiary",
+            )
+        active = by_id.get(S.dataset["dataset_id"])
+        if active and active.get("questions"):
+            st.markdown("**Example questions**")
+            for i, q in enumerate(active["questions"]):
+                st.button(q, key=f"ex_{i}", on_click=on_example, args=(q,), width="stretch")
 
-def render_approval_panel(job_id: str, action: dict) -> None:
-    """Approve / deny a gated step (``POST /jobs/{id}/approve``)."""
-    with st.container(border=True):
-        st.markdown(f"### ✋ Approve {code_span(action.get('tool'))}?")
-        for reason in action.get("reasons") or []:
-            st.markdown(f"- {safe_md(reason)}")
-        src = (action.get("input") or {}).get("query") or (action.get("input") or {}).get("code")
-        if src:
-            st.code(src, language="sql" if action.get("tool") == "run_sql" else "python")
-        if action.get("timeout_s"):
-            st.caption(f"The step is denied automatically after {action['timeout_s']:g}s.")
-        note = st.text_input("Note for the agent (optional)", key=f"note_{action.get('id')}")
-        c1, c2 = st.columns(2)
-        decision = None
-        if c1.button("Approve", type="primary", width="stretch"):
-            decision = True
-        if c2.button("Deny", width="stretch"):
-            decision = False
-    if decision is None:
-        return
-    resp = api().post(
-        f"/jobs/{job_id}/approve",
-        json={"approve": decision, "note": note or None, "action_id": action.get("id")},
-    )
-    if resp.status_code == 409:
-        st.warning(safe_md(resp.json().get("detail", "This approval is no longer pending.")))
-    elif resp.status_code != 200:
-        st.error(safe_md(resp.json().get("detail", resp.text)))
-        return
-    st.session_state.pending = None
-    st.rerun()
+    with st.expander("Upload your own data", expanded=not samples):
+        uploaded = st.file_uploader(
+            "CSV, Parquet, SQLite or DuckDB",
+            type=["csv", "parquet", "sqlite", "sqlite3", "db", "duckdb"],
+        )
+    if uploaded is not None and S.get("upload_id") != uploaded.file_id:
+        with st.spinner("Uploading…"):
+            resp = api().post("/datasets", files={"file": (uploaded.name, uploaded.getvalue())})
+        if resp.status_code == 201:
+            S.upload_id = uploaded.file_id
+            use_dataset({**resp.json(), "title": uploaded.name}, "upload")
+        else:
+            st.error(detail_of(resp))
+
+    st.divider()
+    try:
+        health = api().get("/healthz", timeout=3).json()
+        st.caption(f"🟢 API `{API_URL}` · store: {health['job_store']}")
+    except (httpx.HTTPError, ValueError, KeyError):
+        st.caption(f"🔴 API unreachable at `{API_URL}`")
 
 
 # ---- page ----------------------------------------------------------------------------------
 
-st.title("📊 Data Analyst Agent")
-st.caption("Upload a data file, ask a question, and watch the agent work.")
-
-uploaded = st.file_uploader(
-    "Dataset (CSV, Parquet, SQLite, DuckDB)",
-    type=["csv", "parquet", "sqlite", "sqlite3", "db", "duckdb"],
+st.title("Data Analyst Agent")
+st.caption(
+    "Ask a question about a table. The agent plans, runs SQL and Python, checks its own work "
+    "and writes a report."
 )
-if uploaded is not None and st.session_state.get("upload_id") != uploaded.file_id:
-    with st.spinner("Uploading…"):
-        resp = api().post("/datasets", files={"file": (uploaded.name, uploaded.getvalue())})
-    if resp.status_code == 201:
-        info = resp.json()
-        st.session_state.update(dataset=info, upload_id=uploaded.file_id, job_id=None, steps=[])
-    else:
-        st.error(safe_md(resp.json().get("detail", resp.text)))
 
-dataset = st.session_state.get("dataset")
-if dataset:
-    st.success(
-        f"**{safe_md(dataset['filename'])}** · {len(dataset['columns'])} columns: "
-        + ", ".join(code_span(c) for c in dataset["columns"][:12])
-        + (" …" if len(dataset["columns"]) > 12 else "")
+dataset = S.dataset
+if not dataset:
+    st.info("Upload a data file in the sidebar to get started.")
+    st.stop()
+
+cols = dataset.get("columns") or []
+meta = [f"{len(cols)} columns"]
+if dataset.get("rows"):
+    meta.insert(0, f"{dataset['rows']:,} rows")
+source = "sample" if dataset["source"] == "sample" else "your upload"
+with st.container(border=True):
+    st.markdown(
+        f"**{safe_md(html.escape(dataset.get('title') or dataset['filename']))}** "
+        f'<span class="ds-meta">· {safe_md(html.escape(dataset["filename"]))} · {source} · '
+        f"{' · '.join(meta)}</span>",
+        unsafe_allow_html=True,
+    )
+    if dataset.get("description"):
+        st.caption(safe_md(dataset["description"]))
+    # Column names are CSV headers (untrusted): code spans that a backtick cannot close.
+    st.markdown(
+        " ".join(code_span(c) for c in cols[:16])
+        + (f" … +{len(cols) - 16}" if len(cols) > 16 else "")
     )
 
-    with st.form("ask"):
-        question = st.text_area("Question", placeholder="Which region grew fastest last quarter?")
-        submitted = st.form_submit_button("Ask", type="primary", width="stretch")
+with st.form("ask", border=False):
+    question = st.text_area(
+        "Question",
+        key="question",
+        placeholder="Which region grew fastest last quarter?",
+        height=80,
+    )
+    submitted = st.form_submit_button("Ask", type="primary", width="stretch")
 
-    if submitted and question.strip():
-        resp = api().post(
-            "/ask", json={"dataset_id": dataset["dataset_id"], "question": question.strip()}
-        )
-        if resp.status_code != 202:
-            st.error(safe_md(resp.json().get("detail", resp.text)))
-        else:
-            st.session_state.update(
-                job_id=resp.json()["job_id"],
-                steps=[],
-                last_seq=0,
-                running_cost=0.0,
-                pending=None,
-                following=True,
-            )
+to_ask = S.auto_ask or (question.strip() if submitted else "")
+S.auto_ask = None
+if to_ask:
+    start_job(to_ask)
 
-    job_id = st.session_state.get("job_id")
-    if job_id and st.session_state.get("following") and not st.session_state.get("pending"):
+job_id = S.job_id
+if job_id:
+    if S.following and not S.pending:
         follow_job(job_id)
-    elif st.session_state.get("steps"):
-        # Re-render the step log after Streamlit reruns.
-        waiting = bool(st.session_state.get("pending"))
-        with st.status(
-            "Waiting for your approval…" if waiting else "Agent steps",
-            state="running" if waiting else "complete",
-            expanded=waiting,
-        ):
-            for line in st.session_state.steps:
-                st.markdown(line)
+    elif S.events:
+        render_timeline()
 
-    if job_id and st.session_state.get("pending"):
-        render_approval_panel(job_id, st.session_state.pending)
-    elif job_id and not st.session_state.get("following"):
+    if S.pending:
+        render_approval_panel(job_id, S.pending)
+    elif not S.following:
         render_result(job_id)
-else:
-    st.info("Upload a data file to get started.")
-
-with st.sidebar:
-    st.markdown(f"**API:** `{API_URL}`")
-    try:
-        health = api().get("/healthz", timeout=3).json()
-        st.markdown(f"Status: 🟢 {health['status']} · store: {health['job_store']}")
-    except httpx.HTTPError:
-        st.markdown("Status: 🔴 API unreachable")

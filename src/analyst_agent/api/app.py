@@ -7,7 +7,8 @@ Run with::
 Endpoints
 ---------
 ``POST /datasets``            upload a CSV/Parquet/SQLite/DuckDB file, returns ``dataset_id``
-``GET  /datasets/{id}``       dataset metadata
+``GET  /datasets/samples``   bundled sample datasets + example questions (AGENT_SAMPLES_ENABLED)
+``GET  /datasets/{id}``       dataset metadata (uploads and samples)
 ``POST /ask``                 ``{dataset_id, question}`` -> ``job_id`` (runs in the background)
 ``GET  /jobs/{id}``           status, progress, cost, full step trace and result
 ``GET  /jobs/{id}/events``    Server-Sent Events stream of agent steps as they happen
@@ -50,6 +51,7 @@ from .models import (
     JobView,
 )
 from .observability import TracerFactory, make_tracer_factory
+from .samples import SampleCatalog, SampleDataset
 from .store import JobStore
 
 logger = logging.getLogger(__name__)
@@ -80,6 +82,7 @@ def create_app(
     settings.artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     datasets = DatasetStore(settings.uploads_dir, settings.max_upload_mb * 1024 * 1024)
+    samples = SampleCatalog(settings.samples_dir if settings.samples_enabled else None)
     store = store or JobStore(
         db_path=settings.job_db_path or None, memory_limit=settings.job_memory_limit
     )
@@ -110,6 +113,7 @@ def create_app(
     app.state.settings = settings
     app.state.jobs = manager
     app.state.datasets = datasets
+    app.state.samples = samples
 
     app.add_middleware(
         UploadSizeLimit,
@@ -143,16 +147,21 @@ def create_app(
     async def upload_dataset(file: UploadFile = File(...)) -> DatasetInfo:  # noqa: B008
         return await datasets.save(file)
 
+    # Declared before /datasets/{dataset_id} so "samples" is not taken for an id.
+    @app.get("/datasets/samples", response_model=list[SampleDataset])
+    def list_samples() -> list[SampleDataset]:
+        return samples.list()
+
     @app.get("/datasets/{dataset_id}", response_model=DatasetInfo)
     def get_dataset(dataset_id: str) -> DatasetInfo:
-        info = datasets.info(dataset_id)
+        info = datasets.info(dataset_id) or samples.info(dataset_id)
         if info is None:
             raise HTTPException(status_code=404, detail="Dataset not found.")
         return info
 
     @app.post("/ask", response_model=AskResponse, status_code=202)
     def ask(body: AskRequest) -> AskResponse:
-        path = datasets.path_for(body.dataset_id)
+        path = datasets.path_for(body.dataset_id) or samples.path_for(body.dataset_id)
         if path is None:
             raise HTTPException(status_code=404, detail="Dataset not found.")
         job = manager.submit(dataset_id=body.dataset_id, dataset_path=path, question=body.question)

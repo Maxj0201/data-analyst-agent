@@ -80,6 +80,8 @@ How each surface answers an approval request when `AGENT_APPROVAL_ENABLED=true`:
 | `AGENT_MAX_CONCURRENT_JOBS` | `4` | API | Worker threads running agent jobs. |
 | `AGENT_MAX_UPLOAD_MB` | `50` | API | Max dataset upload size. |
 | `AGENT_CORS_ORIGINS` | `[]` | API | Allowed CORS origins, as a JSON list. |
+| `AGENT_SAMPLES_ENABLED` | `false` | API | **Feature flag.** Serve the bundled sample datasets (`GET /datasets/samples`) so the UI can offer them with example questions. `docker compose` turns it on. |
+| `AGENT_SAMPLES_DIR` | `benchmarks/data` | API | Directory scanned for sample datasets (read-only, never copied); the API image ships `/app/benchmarks/data`. |
 | `AGENT_LANGFUSE_ENABLED` | `false` | Observability | **Feature flag.** Send each run's span tree (API jobs, CLI `ask`, eval tasks) to Langfuse and push eval scores onto the traces (keys from `LANGFUSE_*`, see [observability.md](observability.md)). |
 | `AGENT_TRACE_STORE_ENABLED` | `false` | Observability | **Feature flag.** Save each run's span tree as `<AGENT_TRACES_DIR>/<id>.json` (eval: `<run_dir>/traces/`) for `analyst-agent trace show`. |
 | `AGENT_TRACES_DIR` | `traces` | Observability | Where saved traces go (CLI and API). |

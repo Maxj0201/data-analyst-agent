@@ -16,11 +16,15 @@ runs
 tests
 docs
 deploy
-# benchmarks/ is excluded (data, tasks, generator) except the semantic-layer metric
-# definitions, which the wheel bundles as analyst_agent/semantic/metrics.
+# benchmarks/ is excluded (tasks, generator) except the semantic-layer metric definitions,
+# which the wheel bundles as analyst_agent/semantic/metrics, and the sample CSVs (<1 MB), which
+# the API image ships at /app/benchmarks/data.
 benchmarks
 !benchmarks/metrics
 !benchmarks/metrics/*.yaml
+!benchmarks/data
+!benchmarks/data/*/
+!benchmarks/data/*/*.csv
 *.md
 !README.md
 docker-compose*.yml

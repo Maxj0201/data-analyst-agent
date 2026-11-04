@@ -22,6 +22,8 @@ services:
       AGENT_ROUTING_ENABLED: ${AGENT_ROUTING_ENABLED:-false}
       AGENT_SEMANTIC_LAYER_ENABLED: ${AGENT_SEMANTIC_LAYER_ENABLED:-false}
       AGENT_APPROVAL_ENABLED: ${AGENT_APPROVAL_ENABLED:-false}
+      # Bundled sample datasets + example questions in the UI sidebar (demo); on locally.
+      AGENT_SAMPLES_ENABLED: ${AGENT_SAMPLES_ENABLED:-true}
     ports:
       - "8000:8000"
     extra_hosts:
