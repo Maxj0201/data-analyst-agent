@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,7 +18,20 @@ class Settings(BaseSettings):
     effort: str = "high"  # low | medium | high | xhigh | max
     max_tokens: int = 16000
     # Server-side refusal fallback (beta). Disable for platforms that don't support it.
+    # Only sent to models that support it (see ``llm.supports_refusal_fallback``).
     refusal_fallback: bool = True
+
+    # Model routing (core/router.py). Off by default so eval runs can A/B it.
+    routing_enabled: bool = False
+    router_model: str = "claude-haiku-5-5"
+    router_effort: str = "low"
+    router_max_tokens: int = 1024
+    # Working model per difficulty tier; each defaults to ``model`` when unset.
+    model_l1: str | None = None
+    model_l2: str | None = None
+    model_l3: str | None = None
+    # Tier used when the router call fails or returns something unparseable.
+    router_fallback_tier: Literal["L1", "L2", "L3"] = "L3"
 
     # Loop limits
     max_turns: int = 15
@@ -36,6 +50,13 @@ class Settings(BaseSettings):
     @property
     def resolved_critic_model(self) -> str:
         return self.critic_model or self.model
+
+    def model_for_tier(self, tier: str) -> str:
+        """Working model for a routed tier (``L1``/``L2``/``L3``), falling back to ``model``."""
+        per_tier = {"L1": self.model_l1, "L2": self.model_l2, "L3": self.model_l3}
+        if tier not in per_tier:
+            raise ValueError(f"unknown tier {tier!r}")
+        return per_tier[tier] or self.model
 
 
 @lru_cache
