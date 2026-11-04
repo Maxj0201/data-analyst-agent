@@ -1149,6 +1149,8 @@ def env(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Env]:
     (root / "secret.txt").write_text(f"{token}\n")
     mpl = python_runner._mpl_cache_dir()
     assert mpl, "matplotlib cache dir unavailable"
+    for stale in Path(mpl).glob("fuzz_readable_*"):  # from an interrupted run
+        stale.unlink()
     listener = _Listener(str(root / "listener.sock"))
     victim = subprocess.Popen(["sleep", "3600"])
     try:
@@ -1212,6 +1214,7 @@ def _check(case: Case, res: object, duration: float, env: Env) -> list[str]:
 def _run_case(case: Case, env: Env) -> Outcome:
     ctx = env.ctx(case.id)
     readable = Path(ctx.readable)
+    readable.unlink(missing_ok=True)  # a fresh inode: no xattrs or flags left by an earlier run
     readable.write_text("readable\n")
     readable.chmod(0o644)
     canary = Path(ctx.canary)
