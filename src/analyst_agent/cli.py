@@ -53,6 +53,20 @@ def ask(
             help="Approve every gated step without prompting (otherwise ask y/n on the TTY).",
         ),
     ] = False,
+    routing: Annotated[
+        bool | None,
+        typer.Option(
+            "--routing/--no-routing",
+            help="Override AGENT_ROUTING_ENABLED (pick the model per question difficulty).",
+        ),
+    ] = None,
+    semantic_layer: Annotated[
+        bool | None,
+        typer.Option(
+            "--semantic-layer/--no-semantic-layer",
+            help="Override AGENT_SEMANTIC_LAYER_ENABLED (inject governed metric definitions).",
+        ),
+    ] = None,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -74,6 +88,8 @@ def ask(
             "token_budget": token_budget,
             "model": model,
             "approval_enabled": require_approval,
+            "routing_enabled": routing,
+            "semantic_layer_enabled": semantic_layer,
         }.items()
         if v is not None
     }

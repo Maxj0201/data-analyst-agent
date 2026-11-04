@@ -359,3 +359,24 @@ def test_budget_still_applies_after_escalation(ctx, routed):
     assert result.status is RunStatus.BUDGET_EXCEEDED
     assert len(result.state.escalations) == 1
     assert len(llm.queues["agent"]) == 1
+
+
+def test_human_denials_do_not_escalate(ctx, routed):
+    """Two denied run_sql calls in a row are a human decision, not a model failure."""
+    from analyst_agent.core.approval import CallbackApprover
+
+    routed.approval_enabled = True
+    routed.approval_row_threshold = 0  # gate every SELECT
+    answers = iter([False, False, True])
+    llm = FakeLLM(
+        router=[route("L1")],
+        agent=[sql(M1, GOOD_SQL), sql(M1, GOOD_SQL), sql(M1, GOOD_SQL), final(M1)],
+        critic=[critic_json("pass")],
+    )
+    loop = make_loop(llm, ctx, routed, approver=CallbackApprover(lambda _a: next(answers)))
+    result = loop.run("Total revenue?")
+
+    assert result.status is RunStatus.COMPLETED
+    assert [r.is_error for r in result.state.tool_results] == [True, True, False, False]
+    assert result.state.escalations == []
+    assert agent_models(llm) == [M1] * 4

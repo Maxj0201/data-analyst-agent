@@ -130,3 +130,60 @@ def test_ask_no_stdin_denies(tmp_path, monkeypatch):
     res, trace = _gated_ask(tmp_path, monkeypatch, "--require-approval", input="")
     first = trace["approvals"][0]["decision"]
     assert first["approved"] is False and first["note"] == "no answer on stdin"
+
+
+# --------------------------------------------------------------------------- flag matrix
+
+
+@pytest.mark.parametrize("routing", [True, False])
+@pytest.mark.parametrize("semantic", [True, False])
+@pytest.mark.parametrize("approval", ["auto", "prompt-yes", "prompt-no", "off"])
+def test_ask_dry_run_every_flag_combination(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, routing: bool, semantic: bool, approval: str
+):
+    import json
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AGENT_ARTIFACTS_DIR", str(tmp_path / "art"))
+    monkeypatch.setenv("AGENT_SEMANTIC_METRICS_DIR", str(REPO / "benchmarks/metrics"))
+    monkeypatch.setenv("AGENT_APPROVAL_ROW_THRESHOLD", "0")  # gate every SELECT
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    trace = tmp_path / "trace.json"
+    args = [
+        "ask",
+        "--data",
+        str(REPO / "benchmarks/data/saas/subscriptions.csv"),
+        "which region has the highest mrr",
+        "--dry-run",
+        "--trace",
+        str(trace),
+        "--routing" if routing else "--no-routing",
+        "--semantic-layer" if semantic else "--no-semantic-layer",
+        "--no-require-approval" if approval == "off" else "--require-approval",
+    ]
+    if approval == "auto":
+        args.append("--auto-approve")
+    stdin = {"prompt-yes": "y\n" * 5, "prompt-no": "n\n\n" * 5}.get(approval, "")
+
+    res = CliRunner().invoke(app, args, input=stdin)
+
+    assert res.exit_code == 0, res.output
+    t = json.loads(trace.read_text())
+    assert t["status"] == "completed"
+    assert set(t["prompts"]) >= {"planner", "router", "semantic_layer_rules"}
+    assert (t["routing"] is not None and t["routing"]["routed_tier"] == "L2") is routing
+    sl = t["semantic_layer"]
+    assert sl["enabled"] is semantic and bool(sl["retrieved_metrics"]) is semantic
+    assert sl["error"] is None
+    decisions = {(a["decision"]["approved"], a["decision"]["decided_by"]) for a in t["approvals"]}
+    assert (
+        decisions
+        == {
+            "auto": {(True, "auto")},
+            "prompt-yes": {(True, "human")},
+            "prompt-no": {(False, "human")},
+            "off": set(),
+        }[approval]
+    )
+    if approval != "prompt-no":
+        assert "**North America** has the highest total_mrr" in res.output
