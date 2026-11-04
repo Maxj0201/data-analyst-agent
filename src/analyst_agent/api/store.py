@@ -11,6 +11,7 @@ All methods are synchronous and thread-safe: the agent runs in worker threads an
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 import time
@@ -20,6 +21,8 @@ from pathlib import Path
 from typing import Any
 
 from .models import Job, JobEvent, JobStatus
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -121,7 +124,7 @@ class JobStore:
             self._mem[job.id] = _Entry(job=job)
             self._evict()
         if self._db:
-            self._db.save_job(job)
+            self._mirror(self._db.save_job, job)
         return job
 
     def update(self, job_id: str, **changes: Any) -> Job:
@@ -132,7 +135,7 @@ class JobStore:
             job = entry.job.model_copy(update=changes)
             entry.job = job
         if self._db:
-            self._db.save_job(job)
+            self._mirror(self._db.save_job, job)
         return job
 
     def append_event(self, job_id: str, type: str, data: dict[str, Any] | None = None) -> JobEvent:
@@ -143,7 +146,7 @@ class JobStore:
             event = JobEvent(seq=len(entry.events) + 1, type=str(type), data=data or {})
             entry.events.append(event)
         if self._db:
-            self._db.save_event(job_id, event)
+            self._mirror(self._db.save_event, job_id, event)
         return event
 
     # ---- reads -------------------------------------------------------------------------
@@ -165,6 +168,14 @@ class JobStore:
             self._db.close()
 
     # ---- internals ---------------------------------------------------------------------
+
+    def _mirror(self, write: Any, *args: Any) -> None:
+        """Write through to SQLite. Memory is the primary copy, so a failing mirror (disk
+        full, locked or closed database) is logged instead of failing the running job."""
+        try:
+            write(*args)
+        except (sqlite3.Error, OSError):
+            logger.exception("Job store: SQLite write failed; keeping the in-memory copy")
 
     def _entry(self, job_id: str) -> _Entry | None:
         entry = self._mem.get(job_id)

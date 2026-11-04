@@ -351,3 +351,52 @@ async def test_finished_jobs_survive_restart_via_sqlite(settings, fake_agent):
 async def test_healthz(client):
     body = (await client.get("/healthz")).json()
     assert body == {"status": "ok", "job_store": "memory+sqlite", "langfuse": False}
+
+
+async def test_tracer_failure_at_job_start_still_ends_the_job(settings, fake_agent):
+    """Review M8: an exception before the worker's try block left the job running forever
+    (and every SSE client polling it forever)."""
+
+    class BrokenTracerFactory:
+        def __call__(self, **_):
+            raise RuntimeError("tracing backend down")
+
+        def shutdown(self):
+            pass
+
+    app = create_app(settings, runner=fake_agent, tracer_factory=BrokenTracerFactory())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        dataset_id = await upload(c)
+        job_id = (await c.post("/ask", json={"dataset_id": dataset_id, "question": "q"})).json()[
+            "job_id"
+        ]
+        job = await wait_for_job(c, job_id)
+    app.state.jobs.shutdown()
+    assert job["status"] == "failed"
+    assert "tracing backend down" in job["error"]
+    assert job["trace"][-1]["type"] == "final"
+
+
+async def test_sqlite_failure_mid_job_does_not_strand_it(settings, fake_agent):
+    import sqlite3
+
+    app = create_app(settings, runner=fake_agent)
+    db = app.state.jobs.store._db
+
+    def broken(*_a, **_k):
+        raise sqlite3.OperationalError("database or disk is full")
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        dataset_id = await upload(c)
+        db.save_event = broken
+        db.save_job = broken
+        job_id = (await c.post("/ask", json={"dataset_id": dataset_id, "question": "q"})).json()[
+            "job_id"
+        ]
+        job = await wait_for_job(c, job_id)
+    app.state.jobs.shutdown()
+    assert job["status"] == "succeeded"
