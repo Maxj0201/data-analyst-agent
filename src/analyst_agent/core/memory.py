@@ -48,8 +48,13 @@ def _q(name: str) -> str:
 def dataset_fingerprint(ctx: ToolContext) -> str:
     """Stable id for the loaded dataset: schema, row counts and a content checksum per table.
 
-    Table order does not matter. Raises ``RuntimeError`` if the schema cannot be read; the
-    content checksum is best-effort (omitted if the sandbox rejects it).
+    Table order does not matter. Raises ``RuntimeError`` if the schema or the content checksum
+    cannot be computed (for example the SQL timeout on a very large table): without the
+    checksum an edited file with the same schema and row count would keep its fingerprint and
+    get stale insights, so the caller runs without memory instead.
+
+    The checksum hashes a row built from every column by name. (Hashing the table alias, as
+    ``hash(t)``, silently hashed only the column when a table had a column named ``t``.)
     """
     parts: list[str] = []
     for table in sorted(ctx.tables):
@@ -58,17 +63,19 @@ def dataset_fingerprint(ctx: ToolContext) -> str:
             "SELECT column_name, data_type FROM information_schema.columns "
             f"WHERE table_name = '{lit}' ORDER BY ordinal_position"
         )
-        if not cols.ok:
+        if not cols.ok or not cols.rows:
             raise RuntimeError(cols.error or f"cannot read schema of {table!r}")
         schema = ",".join(f"{r['column_name']}:{r['data_type']}" for r in cols.rows)
+        row = ", ".join(_q(str(r["column_name"])) for r in cols.rows)
         stats = ctx.run_sql(
-            f"SELECT COUNT(*) AS n, COALESCE(SUM(hash(t)), 0)::VARCHAR AS h FROM {_q(table)} t"
+            f"SELECT COUNT(*) AS n, COALESCE(SUM(hash(row({row}))), 0)::VARCHAR AS h "
+            f"FROM {_q(table)}"
         )
-        if stats.ok and stats.rows:
-            n, checksum = stats.rows[0]["n"], stats.rows[0]["h"]
-        else:
-            count = ctx.run_sql(f"SELECT COUNT(*) AS n FROM {_q(table)}")
-            n, checksum = (count.rows[0]["n"] if count.ok and count.rows else "?"), ""
+        if not stats.ok or not stats.rows:
+            raise RuntimeError(
+                f"cannot compute the content checksum of {table!r}: {stats.error or 'no result'}"
+            )
+        n, checksum = stats.rows[0]["n"], stats.rows[0]["h"]
         parts.append(f"{table}|{schema}|{n}|{checksum}")
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:16]
 
