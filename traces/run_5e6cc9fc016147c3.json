@@ -1,0 +1,512 @@
+{
+  "trace_format": 1,
+  "run_id": "run_5e6cc9fc016147c3",
+  "job_id": null,
+  "task_id": null,
+  "trace_id": null,
+  "spans": {
+    "id": "s0",
+    "kind": "run",
+    "name": "run",
+    "start": 1793830101.8833468,
+    "end": 1793830102.3822675,
+    "duration_s": 0.498921,
+    "cost_usd": 0.0,
+    "status": "ok",
+    "status_message": null,
+    "input": {
+      "question": "which region has the highest mrr"
+    },
+    "output": "# which region has the highest mrr\n\n> Dry run: scripted offline LLM, no API calls.\n\n**North America** has the highest total_mrr (1,290,124).\n\n| region | total_mrr |\n| --- | --- |\n| North America | 1290124.0 |\n| EMEA | 834559.0 |\n| APAC | 387756.75 |\n| LATAM | 365800.25 |\n\nQuery:\n\n```sql\nSELECT \"region\" AS \"region\", SUM(\"mrr\") AS \"total_mrr\" FROM \"subscriptions\" GROUP BY 1 ORDER BY 2 DESC NULLS LAST LIMIT 10\n```\n",
+    "metadata": {
+      "run_id": "run_5e6cc9fc016147c3",
+      "model": "claude-opus-5-5",
+      "tables": [
+        "subscriptions"
+      ],
+      "max_turns": 15,
+      "token_budget": 400000,
+      "flags": {
+        "routing": true,
+        "semantic_layer": false,
+        "approval": true,
+        "structured_report": false,
+        "memory": false
+      },
+      "prompt_versions": {
+        "planner": "1.1.0",
+        "critic": "1.1.0",
+        "report_writer": "1.0.0",
+        "semantic_layer_rules": "1.0.0",
+        "router": "1.0.0",
+        "structured_report_rules": "1.0.0",
+        "memory_rules": "1.0.0"
+      },
+      "routed_tier": "L2",
+      "routed_model": "claude-opus-5-5",
+      "agent_status": "completed",
+      "detail": "Critic verdict: pass.",
+      "cost_usd": 0.0,
+      "llm_calls": 6,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "models": [
+        "dry-run"
+      ],
+      "turns": 4,
+      "tool_calls": 4,
+      "status": "completed"
+    },
+    "children": [
+      {
+        "id": "s1",
+        "kind": "route",
+        "name": "route",
+        "start": 1793830101.9214406,
+        "end": 1793830101.9216907,
+        "duration_s": 0.00025,
+        "cost_usd": 0.0,
+        "status": "ok",
+        "status_message": null,
+        "input": null,
+        "output": {
+          "tier": "L2",
+          "model": "claude-opus-5-5",
+          "reason": "dry run: scripted from the planned query shape",
+          "router_model": "claude-haiku-5-5",
+          "source": "router"
+        },
+        "metadata": {
+          "tier": "L2",
+          "model": "claude-opus-5-5",
+          "reason": "dry run: scripted from the planned query shape",
+          "router_model": "claude-haiku-5-5",
+          "source": "router",
+          "cost_usd": 0.0
+        },
+        "children": [
+          {
+            "id": "s2",
+            "kind": "llm_call",
+            "name": "llm:router",
+            "start": 1793830101.9214406,
+            "end": 1793830101.9214406,
+            "duration_s": 0.0,
+            "cost_usd": 0.0,
+            "status": "ok",
+            "status_message": null,
+            "input": null,
+            "output": null,
+            "metadata": {
+              "model": "dry-run",
+              "purpose": "router",
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_tokens": 0,
+              "cache_write_tokens": 0,
+              "cost_usd": 0.0,
+              "latency_ms": 0.0,
+              "stop_reason": "end_turn",
+              "prompt": "router",
+              "prompt_version": "1.0.0"
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "s3",
+        "kind": "turn",
+        "name": "turn 1",
+        "start": 1793830101.9217412,
+        "end": 1793830101.9318855,
+        "duration_s": 0.010144,
+        "cost_usd": 0.0,
+        "status": "ok",
+        "status_message": null,
+        "input": null,
+        "output": null,
+        "metadata": {
+          "turn": 1,
+          "model": "claude-opus-5-5",
+          "tier": "L2",
+          "cost_usd": 0.0
+        },
+        "children": [
+          {
+            "id": "s4",
+            "kind": "llm_call",
+            "name": "llm:agent",
+            "start": 1793830101.9217863,
+            "end": 1793830101.9217863,
+            "duration_s": 0.0,
+            "cost_usd": 0.0,
+            "status": "ok",
+            "status_message": null,
+            "input": null,
+            "output": null,
+            "metadata": {
+              "model": "dry-run",
+              "purpose": "agent",
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_tokens": 0,
+              "cache_write_tokens": 0,
+              "cost_usd": 0.0,
+              "latency_ms": 0.0,
+              "stop_reason": "tool_use",
+              "prompt": "planner",
+              "prompt_version": "1.1.0",
+              "tier": "L2"
+            },
+            "children": []
+          },
+          {
+            "id": "s5",
+            "kind": "plan",
+            "name": "plan",
+            "start": 1793830101.9218175,
+            "end": 1793830101.9218175,
+            "duration_s": 0.0,
+            "cost_usd": 0.0,
+            "status": "ok",
+            "status_message": null,
+            "input": null,
+            "output": "1. Inspect `subscriptions`. 2. Aggregate SUM(\"mrr\") by `region`. 3. Chart it and report.",
+            "metadata": {},
+            "children": []
+          },
+          {
+            "id": "s7",
+            "kind": "tool_call",
+            "name": "tool:inspect_schema",
+            "start": 1793830101.9218395,
+            "end": 1793830101.9318428,
+            "duration_s": 0.010003,
+            "cost_usd": 0.0,
+            "status": "ok",
+            "status_message": null,
+            "input": {
+              "table": "subscriptions"
+            },
+            "output": "Available tables: subscriptions\n\n### Table `subscriptions` \u2014 1,500 rows\n\n| column | dtype | null_rate |\n|---|---|---|\n| subscription_id | VARCHAR | 0.00% |\n| account_name | VARCHAR | 0.00% |\n| plan | VARCHAR | 0.00% |\n| seats | BIGINT | 0.00% |\n| billing_cycle | VARCHAR | 0.00% |\n| mrr | DOUBLE | 0.",
+            "metadata": {
+              "tool": "inspect_schema",
+              "turn": 1
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "s8",
+        "kind": "turn",
+        "name": "turn 2",
+        "start": 1793830101.9318855,
+        "end": 1793830101.939953,
+        "duration_s": 0.008068,
+        "cost_usd": 0.0,
+        "status": "ok",
+        "status_message": null,
+        "input": null,
+        "output": null,
+        "metadata": {
+          "turn": 2,
+          "model": "claude-opus-5-5",
+          "tier": "L2",
+          "cost_usd": 0.0
+        },
+        "children": [
+          {
+            "id": "s9",
+            "kind": "llm_call",
+            "name": "llm:agent",
+            "start": 1793830101.9319243,
+            "end": 1793830101.9320242,
+            "duration_s": 0.0001,
+            "cost_usd": 0.0,
+            "status": "ok",
+            "status_message": null,
+            "input": null,
+            "output": null,
+            "metadata": {
+              "model": "dry-run",
+              "purpose": "agent",
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_tokens": 0,
+              "cache_write_tokens": 0,
+              "cost_usd": 0.0,
+              "latency_ms": 0.1,
+              "stop_reason": "tool_use",
+              "prompt": "planner",
+              "prompt_version": "1.1.0",
+              "tier": "L2"
+            },
+            "children": []
+          },
+          {
+            "id": "s11",
+            "kind": "tool_call",
+            "name": "tool:run_sql",
+            "start": 1793830101.9320626,
+            "end": 1793830101.9399157,
+            "duration_s": 0.007853,
+            "cost_usd": 0.0,
+            "status": "ok",
+            "status_message": null,
+            "input": {
+              "query": "SELECT \"region\" AS \"region\", SUM(\"mrr\") AS \"total_mrr\" FROM \"subscriptions\" GROUP BY 1 ORDER BY 2 DESC NULLS LAST LIMIT 10"
+            },
+            "output": "| region | total_mrr |\n| --- | --- |\n| North America | 1290124.0 |\n| EMEA | 834559.0 |\n| APAC | 387756.75 |\n| LATAM | 365800.25 |",
+            "metadata": {
+              "tool": "run_sql",
+              "turn": 2
+            },
+            "children": [
+              {
+                "id": "s12",
+                "kind": "approval",
+                "name": "approval:run_sql",
+                "start": 1793830101.938044,
+                "end": 1793830101.9381025,
+                "duration_s": 5.8e-05,
+                "cost_usd": 0.0,
+                "status": "ok",
+                "status_message": null,
+                "input": "run_sql: SELECT \"region\" AS \"region\", SUM(\"mrr\") AS \"total_mrr\" FROM \"subscriptions\" GROUP BY 1 ORDER BY 2 DESC NULLS LAST LIMIT 10 \u2014 needs approval because EXPLAIN estimates 1,500 rows (threshold 0).",
+                "output": {
+                  "approved": true,
+                  "note": null
+                },
+                "metadata": {
+                  "tool": "run_sql",
+                  "reasons": [
+                    "EXPLAIN estimates 1,500 rows (threshold 0)"
+                  ],
+                  "triggers": [
+                    "sql_rows"
+                  ],
+                  "estimated_rows": 1500,
+                  "timeout_s": 300.0,
+                  "approved": true,
+                  "decided_by": "auto",
+                  "waited_s": 0.0
+                },
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "s13",
+        "kind": "turn",
+        "name": "turn 3",
+        "start": 1793830101.939953,
+        "end": 1793830102.3816135,
+        "duration_s": 0.44166,
+        "cost_usd": 0.0,
+        "status": "ok",
+        "status_message": null,
+        "input": null,
+        "output": null,
+        "metadata": {
+          "turn": 3,
+          "model": "claude-opus-5-5",
+          "tier": "L2",
+          "cost_usd": 0.0
+        },
+        "children": [
+          {
+            "id": "s14",
+            "kind": "llm_call",
+            "name": "llm:agent",
+            "start": 1793830101.940008,
+            "end": 1793830101.9401078,
+            "duration_s": 0.0001,
+            "cost_usd": 0.0,
+            "status": "ok",
+            "status_message": null,
+            "input": null,
+            "output": null,
+            "metadata": {
+              "model": "dry-run",
+              "purpose": "agent",
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_tokens": 0,
+              "cache_write_tokens": 0,
+              "cost_usd": 0.0,
+              "latency_ms": 0.1,
+              "stop_reason": "tool_use",
+              "prompt": "planner",
+              "prompt_version": "1.1.0",
+              "tier": "L2"
+            },
+            "children": []
+          },
+          {
+            "id": "s16",
+            "kind": "tool_call",
+            "name": "tool:make_chart",
+            "start": 1793830101.940143,
+            "end": 1793830102.3815618,
+            "duration_s": 0.441419,
+            "cost_usd": 0.0,
+            "status": "ok",
+            "status_message": null,
+            "input": {
+              "spec": {
+                "chart_type": "bar",
+                "title": "total_mrr by region",
+                "x": [
+                  "North America",
+                  "EMEA",
+                  "APAC",
+                  "LATAM"
+                ],
+                "y": [
+                  1290124.0,
+                  834559.0,
+                  387756.75,
+                  365800.25
+                ]
+              }
+            },
+            "output": "Chart saved to /tmp/claude-0/-home-user-data-analyst-agent/ffc3c4e4-b312-5659-a371-c0882958c4c8/scratchpad/matrix/5/art/total-mrr-by-region-0895889a.png",
+            "metadata": {
+              "tool": "make_chart",
+              "turn": 3
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "s17",
+        "kind": "turn",
+        "name": "turn 4",
+        "start": 1793830102.3816135,
+        "end": 1793830102.382242,
+        "duration_s": 0.000628,
+        "cost_usd": 0.0,
+        "status": "ok",
+        "status_message": null,
+        "input": null,
+        "output": null,
+        "metadata": {
+          "turn": 4,
+          "model": "claude-opus-5-5",
+          "tier": "L2",
+          "cost_usd": 0.0
+        },
+        "children": [
+          {
+            "id": "s18",
+            "kind": "llm_call",
+            "name": "llm:agent",
+            "start": 1793830102.381626,
+            "end": 1793830102.3817258,
+            "duration_s": 0.0001,
+            "cost_usd": 0.0,
+            "status": "ok",
+            "status_message": null,
+            "input": null,
+            "output": null,
+            "metadata": {
+              "model": "dry-run",
+              "purpose": "agent",
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "cache_read_tokens": 0,
+              "cache_write_tokens": 0,
+              "cost_usd": 0.0,
+              "latency_ms": 0.1,
+              "stop_reason": "tool_use",
+              "prompt": "planner",
+              "prompt_version": "1.1.0",
+              "tier": "L2"
+            },
+            "children": []
+          },
+          {
+            "id": "s20",
+            "kind": "tool_call",
+            "name": "tool:final_report",
+            "start": 1793830102.3817587,
+            "end": 1793830102.3817973,
+            "duration_s": 3.9e-05,
+            "cost_usd": 0.0,
+            "status": "ok",
+            "status_message": null,
+            "input": {
+              "markdown": "# which region has the highest mrr\n\n> Dry run: scripted offline LLM, no API calls.\n\n**North America** has the highest total_mrr (1,290,124).\n\n| region | total_mrr |\n| --- | --- |\n| North America | 1290124.0 |\n| EMEA | 834559.0 |\n| APAC | 387756.75 |\n| LATAM | 365800.25 |\n\nQuery:\n\n```sql\nSELECT \"region\" AS \"region\", SUM(\"mrr\") AS \"total_mrr\" FROM \"subscriptions\" GROUP BY 1 ORDER BY 2 DESC NULLS LAST LIMIT 10\n```\n",
+              "key_numbers": {
+                "top_region": "North America",
+                "total_mrr": 1290124.0
+              }
+            },
+            "output": "Report submitted for review.",
+            "metadata": {
+              "tool": "final_report",
+              "turn": 4
+            },
+            "children": []
+          },
+          {
+            "id": "s21",
+            "kind": "critic",
+            "name": "critic",
+            "start": 1793830102.3821774,
+            "end": 1793830102.3822234,
+            "duration_s": 4.6e-05,
+            "cost_usd": 0.0,
+            "status": "ok",
+            "status_message": null,
+            "input": null,
+            "output": {
+              "verdict": "pass",
+              "issues": [],
+              "suggested_fix": ""
+            },
+            "metadata": {
+              "verdict": "pass",
+              "round": 1,
+              "cost_usd": 0.0
+            },
+            "children": [
+              {
+                "id": "s22",
+                "kind": "llm_call",
+                "name": "llm:critic",
+                "start": 1793830102.3821774,
+                "end": 1793830102.3821774,
+                "duration_s": 0.0,
+                "cost_usd": 0.0,
+                "status": "ok",
+                "status_message": null,
+                "input": null,
+                "output": null,
+                "metadata": {
+                  "model": "dry-run",
+                  "purpose": "critic",
+                  "input_tokens": 0,
+                  "output_tokens": 0,
+                  "cache_read_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "cost_usd": 0.0,
+                  "latency_ms": 0.0,
+                  "stop_reason": "end_turn",
+                  "prompt": "critic",
+                  "prompt_version": "1.1.0"
+                },
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

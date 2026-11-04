@@ -1,5 +1,194 @@
 # Integration notes
 
+## Round 4: #20, #21, #19, #18 (2026-11-04)
+
+Merged into `main` in this order, all as merge commits. After each merge I ran
+`uv sync --all-extras --no-extra embeddings`, `uv run ruff check .`,
+`uv run ruff format --check .` and `uv run pytest` (default run, `slow` deselected), plus the
+coverage gate from #20 onwards, and got everything green before the next merge. Final suite:
+**898 passed, 1 deselected (slow), 0 skipped**.
+
+| Order | PR | Branch | Result | Tests after | Coverage (overall / `sandbox/` / `core/loop.py`) |
+|---|---|---|---|---|---|
+| 1 | #20 | `test/coverage-and-properties` | clean merge | 836 | 94.06% / 99.35% / 100% |
+| 2 | #21 | `test/sandbox-fuzz` | clean textual merge; `sandbox/` fell to 97.02% | `tests/sandbox`: 228 + 1 slow (full suite next row) | not measured / 97.02% / not measured |
+| – | | follow-up: #20's tests cover #21's rules (`92b6279`) | | 884 | 94.10% / 99.38% / 100% |
+| 3 | #19 | `docs/eval-runbook` | clean merge | 898 | 93.66% / 99.38% / 100% |
+| 4 | #18 | `docs/final` | `README.md` conflict, plus doc updates to the merged code | 898 | unchanged |
+| – | | `run_experiments.sh` comment, review.md status, README anchor | | 898 | unchanged |
+
+### #21 onto #20: seccomp rules, coverage and the `slow` marker
+
+- **No textual conflict, but a coverage drop.** #21 added 60+ syscalls per architecture,
+  signal and ioctl argument checks, an `ENOSYS` range (≥ 463), and opt-in phase profiling
+  (`python_runner._PROFILE`, `confine(marks=)`) used only by `scripts/bench_sandbox.py`. #20's
+  `sandbox/` floor is 97%; after the merge `sandbox/` measured 97.02%, down from 99.35%,
+  because the profiling branches were reachable only from the benchmark script and the new
+  filter rules only from live (host-arch) tests.
+- **#20's recorded-syscall tests now cover #21's rules** (`tests/sandbox/test_oslock_unit.py`).
+  A small classic-BPF interpreter runs `build_filter()`'s output against synthetic
+  `seccomp_data` on **both** x86_64 and aarch64, so the rules are checked on the arch CI does
+  not run on:
+  - every `_DENIED` syscall → `EPERM`; `socket` for AF_UNIX/INET/INET6/NETLINK/PACKET → `EPERM`;
+  - `clone` allowed only with `CLONE_THREAD` (low 32 bits); `clone3` and nr ≥ 463 (incl.
+    `0x3FFFFFFF`) → `ENOSYS`, 462 allowed;
+  - `kill`/`tgkill`/`rt_sigqueueinfo`/`rt_tgsigqueueinfo` allowed only for the embedded pid,
+    refused for other pids, `0` and `-1`;
+  - every `_IOCTL_DENIED` request refused, also with high bits set; `TCGETS`, `FIONREAD`,
+    `FS_IOC_GETFLAGS` allowed;
+  - i386 audit arch and x32 syscalls refused; ordinary syscalls and `landlock_*` allowed;
+  - the program sizes the docs cite (115 instructions on x86_64, 103 on aarch64); no duplicate
+    syscall numbers per arch; aarch64 lacks exactly the 11 legacy syscalls;
+  - `apply_seccomp()` hands the kernel a program scoped to `os.getpid()` (checked by decoding
+    the `sock_fprog` the recorder receives).
+- **Profiling path** (`tests/sandbox/test_runner_branches.py`): off by default; with a fake
+  child, numeric child marks are merged and stale/non-numeric ones dropped; with a crashed
+  child only parent marks; with a real child, the confinement phases arrive in order.
+  `confine(marks=)` records both steps.
+- **Result:** `sandbox/` 99.38%, at or above #20's 99.35%; the gate floors are unchanged.
+- **`slow` marker vs the coverage gate.** Both exist. `pyproject.toml`'s `addopts = "-m 'not slow'"`
+  deselects the fuzzer in every default run, so CI's `pytest --cov` measures fast tests only and
+  the floors apply to that run. Coverage `source` is `analyst_agent`, so the fuzzer's test file
+  is never counted. Nothing in `src/` is reachable only from the slow test any more (the
+  profiling path was the only case). The CI step now says this in a comment; `nightly.yml`
+  runs the fuzzer without `--cov`. `make coverage` runs CI's gate locally and `make check` uses
+  it; `make fuzz` runs the slow test.
+
+### #18 onto #19, #20, #21
+
+- **`README.md` conflict.** #18 rewrote the README as a front page and removed the section
+  where #20 had added its coverage and Hypothesis paragraph. I took #18's README and updated it
+  to the merged code:
+  - the seccomp description (#18 still said "no non-`AF_UNIX` sockets") and the fuzzer's
+    findings, with a link to `sandbox.md#escape-fuzzing`;
+  - critic: `AGENT_MAX_CRITIC_ROUNDS=0` switches it off (#19);
+  - CI: 898 tests under the coverage gate, fuzzer nightly;
+  - **Results:** #18's table had four hand-written arms (baseline, routing, semantic,
+    structured) that matched neither #19's experiment plan nor its arm names. It now describes
+    #19's five experiments and points at `scripts/run_experiments.sh` (`--agent dry-run`,
+    `--print-commands`) and `docs/eval-runbook.md`; the `eval compare` example uses the real
+    arm directories (`sonnet/`, `routing-on/`);
+  - measured numbers: 898 tests; coverage per gate; 264 sandbox tests (was 183); fuzzer
+    500/500. The #20 paragraph moved to `CONTRIBUTING.md`.
+- **`docs/sandbox.md`.** #18 did not edit the file; its references to it (README,
+  `architecture.md`, `interview-notes.md`) described the pre-#21 filter. All three now describe
+  the final one. `sandbox.md` (#21's rewrite) gains the filter size (115 / 103 instructions),
+  a paragraph on the BPF unit tests, a performance table (confinement 1.4–2.2 ms per call, no
+  measurable per-syscall cost, `run_python` 1–1.6 s, audit hook ~8 µs per `open`, `run_sql`
+  1–11 ms), and "before this change" / "after this branch" became PR references.
+  The known-gaps list is #21's, unchanged.
+- **`interview-notes.md`:** four merge rounds (was three), the final seccomp list, a
+  paragraph on what the fuzzer found, and the coverage gate under the CI decision.
+- **`architecture.md`:** the seccomp lines, the fuzzer, and `AGENT_MAX_CRITIC_ROUNDS=0`.
+- **`Makefile` / `CONTRIBUTING.md`:** `coverage` and `fuzz` targets; `check` = lint + coverage
+  gate + eval (what CI runs); the sandbox checklist item now names `test_oslock_unit.py` and
+  `make fuzz`.
+- **`scripts/run_experiments.sh`:** the header example used `baseline-sonnet/`; the script
+  writes the control to `sonnet/`.
+
+### #19
+
+No conflicts. `AGENT_MAX_CRITIC_ROUNDS=0` now means "critic off" (first report accepted
+unreviewed as `completed_with_issues`, no critic call); `ask --dry-run` with it set ends
+`completed_with_issues` with 0 critic rounds. `--budget-usd` exists only on `eval run` (not on
+`ask`), which is how the README, the runbook and `docs/benchmark.md` cite it. `eval/experiments.py`
+is at 83% branch coverage; overall stays above the 92% floor.
+
+### Verification (all local, no API key)
+
+- **`analyst-agent ask --dry-run` flag matrix:** all 32 combinations of routing × semantic
+  layer × approval (auto, row threshold 0) × structured report × memory, with the trace store
+  on and JSON logs on in half. 32/32 `completed`, every answer "North America"; approval runs
+  record one approval each. Plus `AGENT_MAX_CRITIC_ROUNDS=0`: `completed_with_issues`, 0
+  critic rounds. The pytest matrix (`tests/test_cli.py`) has 64 cases.
+- **`eval run --agent dry-run --limit 5`** with all nine `AGENT_*_ENABLED` flags on (routing,
+  semantic, structured, memory, approval, Langfuse, samples, trace store, JSON logs),
+  `--fail-on-error`: 5/5 ok. Every task trace has `route`, `semantic_retrieval`, `plan`,
+  `approval` and `critic`; 5 insights saved; 5 span trees written; Langfuse without keys only
+  warns.
+- **CI jobs, run as in the workflows:**
+  - `ci.yml` test: `uv lock --check`, `uv sync --locked --all-extras --no-extra embeddings`,
+    lint, format, `pytest --cov` (898 passed), coverage gate: overall 94% (≥ 92), `sandbox/`
+    99% (≥ 97), `core/loop.py` 100% (≥ 98).
+  - `ci.yml` eval-smoke: oracle `--limit 5` at 100%, dry run (3), dry run with every flag (5).
+  - `ui-e2e.yml`: `scripts/ui-e2e/run.sh`, 24/24 checks (approve and deny).
+  - `nightly.yml`: kernel probe (kernel 6.18, Landlock ABI 7); fuzzer, fixed seed; fuzzer,
+    new seed 20261105: 500/500, no problems.
+- **Fuzzer, default seed (20261104), `-m slow`:** passed in 128 s on 4 cores. **500/500**
+  blocked or killed, 0 oracle problems, 0 network hits; 253 full-mode and 247 kernel-only
+  cases, 185 distinct attacks, longest case 8.0 s.
+- **`scripts/run_experiments.sh --agent dry-run --yes`:** end to end in 2 m 48 s. All 8 arms
+  (haiku, sonnet, critic-off, semantic-bm25/-embedding/-hybrid, routing-on, structured-on) ran
+  80/80 tasks with status `ok`; manifest and `summary.md` written, Sonnet as the control of
+  experiments 2–5. The embedding and hybrid arms show "80 retrieval errors" because the
+  `embeddings` extra is not installed with the sync command above; the runbook's
+  troubleshooting table covers this.
+- **Oracle, all 80 tasks:** 100% on the 64 gradable ones (L3 skipped without a judge).
+  **BM25 retrieval:** top-1 0.848, top-3 0.909, MRR 0.896 on the 33 benchmark cases, as the
+  README states.
+- **Docs:** every project CLI flag cited in README, CONTRIBUTING, Makefile and `docs/*.md`
+  exists in the final CLI (`ask`, `trace`, `eval run|report|compare|tags`, `semantic eval`,
+  `run_experiments.sh`, `bench_sandbox.py`, `analyst-agent-mcp`); every cited `AGENT_*`
+  variable is a `Settings` field except the documented UI-only `AGENT_API_*`; relative links
+  and anchors resolve.
+
+### Audit of docs/review.md (round 4)
+
+Every High and Medium fix is still in place. The 24 regression tests the review names pass
+(36 cases with parameters). One reference was ambiguous: M7's
+`::test_rlimits_applied_without_preexec_fn` read as if it were in `tests/test_approval.py`
+(the file named just before it); it is in `tests/sandbox/test_python_security.py`, and the
+review now says so.
+
+| ID | Still fixed | Checked |
+|---|---|---|
+| H1 | yes, widened by #21 | Live through the stdio MCP server: `fork_exec` → `EPERM`, no marker file. The filter now denies every socket and more (115 instructions); each rule unit-checked on both arches. review.md notes the change. |
+| H2 | yes | Live through MCP: `pyarrow.input_stream('/etc/hostname')` → `PermissionError` (Landlock). |
+| M7 | yes | No `preexec_fn=` in `src/`; seccomp still denies `setrlimit`/`prlimit64`. |
+| M1 | yes | `tools/registry.py` `_DELIMITER_RE` and `core/prompts.py` (`<prior_insights>`), both `IGNORECASE`. |
+| M2 | yes | `frontend/render.report_parts`; UI e2e green. |
+| M3 | yes | `api/app.py` `UploadSizeLimit`. |
+| M4 | yes | `tools/make_chart.py`: `FigureCanvasAgg`, `MAX_BINS = 200`, `MAX_POINTS = 10_000`. |
+| M5 | yes | Both M5 tests pass (Markdown and structured reports). |
+| M6 | yes | `core/approval.py` gates `EXPLAIN ANALYZE` on the inner query. |
+| M8 | yes | `api/jobs.py` `_run_with_context` → guarded `_run`. |
+
+Also live through MCP: #21's full-mode gap (renicing the parent with `os.setpriority`) →
+`EPERM`. I did not repeat round 3's probe inside an eval forkserver child; it uses the same
+`create_sandbox` → `run_python` path as MCP. L20 now cites the measured cost of reloading
+data (60–200 ms of a 1–1.6 s call). The other Low items are unaffected by this round.
+
+### Audit of docs/interview-notes.md
+
+Checked every concrete claim against the merged code. Correct as written: one `loop.py` and
+one `AgentState`; `FakeLLM` queues per role; critic at most two rounds by default and fails
+open to `completed_with_issues`; `core/report.py:check_consistency`; 200-row results;
+`eval/isolation.py:run_in_subprocess` / `_apply_env` with `get_settings.cache_clear()`;
+router `claude-haiku-5-5` at `low` effort; `JobApprover`, `ApprovalBroker`, `AutoApprover`,
+`ApprovalPolicy`; nine `AGENT_*_ENABLED` flags (matches `.env.example`); 12-character prompt
+fingerprints; `TraceRecorder`; 22 metrics, top-k 4; SSE resume via `Last-Event-ID`;
+`mark_interrupted`; `test_human_denials_do_not_escalate`; the 64-case flag matrix; five branches
+merged after #17 in round 3; `report_parts`' rule. Fixed: the seccomp description, "three"
+merge rounds (now four, 21 branches), and the fuzzer and coverage gate were missing from the
+sandbox and CI decisions.
+
+### Still open
+
+- **Embedding and hybrid retrieval were not measured,** here or in the experiments dry run (no
+  `embeddings` extra, no model download). A real run of experiment 3 needs
+  `uv sync --extra embeddings` first, as the runbook says.
+- **The Results table is still empty;** filling it needs `ANTHROPIC_API_KEY` and
+  `scripts/run_experiments.sh` (the runbook estimates $142.58 for all 8 arms, capped at
+  $213.87 with the default `--cap-factor 1.5`).
+- **The kernel-only fuzz cases ran as root** (this container). The production image runs as
+  `app`; the capability-gated rows are then refused anyway, so the root run is the stricter test.
+- **`eval/experiments.py` is at 83% branch coverage,** mostly report-formatting edge cases.
+  Not gated per file.
+- **The Docker image is still not built here** (no daemon, `ghcr.io` blocked); `scripts/demo.sh`
+  and `make demo` were not run.
+- **PRs:** #20, #21, #19 and #18 are merge commits on `main`, so GitHub marks them merged once
+  `main` is pushed.
+
 ## Round 3: #17, #15, #16, #13, #12, #14 (2026-11-04)
 
 Merged into `main` in this order. #15 was squash-merged because its middle commit fails tests
