@@ -87,6 +87,7 @@ def build_critic_input(
     key_numbers: dict[str, Any],
     tool_records: list[dict[str, Any]],
     max_chars_per_result: int = 4000,
+    consistency_notes: str = "",
 ) -> str:
     parts = [
         f"## Question\n{question}",
@@ -111,6 +112,8 @@ def build_critic_input(
                 rec["name"], rec["output"], is_error=rec["is_error"], max_chars=max_chars_per_result
             )
         )
+    if consistency_notes:
+        parts.append(f"## Automated consistency check\n{consistency_notes}")
     parts.append(
         'Respond with JSON: {"verdict": "pass"|"revise", "issues": [...], "suggested_fix": "..."}'
     )
@@ -129,8 +132,15 @@ class Critic:
         key_numbers: dict[str, Any],
         tool_records: list[dict[str, Any]],
         cost: CostTracker | None = None,
+        consistency_notes: str = "",
     ) -> CriticVerdict:
-        content = build_critic_input(question, draft_markdown, key_numbers, tool_records)
+        content = build_critic_input(
+            question,
+            draft_markdown,
+            key_numbers,
+            tool_records,
+            consistency_notes=consistency_notes,
+        )
         resp = self.llm.create(
             system=CRITIC_SYSTEM,
             messages=[{"role": "user", "content": content}],
