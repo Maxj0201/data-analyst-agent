@@ -44,6 +44,7 @@ class RunConfig:
     score: bool = True
     judge_model: str | None = None
     routing_enabled: bool | None = None  # None = whatever AGENT_ROUTING_ENABLED says
+    semantic_layer_enabled: bool | None = None  # None = AGENT_SEMANTIC_LAYER_ENABLED
     # Approve every human-in-the-loop gate (AGENT_APPROVAL_ENABLED); False = no approver, so
     # gated steps are denied. Applies to the core/dry-run agents (see eval.agent.load_agent).
     auto_approve: bool = True

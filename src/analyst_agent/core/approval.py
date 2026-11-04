@@ -44,6 +44,11 @@ UNGATED_TOOLS = frozenset({"final_report"})
 
 _ids = itertools.count(1)
 
+# Leading whitespace and SQL comments (parentheses are kept: they belong to the query).
+_LEADING_COMMENTS = re.compile(r"\A(?:\s+|--[^\n]*(?:\n|\Z)|/\*.*?\*/)*", re.DOTALL)
+# Leading ``EXPLAIN`` / ``EXPLAIN ANALYZE`` (after comments and whitespace are stripped).
+_EXPLAIN_RE = re.compile(r"EXPLAIN\b\s*(ANALY[SZ]E\b)?\s*", re.IGNORECASE)
+
 # DuckDB >= 1.1 prints "~1,234 rows" per operator; older versions print "EC: 1234".
 _EST_RE = re.compile(r"~\s*([\d,]+)\s+rows?\b|\bEC:\s*([\d,]+)", re.IGNORECASE)
 
@@ -197,8 +202,13 @@ class ApprovalPolicy:
 
         A query DuckDB cannot plan will fail identically when executed, so it is not gated.
         """
-        q = query.strip().rstrip(";").strip()
-        if not q or q.split(None, 1)[0].upper() == "EXPLAIN":
+        q = _LEADING_COMMENTS.sub("", query, count=1).strip().rstrip(";").strip()
+        m = _EXPLAIN_RE.match(q)
+        if m:
+            if not m.group(1):
+                return None  # plain EXPLAIN only plans; nothing is executed
+            q = q[m.end() :]  # EXPLAIN ANALYZE runs the query: gate on the inner query
+        if not q:
             return None
         res = ctx.run_sql(f"EXPLAIN {q}")
         if not res.ok:

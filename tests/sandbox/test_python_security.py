@@ -291,3 +291,91 @@ def test_parent_never_raises_on_garbage():
     for code in ("def (:", "raise SystemExit(3)", "import sys\nsys.exit(0)", "\x00"):
         res = run_python(code, timeout_s=30)
         assert res.error is None or kind_of(res.error)
+
+
+# --- native-code escapes (review findings H1/H2): only the kernel layer stops these ----------
+
+_FORK_EXEC = """
+o = pd.io.common.os
+m = o.sys.modules['_posixsubprocess']
+r, w = o.pipe()
+er, ew = o.pipe()
+args = [[b'/bin/sh', b'-c', b'touch {marker}'], [b'/bin/sh'], True, (), None, None,
+        -1, -1, -1, w, -1, w, er, ew, False, False, -1, None, None, None, -1, None]
+try:
+    m.fork_exec(*args, False)  # 3.11.x with process_group (23 args)
+except TypeError:
+    m.fork_exec(*args)
+print('spawned')
+"""
+
+
+def test_fork_exec_via_module_attribute_is_blocked(tmp_path):
+    """``_posixsubprocess.fork_exec`` is reachable without an import and raises no audit event;
+    before the seccomp filter it spawned a shell with network and full file access."""
+    marker = tmp_path / "pwned"
+    res = run_python(_FORK_EXEC.format(marker=marker), timeout_s=30)
+    _blocked(res)
+    assert "Operation not permitted" in (res.error or "") or "PermissionDenied" in res.error
+    assert not marker.exists()
+
+
+def test_native_file_read_outside_roots_is_blocked(tmp_path):
+    """pyarrow's C++ I/O bypasses the audit hook's ``open`` event; Landlock stops it."""
+    secret = tmp_path / "secret.txt"
+    secret.write_text("TOPSECRET")
+    code = (
+        "pa = pd.io.common.os.sys.modules['pyarrow']\n"
+        f"print(pa.input_stream({str(secret)!r}).read())"
+    )
+    res = run_python(code, timeout_s=30)
+    _blocked(res)
+    assert "TOPSECRET" not in res.stdout
+
+
+def test_native_file_write_outside_work_dir_is_blocked(tmp_path):
+    target = tmp_path / "escaped.parquet"
+    res = run_python(f"pd.DataFrame({{'a': [1]}}).to_parquet({str(target)!r})", timeout_s=30)
+    _blocked(res)
+    assert not target.exists()
+
+
+def test_native_io_inside_work_dir_still_works():
+    res = run_python(
+        "pd.DataFrame({'a': [1, 2]}).to_parquet('t.parquet')\n"
+        "print(pd.read_parquet('t.parquet')['a'].sum())\n"
+        "from scipy import stats\nprint(round(stats.norm.cdf(0), 2))",
+        timeout_s=60,
+    )
+    assert res.ok, res.error
+    assert res.stdout.split() == ["3", "0.5"]
+
+
+def test_rlimits_applied_without_preexec_fn(monkeypatch):
+    """Limits are set by the child itself: ``preexec_fn`` is unsafe in a threaded server."""
+    import subprocess
+
+    from analyst_agent.sandbox import python_runner
+
+    seen: dict = {}
+    real_popen = subprocess.Popen
+
+    def spy(*args, **kwargs):
+        seen.update(kwargs)
+        return real_popen(*args, **kwargs)
+
+    monkeypatch.setattr(python_runner.subprocess, "Popen", spy)
+    res = run_python("print(open('/proc/self/limits').read())", timeout_s=30, memory_limit_mb=512)
+    assert res.ok, res.error
+    assert seen.get("preexec_fn") is None
+    lines = {ln.split("  ")[0]: ln for ln in res.stdout.splitlines()}
+    assert str(512 * 1024 * 1024) in lines["Max address space"]
+    assert "0" in lines["Max core file size"].split()
+
+
+def test_seccomp_filter_program_is_well_formed():
+    from analyst_agent.sandbox._child import _oslock
+
+    for machine in ("x86_64", "aarch64"):
+        prog = _oslock.build_filter(machine)
+        assert len(prog) % 8 == 0 and 0 < len(prog) // 8 < 64

@@ -27,6 +27,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project --extra api
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
+# Built into the wheel as analyst_agent/semantic/metrics (pyproject force-include).
+COPY benchmarks/metrics ./benchmarks/metrics
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable --extra api
 

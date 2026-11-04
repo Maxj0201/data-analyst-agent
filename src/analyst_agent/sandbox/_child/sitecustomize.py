@@ -186,6 +186,18 @@ def _install() -> None:
             if top not in allowed_imports and _is_user_import():
                 _deny(f"import of {args[0]!r} (allowed: {', '.join(sorted(allowed_imports))})")
 
+    # OS resource limits, applied here (before the hook denies ``resource.setrlimit``) rather
+    # than in a ``preexec_fn``: the parent may be a multi-threaded server, where running Python
+    # between fork and exec can deadlock. Hard == soft, and seccomp later blocks raising them.
+    import resource
+
+    for name, value in (cfg.get("rlimits") or {}).items():
+        res = getattr(resource, name)
+        _, hard = resource.getrlimit(res)
+        if hard != resource.RLIM_INFINITY:
+            value = min(int(value), hard)
+        resource.setrlimit(res, (int(value), int(value)))
+
     sys.addaudithook(hook)
 
     # Import-time network block (belt and braces with the audit hook above).

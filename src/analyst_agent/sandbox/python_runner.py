@@ -4,8 +4,10 @@ Layers (see docs/sandbox.md for the threat model):
 
 * **Process isolation** - a fresh ``python`` subprocess per call, in its own session /
   process group, killed as a group on timeout.
-* **OS limits** (``resource.setrlimit`` in the child before ``exec``): address space
-  (memory), CPU seconds, max file size, open files, no core dumps.
+* **OS limits** (``resource.setrlimit``, applied by the child's ``sitecustomize`` before any
+  other code; no ``preexec_fn``): address space, CPU seconds, file size, open files, no cores.
+* **Kernel confinement** (``_child/_oslock.py``): Landlock limits file access to the read
+  roots and the temp dir; seccomp blocks exec, fork, non-AF_UNIX sockets and rlimit changes.
 * **Scrubbed environment** - only a handful of variables; no API keys, proxies or HOME.
 * **Temp cwd** - a fresh ``TemporaryDirectory`` that is deleted afterwards.
 * **In-interpreter guard** (``_child/sitecustomize.py``) - blocks sockets at import time and
@@ -17,7 +19,6 @@ from __future__ import annotations
 
 import json
 import os
-import resource
 import signal
 import site
 import subprocess
@@ -149,13 +150,14 @@ def _mpl_cache_dir() -> str | None:
     return str(path)
 
 
-def _child_env(work_dir: str) -> dict[str, str]:
+def _child_env(work_dir: str, rlimits: dict[str, int] | None = None) -> dict[str, str]:
     mpl_dir = _mpl_cache_dir()
     read_roots = _read_roots(work_dir) + ([mpl_dir] if mpl_dir else [])
     cfg = {
         "work_dir": work_dir,
         "read_roots": read_roots,
         "allowed_imports": list(ALLOWED_IMPORTS),
+        "rlimits": rlimits or {},
     }
     return {
         "PATH": "/usr/bin:/bin",
@@ -176,20 +178,15 @@ def _child_env(work_dir: str) -> dict[str, str]:
     }
 
 
-def _make_preexec(memory_mb: int, cpu_s: int):
-    def _apply() -> None:  # runs in the child between fork and exec
-        mem = memory_mb * 1024 * 1024
-        limits = [
-            (resource.RLIMIT_AS, mem),
-            (resource.RLIMIT_CPU, cpu_s),
-            (resource.RLIMIT_FSIZE, MAX_FILE_BYTES),
-            (resource.RLIMIT_NOFILE, 256),
-            (resource.RLIMIT_CORE, 0),
-        ]
-        for res, value in limits:
-            resource.setrlimit(res, (value, value))
-
-    return _apply
+def _rlimits(memory_mb: int, cpu_s: int) -> dict[str, int]:
+    """Resource limits the child applies to itself at start-up (see ``sitecustomize``)."""
+    return {
+        "RLIMIT_AS": memory_mb * 1024 * 1024,
+        "RLIMIT_CPU": cpu_s,
+        "RLIMIT_FSIZE": MAX_FILE_BYTES,
+        "RLIMIT_NOFILE": 256,
+        "RLIMIT_CORE": 0,
+    }
 
 
 def _read_capped(path: Path) -> str:
@@ -296,13 +293,12 @@ def run_python(
             proc = subprocess.Popen(
                 [sys.executable, "-s", "-B", str(CHILD_DIR / "bootstrap.py"), str(work_dir)],
                 cwd=work_dir,
-                env=_child_env(str(work_dir)),
+                env=_child_env(str(work_dir), _rlimits(memory_limit_mb, int(timeout_s) + 5)),
                 stdin=subprocess.DEVNULL,
                 stdout=out,
                 stderr=err,
                 start_new_session=True,
                 close_fds=True,
-                preexec_fn=_make_preexec(memory_limit_mb, int(timeout_s) + 5),
             )
             try:
                 exit_code = proc.wait(timeout=timeout_s)

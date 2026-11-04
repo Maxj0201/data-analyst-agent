@@ -12,20 +12,19 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import threading
 import time
 from collections.abc import Generator, Iterator
 
 import httpx
 import streamlit as st
+from render import code_span, describe, report_markdown, safe_md
 
 API_URL = os.environ.get("AGENT_API_URL", "http://localhost:8000").rstrip("/")
 USE_ID_TOKEN = os.environ.get("AGENT_API_ID_TOKEN", "").lower() in {"1", "true", "yes"}
 METADATA_TOKEN_URL = (
     "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity"
 )
-IMAGE_MD = re.compile(r"!\[[^\]]*\]\([^)]*\)")
 
 st.set_page_config(page_title="Data Analyst Agent", page_icon="📊", layout="centered")
 
@@ -81,46 +80,6 @@ def stream_events(job_id: str, after: int = 0) -> Iterator[tuple[str, dict]]:
                 name, data = None, []
 
 
-def describe(event: str, d: dict) -> str | None:
-    """One human-readable line per agent step (``None`` = don't show)."""
-    if event == "plan":
-        return f"🧭 **Plan** — {d.get('plan', '')}"
-    if event == "tool_call":
-        args = d.get("input") or {}
-        detail = args.get("query") or args.get("code") or json.dumps(args)[:200]
-        return f"🔧 **{d.get('name')}**\n```\n{str(detail)[:600]}\n```"
-    if event == "tool_result":
-        icon = "✅" if d.get("ok", True) else "⚠️"
-        return f"{icon} {d.get('name')} → {d.get('summary', '')}"
-    if event == "critic":
-        verdict = d.get("verdict", "?")
-        issues = "; ".join(map(str, d.get("issues") or []))
-        return f"🧐 **Critic: {verdict}**" + (f" — {issues}" if issues else "")
-    if event == "stop":
-        return f"⏹️ **Stopped ({d.get('status')})** — {d.get('detail', '')}"
-    if event == "error":
-        return f"❌ {d.get('message')}"
-    if event == "route":
-        fallback = " (router fallback)" if d.get("source") == "fallback" else ""
-        return f"🧭 **Routed to {d.get('tier')}** → `{d.get('model')}`{fallback}"
-    if event == "escalation":
-        return (
-            f"⬆️ **Escalated {d.get('from_tier')} → {d.get('to_tier')}** "
-            f"(`{d.get('to_model')}`, {d.get('trigger')})"
-        )
-    if event == "semantic_retrieval":
-        names = ", ".join(f"`{m}`" for m in d.get("metrics") or []) or "none"
-        return f"📚 **Metric definitions** — {names}"
-    if event == "approval_required":
-        return f"✋ **Approval required** — {d.get('summary', '')}"
-    if event == "approval_decision":
-        icon = "👍" if d.get("approved") else "🚫"
-        note = f" — {d['note']}" if d.get("note") else ""
-        verdict = "approved" if d.get("approved") else "denied"
-        return f"{icon} {d.get('tool')} {verdict} ({d.get('decided_by')}){note}"
-    return None
-
-
 def render_cost(job: dict) -> None:
     cost = job.get("cost") or {}
     c1, c2, c3, c4 = st.columns(4)
@@ -135,7 +94,7 @@ def render_result(job_id: str) -> None:
     job = api().get(f"/jobs/{job_id}").json()
     status = job["status"]
     if status == "failed":
-        st.error(f"Job failed: {job.get('error')}")
+        st.error(f"Job failed: {safe_md(job.get('error'))}")
     elif status == "partial":
         st.warning("The agent stopped early (budget or turn limit); the report may be incomplete.")
 
@@ -145,7 +104,7 @@ def render_result(job_id: str) -> None:
     if resp.status_code == 200:
         st.divider()
         # Charts are fetched server-side below: the browser may not be able to reach the API.
-        st.markdown(IMAGE_MD.sub("", resp.text))
+        st.markdown(report_markdown(resp.text))
 
     artifacts = (job.get("result") or {}).get("artifacts") or []
     if artifacts:
@@ -195,9 +154,9 @@ def follow_job(job_id: str) -> None:
 def render_approval_panel(job_id: str, action: dict) -> None:
     """Approve / deny a gated step (``POST /jobs/{id}/approve``)."""
     with st.container(border=True):
-        st.markdown(f"### ✋ Approve `{action.get('tool')}`?")
+        st.markdown(f"### ✋ Approve {code_span(action.get('tool'))}?")
         for reason in action.get("reasons") or []:
-            st.markdown(f"- {reason}")
+            st.markdown(f"- {safe_md(reason)}")
         src = (action.get("input") or {}).get("query") or (action.get("input") or {}).get("code")
         if src:
             st.code(src, language="sql" if action.get("tool") == "run_sql" else "python")
@@ -217,9 +176,9 @@ def render_approval_panel(job_id: str, action: dict) -> None:
         json={"approve": decision, "note": note or None, "action_id": action.get("id")},
     )
     if resp.status_code == 409:
-        st.warning(resp.json().get("detail", "This approval is no longer pending."))
+        st.warning(safe_md(resp.json().get("detail", "This approval is no longer pending.")))
     elif resp.status_code != 200:
-        st.error(resp.json().get("detail", resp.text))
+        st.error(safe_md(resp.json().get("detail", resp.text)))
         return
     st.session_state.pending = None
     st.rerun()
@@ -241,13 +200,13 @@ if uploaded is not None and st.session_state.get("upload_id") != uploaded.file_i
         info = resp.json()
         st.session_state.update(dataset=info, upload_id=uploaded.file_id, job_id=None, steps=[])
     else:
-        st.error(resp.json().get("detail", resp.text))
+        st.error(safe_md(resp.json().get("detail", resp.text)))
 
 dataset = st.session_state.get("dataset")
 if dataset:
     st.success(
-        f"**{dataset['filename']}** · {len(dataset['columns'])} columns: "
-        + ", ".join(f"`{c}`" for c in dataset["columns"][:12])
+        f"**{safe_md(dataset['filename'])}** · {len(dataset['columns'])} columns: "
+        + ", ".join(code_span(c) for c in dataset["columns"][:12])
         + (" …" if len(dataset["columns"]) > 12 else "")
     )
 
@@ -260,7 +219,7 @@ if dataset:
             "/ask", json={"dataset_id": dataset["dataset_id"], "question": question.strip()}
         )
         if resp.status_code != 202:
-            st.error(resp.json().get("detail", resp.text))
+            st.error(safe_md(resp.json().get("detail", resp.text)))
         else:
             st.session_state.update(
                 job_id=resp.json()["job_id"],

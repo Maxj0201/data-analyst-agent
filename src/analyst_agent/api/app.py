@@ -29,7 +29,8 @@ from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from analyst_agent.core.approval import ApprovalBroker
 from analyst_agent.core.config import Settings
@@ -59,6 +60,9 @@ ARTIFACT_MEDIA_TYPES = {
     ".jpeg": "image/jpeg",
     ".svg": "image/svg+xml",
 }
+
+# Multipart framing (boundaries, part headers) on top of the file itself.
+UPLOAD_OVERHEAD_BYTES = 64 * 1024
 
 SSE_POLL_INTERVAL_S = 0.2
 SSE_HEARTBEAT_S = 15.0
@@ -102,6 +106,11 @@ def create_app(
     app.state.settings = settings
     app.state.jobs = manager
     app.state.datasets = datasets
+
+    app.add_middleware(
+        UploadSizeLimit,
+        max_bytes=settings.max_upload_mb * 1024 * 1024 + UPLOAD_OVERHEAD_BYTES,
+    )
 
     if settings.cors_origins:
         app.add_middleware(
@@ -207,6 +216,55 @@ def create_app(
         return FileResponse(target, media_type=media_type)
 
     return app
+
+
+class UploadSizeLimit:
+    """Reject oversized ``POST /datasets`` bodies while they stream in.
+
+    Starlette parses (and spools to disk) the whole multipart body before the endpoint runs,
+    so a size check in the endpoint comes too late to protect memory and disk. This stops at
+    ``Content-Length`` when it is declared, and otherwise as soon as the streamed bytes pass
+    the limit.
+    """
+
+    def __init__(self, app: ASGIApp, max_bytes: int, paths: tuple[str, ...] = ("/datasets",)):
+        self.app = app
+        self.max_bytes = max_bytes
+        self.paths = paths
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if (
+            scope["type"] != "http"
+            or scope.get("method") != "POST"
+            or scope.get("path") not in self.paths
+        ):
+            await self.app(scope, receive, send)
+            return
+        declared = dict(scope.get("headers") or []).get(b"content-length")
+        if declared is not None and declared.isdigit() and int(declared) > self.max_bytes:
+            await self._reject(scope, receive, send)
+            return
+
+        received = 0
+
+        async def limited_receive() -> Message:
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    raise HTTPException(status_code=413, detail=self._detail())
+            return message
+
+        await self.app(scope, limited_receive, send)
+
+    def _detail(self) -> str:
+        mb = (self.max_bytes - UPLOAD_OVERHEAD_BYTES) // (1024 * 1024)
+        return f"File exceeds the {mb} MB limit."
+
+    async def _reject(self, scope: Scope, receive: Receive, send: Send) -> None:
+        response = JSONResponse({"detail": self._detail()}, status_code=413)
+        await response(scope, receive, send)
 
 
 def format_sse(event: JobEvent) -> str:

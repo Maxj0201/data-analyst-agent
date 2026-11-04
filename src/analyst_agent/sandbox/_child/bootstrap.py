@@ -101,6 +101,28 @@ def main() -> int:
         USER_CODE_FILENAME,
     )
 
+    # ---- kernel confinement: Landlock + seccomp (see _oslock.py) ------------------------
+    # The audit hook alone is bypassable from native code (``_posixsubprocess.fork_exec``,
+    # pyarrow's own file I/O), so the kernel enforces the same boundary before user code.
+    cfg = json.loads(os.environ["ANALYST_SANDBOX_CONFIG"])
+    try:
+        import _oslock
+
+        for warning in _oslock.confine(cfg["read_roots"], [work_dir]):
+            sys.stderr.write(f"[sandbox] {warning}\n")
+    except Exception as exc:  # noqa: BLE001 - fail closed
+        _write_result(
+            result_path,
+            {
+                "ok": False,
+                "error": {
+                    "type": "SandboxSetupError",
+                    "message": f"kernel confinement failed; refusing to run: {exc}",
+                },
+            },
+        )
+        return 3
+
     # ---- user phase: the audit hook becomes strict and cannot be relaxed -----------------
     sys.audit("sandbox.lock")
 

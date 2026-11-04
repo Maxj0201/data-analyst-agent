@@ -351,3 +351,92 @@ async def test_finished_jobs_survive_restart_via_sqlite(settings, fake_agent):
 async def test_healthz(client):
     body = (await client.get("/healthz")).json()
     assert body == {"status": "ok", "job_store": "memory+sqlite", "langfuse": False}
+
+
+async def test_tracer_failure_at_job_start_still_ends_the_job(settings, fake_agent):
+    """Review M8: an exception before the worker's try block left the job running forever
+    (and every SSE client polling it forever)."""
+
+    class BrokenTracerFactory:
+        def __call__(self, **_):
+            raise RuntimeError("tracing backend down")
+
+        def shutdown(self):
+            pass
+
+    app = create_app(settings, runner=fake_agent, tracer_factory=BrokenTracerFactory())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        dataset_id = await upload(c)
+        job_id = (await c.post("/ask", json={"dataset_id": dataset_id, "question": "q"})).json()[
+            "job_id"
+        ]
+        job = await wait_for_job(c, job_id)
+    app.state.jobs.shutdown()
+    assert job["status"] == "failed"
+    assert "tracing backend down" in job["error"]
+    assert job["trace"][-1]["type"] == "final"
+
+
+async def test_sqlite_failure_mid_job_does_not_strand_it(settings, fake_agent):
+    import sqlite3
+
+    app = create_app(settings, runner=fake_agent)
+    db = app.state.jobs.store._db
+
+    def broken(*_a, **_k):
+        raise sqlite3.OperationalError("database or disk is full")
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        dataset_id = await upload(c)
+        db.save_event = broken
+        db.save_job = broken
+        job_id = (await c.post("/ask", json={"dataset_id": dataset_id, "question": "q"})).json()[
+            "job_id"
+        ]
+        job = await wait_for_job(c, job_id)
+    app.state.jobs.shutdown()
+    assert job["status"] == "succeeded"
+
+
+async def test_upload_limit_rejects_declared_oversize_before_reading(client, settings):
+    """Review M3: the size check ran only after Starlette had spooled the whole body."""
+    big = b"a,b\n" + b"1,2\n" * (600 * 1024)  # ~2.4 MB, limit is 1 MB
+    resp = await client.post("/datasets", files={"file": ("big.csv", big, "text/csv")})
+    assert resp.status_code == 413
+    assert "1 MB" in resp.json()["detail"]
+    assert list(settings.uploads_dir.iterdir()) == []
+
+
+async def test_upload_limit_stops_reading_a_streamed_body(client, settings):
+    boundary = "xBOUNDARYx"
+    head = (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="big.csv"\r\n'
+        "Content-Type: text/csv\r\n\r\na,b\n"
+    ).encode()
+    chunk = b"1,2\n" * 16 * 1024  # 64 KiB
+    sent = 0
+
+    async def body():
+        nonlocal sent
+        yield head
+        for _ in range(160):  # 10 MiB if fully consumed
+            sent += len(chunk)
+            yield chunk
+        yield f"\r\n--{boundary}--\r\n".encode()
+
+    resp = await client.post(
+        "/datasets",
+        content=body(),
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+    assert resp.status_code == 413
+    assert sent < 2 * 1024 * 1024, f"read {sent} bytes before rejecting"
+    assert list(settings.uploads_dir.iterdir()) == []
+
+
+async def test_small_uploads_still_accepted(client):
+    assert (await upload(client)).startswith("ds_")

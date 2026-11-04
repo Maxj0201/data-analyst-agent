@@ -73,16 +73,21 @@ class JobManager:
     # ---- worker ------------------------------------------------------------------------
 
     def _run(self, job_id: str, dataset_path: Path) -> None:
-        job = self.store.update(
-            job_id,
-            status=JobStatus.running,
-            started_at=time.time(),
-            progress=Progress(phase="starting"),
-        )
-        self.store.append_event(job_id, EventType.status, {"status": JobStatus.running})
-        tracer = self.tracer_factory(
-            job_id=job_id, dataset_id=job.dataset_id, question=job.question
-        )
+        try:
+            job = self.store.update(
+                job_id,
+                status=JobStatus.running,
+                started_at=time.time(),
+                progress=Progress(phase="starting"),
+            )
+            self.store.append_event(job_id, EventType.status, {"status": JobStatus.running})
+            tracer = self.tracer_factory(
+                job_id=job_id, dataset_id=job.dataset_id, question=job.question
+            )
+        except Exception as exc:  # noqa: BLE001 - a job must always reach a terminal state
+            logger.exception("Job %s could not start", job_id)
+            self._fail(job_id, f"Could not start job: {type(exc).__name__}: {exc}")
+            return
 
         def emit(type: str, data: dict[str, Any] | None = None) -> None:
             data = dict(data or {})

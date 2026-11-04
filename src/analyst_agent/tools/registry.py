@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from analyst_agent.tools.base import Tool, ToolContext, ToolResult
@@ -54,11 +55,14 @@ def build_default_registry() -> ToolRegistry:
     return ToolRegistry(ALL_TOOLS)
 
 
+# ``<tool_output``, ``</TOOL_OUTPUT``, ``< / tool_output`` ...: models read tags loosely, so any
+# case or spacing variant counts as the delimiter.
+_DELIMITER_RE = re.compile(r"<(\s*/?\s*tool_output)", re.IGNORECASE)
+
+
 def _neutralise(text: str) -> str:
     # Data cannot close (or forge) the delimiter it is wrapped in.
-    return text.replace("</tool_output", "&lt;/tool_output").replace(
-        "<tool_output", "&lt;tool_output"
-    )
+    return _DELIMITER_RE.sub(r"&lt;\1", text)
 
 
 def wrap_untrusted(

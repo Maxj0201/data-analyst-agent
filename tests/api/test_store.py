@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+
 from analyst_agent.api.models import Job, JobStatus
 from analyst_agent.api.store import JobStore
 
@@ -54,3 +56,31 @@ def test_restart_marks_unfinished_jobs_failed(tmp_path):
     assert interrupted.status == JobStatus.failed
     assert "restart" in interrupted.error
     assert second.get("job_2").status == JobStatus.succeeded
+
+
+class _BrokenDb:
+    """SQLite mirror that fails every write (disk full, database locked, closed...)."""
+
+    def save_job(self, job):
+        raise sqlite3.OperationalError("disk I/O error")
+
+    def save_event(self, job_id, event):
+        raise sqlite3.OperationalError("disk I/O error")
+
+    def load(self, job_id):
+        return None
+
+    def close(self):
+        pass
+
+
+def test_sqlite_write_failure_does_not_break_the_in_memory_job():
+    """Review M8: a failing mirror raised into the agent thread and left the job running."""
+    store = JobStore(db_path=None)
+    store._db = _BrokenDb()  # type: ignore[assignment]
+    store.create(_job(1, JobStatus.queued))
+    store.append_event("job_1", "plan", {"plan": "x"})
+    job = store.update("job_1", status=JobStatus.failed, error="boom")
+    assert job.status is JobStatus.failed
+    assert store.get("job_1").status is JobStatus.failed
+    assert [e.type for e in store.events("job_1")] == ["plan"]

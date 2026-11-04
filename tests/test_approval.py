@@ -155,6 +155,31 @@ def test_sql_that_is_already_explain_is_not_gated():
     assert sb.queries == []
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        f"EXPLAIN ANALYZE {SQL}",
+        f"explain analyse {SQL}",
+        f"-- just a plan\nEXPLAIN ANALYZE {SQL}",
+        f"/* c */ EXPLAIN ANALYZE {SQL};",
+    ],
+)
+def test_sql_explain_analyze_is_gated_on_the_inner_query(query):
+    """Review M6: EXPLAIN ANALYZE executes the query, but was waved through ungated."""
+    ctx, sb = stub_ctx()
+    policy = ApprovalPolicy(**{**ON, "row_threshold": 1_000})
+    action = evaluate(policy, "run_sql", {"query": query}, ctx)
+    assert action is not None and action.triggers == ["sql_rows"]
+    assert sb.queries == [f"EXPLAIN {SQL}"]
+
+
+def test_sql_leading_comment_does_not_hide_the_query():
+    ctx, sb = stub_ctx()
+    policy = ApprovalPolicy(**{**ON, "row_threshold": 1_000})
+    assert evaluate(policy, "run_sql", {"query": f"-- note\n{SQL}"}, ctx) is not None
+    assert sb.queries == [f"EXPLAIN {SQL}"]
+
+
 def test_sql_estimate_against_real_duckdb(ctx):
     # The 4-row sales fixture: DuckDB's own estimate drives the gate.
     assert ApprovalPolicy.sql_estimate("SELECT * FROM sales", ctx) == 4
@@ -511,3 +536,10 @@ def test_loop_budget_gate_denied_is_asked_again(ctx, gated_settings):
     assert [a.tool for a in asked] == ["inspect_schema", "run_sql"]
     assert all(r.is_error for r in result.state.tool_results[:2])
     assert result.report == "# Partial"
+
+
+def test_sql_parenthesised_query_is_still_estimated():
+    ctx, sb = stub_ctx()
+    policy = ApprovalPolicy(**{**ON, "row_threshold": 1_000})
+    assert evaluate(policy, "run_sql", {"query": f"({SQL})"}, ctx) is not None
+    assert sb.queries == [f"EXPLAIN ({SQL})"]

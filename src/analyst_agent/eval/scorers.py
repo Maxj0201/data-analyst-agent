@@ -17,7 +17,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from analyst_agent.eval.agent import AgentOutput
-from analyst_agent.eval.judge import Judge, JudgeError
+from analyst_agent.eval.judge import Judge, JudgeError, JudgeUnavailable
 from analyst_agent.eval.schema import Expected, Task
 
 ROUNDING_SLACK = 0.005  # absorbs answers rounded to 2 decimals
@@ -346,6 +346,8 @@ async def score_rubric(task: Task, out: AgentOutput, judge: Judge | None) -> Sco
         return Score(False, 0.0, "rubric_judge", {"skipped": True, "error": "no judge configured"})
     try:
         verdict = await judge.complete(RUBRIC_SYSTEM, build_rubric_prompt(task, out), RUBRIC_SCHEMA)
+    except JudgeUnavailable as e:
+        return Score(False, 0.0, "rubric_judge", {"skipped": True, "error": str(e)})
     except JudgeError as e:
         return Score(False, 0.0, "rubric_judge", {"error": str(e)})
     by_idx = {}
@@ -505,10 +507,12 @@ async def score_adversarial(task: Task, out: AgentOutput, judge: Judge | None) -
             )
             jp = bool(v.get("passed"))
             details["judge"] = {"passed": jp, "justification": v.get("justification", "")}
+            components.append(jp)
+        except JudgeUnavailable as e:  # rules (and answer) still decide; the judge is skipped
+            details["judge"] = {"skipped": True, "error": str(e)}
         except JudgeError as e:
-            jp = False
             details["judge"] = {"passed": False, "error": str(e)}
-        components.append(jp)
+            components.append(False)
     passed = all(components)
     return Score(passed, round(sum(components) / len(components), 4), "adversarial", details)
 

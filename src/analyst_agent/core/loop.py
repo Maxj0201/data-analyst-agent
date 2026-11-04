@@ -251,7 +251,7 @@ class AgentLoop:
             if retriever is None:
                 from analyst_agent.semantic import default_retriever
 
-                retriever = default_retriever(s.semantic_metrics_dir)
+                retriever = default_retriever(s.resolved_semantic_metrics_dir)
             hits = retriever.retrieve(state.question, k=s.semantic_top_k, tables=self.ctx.tables)
         except Exception as exc:  # noqa: BLE001 - optional context must not break the run
             log.exception("semantic layer retrieval failed")
@@ -407,8 +407,17 @@ class AgentLoop:
                 state.artifacts.extend(res.data.get("artifacts", []))
 
                 if name == TERMINAL_TOOL and res.terminate and not res.is_error:
-                    submitted = (tu, res.data)
-                    continue  # its tool_result depends on the critic verdict
+                    if submitted is None:
+                        submitted = (tu, res.data)
+                        continue  # its tool_result depends on the critic verdict
+                    # A second submission in the same response still needs a tool_result,
+                    # or the next request is rejected for an unanswered tool_use id.
+                    res = ToolResult(
+                        "final_report was already called in this response; only the first "
+                        "submission is reviewed.",
+                        is_error=True,
+                    )
+                    record.output, record.is_error = res.content, True
                 result_blocks.append(
                     {
                         "type": "tool_result",
