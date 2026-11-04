@@ -198,7 +198,12 @@ scripts/run_experiments.sh --only critic --only semantic --only routing --only s
 Same options as the interrupted invocation, plus `--resume <its --out>`. Each arm that already
 has a run there is continued with `eval run --resume <run_dir>`; arms that never started run
 normally. Raise `--cap-factor` (or `--budget-usd`) when an arm stopped at its cap: the cap
-covers the whole run, including what was spent before the interruption.
+covers the whole run, including what was spent before the interruption. That earlier spend is
+`meta.json`'s `spend_usd`, which the runner rewrites after every row: agent spend (also the
+metered spend of tasks that timed out), and judge calls, direct or batched. A run killed
+mid-way therefore resumes with everything it recorded; only the spend of tasks still in flight
+at the kill is lost (at most `--concurrency` tasks). A Ctrl-C never sends a batch: verdicts still
+queued stay `pending_judge` and are re-graded on resume.
 
 By hand, with the arm's environment exported (`run_experiments.sh --print-commands` prints it):
 
@@ -283,7 +288,10 @@ started are written to `results.jsonl` with `status: over_budget`, excluded from
 as *Not started (--budget-usd)* in `eval report`, and flagged in the summary's *Notes* column.
 `meta.json` records `spend_usd` and `budget: {usd, exhausted, tasks_not_started}`.
 Tasks that time out or crash count too: the core agents report each LLM call's cost as it happens,
-and the runner records what a killed task had spent as its `cost_usd` (tokens stay 0).
+and the runner records what a killed task had spent as its `cost_usd` (tokens stay 0). Judge
+calls count whether they are direct or batched (`--batch`: when the batch returns, at half
+price). On `--resume` the cap starts from the spend the earlier run recorded (see
+[Interrupted runs](#interrupted-runs-resume)).
 
 `run_experiments.sh` sets each arm's cap to its estimate × `--cap-factor` (default 1.5) and, by
 default, stops starting new arms once the total spend reaches the sum of those caps

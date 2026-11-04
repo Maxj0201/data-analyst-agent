@@ -585,7 +585,7 @@ async def run_tasks(
         }
         results_path = run_dir / "results.jsonl"
     assert run_dir is not None
-    (run_dir / "meta.json").write_text(json.dumps(meta, indent=2, default=str))
+    _write_meta(run_dir, meta)
 
     if lf_enabled and langfuse is None:
         langfuse = make_langfuse_client()
@@ -603,11 +603,14 @@ async def run_tasks(
     batch_judge = judge if isinstance(judge, BatchJudge) else None
     unfinished = total
     flushing = False
+    # Set when the run is being cancelled (Ctrl-C): no new batch may be sent then, since nobody
+    # would wait for its verdicts and their (paid) spend would never be recorded.
+    stopping = False
     flushes: set[asyncio.Task[None]] = set()
 
     def maybe_flush() -> None:
         nonlocal flushing
-        if batch_judge is None or flushing or not batch_judge.pending:
+        if batch_judge is None or flushing or stopping or not batch_judge.pending:
             return
         if batch_judge.pending >= unfinished:
             flushing = True
@@ -633,9 +636,14 @@ async def run_tasks(
     def write(res: TaskResult) -> None:
         with open(results_path, "a") as f:
             f.write(json.dumps(res.to_dict(), default=str) + "\n")
+        # Keep the spend recorded so far in meta.json, so a run killed mid-way (Ctrl-C, OOM,
+        # a lost VM) is resumed with everything it paid for, judge calls (direct or batched)
+        # included. Only the spend of tasks still in flight at the kill is lost.
+        meta["spend_usd"] = round(spent(), 6)
+        _write_meta(run_dir, meta)
 
     async def one(task: Task) -> TaskResult:
-        nonlocal done, agent_spend, unfinished
+        nonlocal done, agent_spend, unfinished, stopping
         action = plan[task.id]
         trace_id = new_trace_id() if langfuse is not None and action == "run" else None
         new_spend = 0.0
@@ -693,6 +701,9 @@ async def run_tasks(
                         flush=True,
                     )
             return res
+        except asyncio.CancelledError:
+            stopping = True
+            raise
         finally:
             unfinished -= 1
             maybe_flush()
@@ -719,8 +730,15 @@ async def run_tasks(
     if budget is not None:
         skipped = sum(r.status == "over_budget" for r in results)
         meta["budget"] = {"usd": budget, "exhausted": skipped > 0, "tasks_not_started": skipped}
-    (run_dir / "meta.json").write_text(json.dumps(meta, indent=2, default=str))
+    _write_meta(run_dir, meta)
     return run_dir, results
+
+
+def _write_meta(run_dir: Path, meta: dict[str, Any]) -> None:
+    """Replace ``meta.json`` atomically: a kill mid-write must not leave it truncated."""
+    tmp = run_dir / "meta.json.tmp"
+    tmp.write_text(json.dumps(meta, indent=2, default=str))
+    tmp.replace(run_dir / "meta.json")
 
 
 def load_results(run_dir: Path) -> list[dict[str, Any]]:
