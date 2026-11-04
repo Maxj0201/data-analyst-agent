@@ -87,17 +87,37 @@ def _apply_env(env: dict[str, str]) -> None:
         pass
 
 
+def _parent_logging() -> tuple[bool, str] | None:
+    """``(json_logs, level)`` of the handler ``configure_logging`` installed here, if any."""
+    import logging
+
+    from analyst_agent.core.logs import _HANDLER_MARK, JsonFormatter
+
+    root = logging.getLogger()
+    for h in root.handlers:
+        if getattr(h, _HANDLER_MARK, False):
+            return isinstance(h.formatter, JsonFormatter), logging.getLevelName(root.level)
+    return None
+
+
 def _child_main(
     conn: Connection,
     agent: AgentFn,
     inp: AgentInput,
     env: dict[str, str] | None = None,
     spend: Any = None,
+    log_config: tuple[bool, str] | None = None,
 ) -> None:
     if hasattr(os, "setsid"):
         os.setsid()  # own process group: the parent can kill everything we spawn at once
     if env is not None:
         _apply_env(env)
+    if log_config is not None:
+        # A forkserver child does not inherit the parent's handlers: without this, the task's
+        # loop and sandbox log lines (with task_id / run_id) were never written.
+        from analyst_agent.core.logs import configure_logging
+
+        configure_logging(json_logs=log_config[0], level=log_config[1], stream=sys.stderr)
     try:
         # Spend reported while the agent runs lands in ``spend`` (shared memory), which the
         # parent reads even if it has to kill this process.
@@ -158,7 +178,11 @@ async def run_in_subprocess(
     recv_conn, send_conn = ctx.Pipe(duplex=False)
     env = dict(os.environ)
     shared = ctx.Value("d", 0.0)
-    proc = ctx.Process(target=_child_main, args=(send_conn, agent, inp, env, shared), daemon=True)
+    proc = ctx.Process(
+        target=_child_main,
+        args=(send_conn, agent, inp, env, shared, _parent_logging()),
+        daemon=True,
+    )
     try:
         await asyncio.to_thread(proc.start)
         send_conn.close()  # only the child holds the write end now: EOF if it dies

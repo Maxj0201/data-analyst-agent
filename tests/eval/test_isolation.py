@@ -182,3 +182,32 @@ async def test_budget_counts_the_spend_of_timed_out_tasks(
     assert results[0].status == "timeout"
     assert results[0].cost_usd > 0  # the first LLM call was paid for before the hang
     assert results[1].status == "over_budget"
+
+
+def test_process_isolated_tasks_write_correlated_json_logs(tmp_path: Path) -> None:
+    """Review-2 L1 (fixed): forkserver children did not inherit the parent's log handler, so with
+    ``AGENT_LOG_JSON_ENABLED=true`` the default ``--isolation process`` wrote no task logs."""
+    import json
+    import subprocess
+    import sys
+
+    env = {
+        **os.environ,
+        "AGENT_LOG_JSON_ENABLED": "true",
+        "AGENT_ARTIFACTS_DIR": str(tmp_path / "art"),
+    }
+    env.pop("ANTHROPIC_API_KEY", None)
+    proc = subprocess.run(
+        [sys.executable, "-m", "analyst_agent.eval", "run", "--agent", "dry-run", "--limit", "1"]
+        + ["--no-score", "--runs-dir", str(tmp_path / "runs")],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    lines = [json.loads(ln) for ln in proc.stderr.splitlines() if ln.startswith("{")]
+    started = [ln for ln in lines if ln["msg"] == "run started"]
+    assert len(started) == 1
+    assert started[0]["task_id"] and started[0]["run_id"].startswith("run_")
+    assert any(ln["msg"] == "sandbox sql" and ln.get("task_id") for ln in lines)
