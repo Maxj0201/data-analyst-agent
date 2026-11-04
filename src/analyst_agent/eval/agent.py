@@ -38,7 +38,10 @@ from __future__ import annotations
 import asyncio
 import importlib
 import inspect
-from collections.abc import Awaitable, Callable
+import threading
+from collections.abc import Awaitable, Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field, is_dataclass
 from pathlib import Path
 from typing import Any
@@ -103,6 +106,62 @@ async def call_agent(agent: AgentFn, inp: AgentInput) -> AgentOutput:
     if not isinstance(out, AgentOutput):
         raise TypeError(f"agent returned {type(out).__name__}, expected AgentOutput")
     return out
+
+
+# --------------------------------------------------------------------------------------------
+# Spend reporting (so --budget-usd also counts tasks that never return)
+# --------------------------------------------------------------------------------------------
+
+
+class SpendMeter:
+    """USD an agent has spent so far, readable even when the agent never returns.
+
+    A task that times out or crashes returns no :class:`AgentOutput`, so its cost used to be
+    recorded as $0 and ``eval run --budget-usd`` never counted it. Agents report spend as they
+    go with :func:`report_spend`; the runner reads the meter after a timeout or crash. In a
+    process-isolated child the meter writes through to a ``multiprocessing.Value`` (``shared``)
+    that the parent still holds after it has killed the child.
+    """
+
+    def __init__(self, shared: Any | None = None) -> None:
+        self._shared = shared
+        self._usd = 0.0
+        self._lock = threading.Lock()
+
+    def add(self, usd: float) -> None:
+        if not usd:
+            return
+        if self._shared is not None:
+            with self._shared.get_lock():
+                self._shared.value += float(usd)
+        else:
+            with self._lock:
+                self._usd += float(usd)
+
+    @property
+    def usd(self) -> float:
+        return float(self._shared.value) if self._shared is not None else self._usd
+
+
+_SPEND_METER: ContextVar[SpendMeter | None] = ContextVar("eval_spend_meter", default=None)
+
+
+@contextmanager
+def metering(meter: SpendMeter) -> Iterator[SpendMeter]:
+    """Route :func:`report_spend` calls made in this context (and threads/tasks started from
+    it, which copy the context) to ``meter``."""
+    token = _SPEND_METER.set(meter)
+    try:
+        yield meter
+    finally:
+        _SPEND_METER.reset(token)
+
+
+def report_spend(usd: float) -> None:
+    """Record ``usd`` of LLM spend for the running eval task (no-op outside a task)."""
+    meter = _SPEND_METER.get()
+    if meter is not None:
+        meter.add(usd)
 
 
 # --------------------------------------------------------------------------------------------
@@ -274,10 +333,15 @@ def _run_core(
         # every gated step would be denied. Auto-approve by default (recorded as decided_by
         # "auto" in the trace); ``eval run --no-auto-approve`` measures the deny path instead.
         approver = AutoApprover() if auto_approve else None
-        on_event = None
-        if recorder is not None:
-            llm = EventedLLM(llm, recorder.on_event, cost_fn=estimate_cost_usd)
-            on_event = recorder.on_event
+        on_event = recorder.on_event if recorder is not None else None
+
+        def observe(kind: str, data: dict[str, Any]) -> None:
+            if kind == "llm_call":  # counted even if the task is killed before it returns
+                report_spend(float(data.get("usd") or 0.0))
+            if on_event is not None:
+                on_event(kind, data)
+
+        llm = EventedLLM(llm, observe, cost_fn=estimate_cost_usd)
         loop = AgentLoop(
             llm, build_default_registry(), ctx, settings, approver=approver, on_event=on_event
         )

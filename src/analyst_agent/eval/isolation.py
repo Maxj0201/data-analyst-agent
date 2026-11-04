@@ -23,7 +23,14 @@ import traceback
 from multiprocessing.connection import Connection
 from typing import Any
 
-from analyst_agent.eval.agent import AgentFn, AgentInput, AgentOutput, call_agent
+from analyst_agent.eval.agent import (
+    AgentFn,
+    AgentInput,
+    AgentOutput,
+    SpendMeter,
+    call_agent,
+    metering,
+)
 
 
 class AgentTimeout(TimeoutError):
@@ -81,14 +88,21 @@ def _apply_env(env: dict[str, str]) -> None:
 
 
 def _child_main(
-    conn: Connection, agent: AgentFn, inp: AgentInput, env: dict[str, str] | None = None
+    conn: Connection,
+    agent: AgentFn,
+    inp: AgentInput,
+    env: dict[str, str] | None = None,
+    spend: Any = None,
 ) -> None:
     if hasattr(os, "setsid"):
         os.setsid()  # own process group: the parent can kill everything we spawn at once
     if env is not None:
         _apply_env(env)
     try:
-        out = asyncio.run(call_agent(agent, inp))
+        # Spend reported while the agent runs lands in ``spend`` (shared memory), which the
+        # parent reads even if it has to kill this process.
+        with metering(SpendMeter(spend)):
+            out = asyncio.run(call_agent(agent, inp))
         msg: tuple[str, Any] = ("ok", out)
     except BaseException as e:  # report everything, including SystemExit from agent code
         msg = ("error", f"{type(e).__name__}: {e}\n{traceback.format_exc(limit=5)}")
@@ -131,16 +145,20 @@ async def _wait_readable(conn: Connection, timeout_s: float) -> bool:
         loop.remove_reader(conn.fileno())
 
 
-async def run_in_subprocess(agent: AgentFn, inp: AgentInput, timeout_s: float) -> AgentOutput:
+async def run_in_subprocess(
+    agent: AgentFn, inp: AgentInput, timeout_s: float, spend: SpendMeter | None = None
+) -> AgentOutput:
     """Run ``agent(inp)`` in a fresh child process; kill it (and its children) on timeout.
 
     Raises :class:`AgentTimeout`, :class:`AgentCrashed`, or ``RuntimeError`` carrying the
-    child's traceback if the agent raised.
+    child's traceback if the agent raised. ``spend`` receives the USD the child reported
+    (:func:`~analyst_agent.eval.agent.report_spend`), also when it timed out or crashed.
     """
     ctx = _context()
     recv_conn, send_conn = ctx.Pipe(duplex=False)
     env = dict(os.environ)
-    proc = ctx.Process(target=_child_main, args=(send_conn, agent, inp, env), daemon=True)
+    shared = ctx.Value("d", 0.0)
+    proc = ctx.Process(target=_child_main, args=(send_conn, agent, inp, env, shared), daemon=True)
     try:
         await asyncio.to_thread(proc.start)
         send_conn.close()  # only the child holds the write end now: EOF if it dies
@@ -160,6 +178,8 @@ async def run_in_subprocess(agent: AgentFn, inp: AgentInput, timeout_s: float) -
         send_conn.close()
         if proc.exitcode is not None:
             proc.close()
+        if spend is not None:
+            spend.add(shared.value)
     if kind == "error":
         raise RuntimeError(value)
     if not isinstance(value, AgentOutput):
