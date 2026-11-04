@@ -29,6 +29,13 @@ Severity scale (unchanged):
 **No High finding.** The review.md High fixes (H1, H2) still hold: the full sandbox suite, the
 seccomp unit tests and the escape tests pass.
 
+> **Post-merge status (round 5):** merged with #22 and re-checked; see
+> [integration-notes.md](integration-notes.md#round-5-23-22-2026-11-04). Every Medium fix
+> holds. M2's meter moved into the runner's new `_execute`, and `--resume` now carries over all
+> recorded spend. M4 is now one case of `tests/frontend/test_no_untrusted_images.py`, which
+> checks every UI surface. That test found two more: sample question buttons and `st.status`
+> labels.
+
 ## Method
 
 I read every module merged since review.md, plus the integration code that connects them:

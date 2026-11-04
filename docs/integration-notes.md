@@ -1,5 +1,154 @@
 # Integration notes
 
+## Round 5: #23, #22 (2026-11-04)
+
+Merged into `main` in this order, both as merge commits. After each merge I ran
+`uv sync --all-extras --no-extra embeddings`, `uv run ruff check .`, `uv run ruff format --check .`
+and `uv run pytest --cov` with CI's coverage gate, and got everything green before going on.
+Final suite: **966 passed, 1 deselected (slow), 0 skipped**.
+
+| Order | PR | Branch | Result | Tests after | Coverage (overall / `sandbox/` / `core/loop.py`) |
+|---|---|---|---|---|---|
+| 1 | #23 | `fix/review-2` | clean merge; 1 test failure (Rich line wrap, below) | 915 | 94% / 99% / 100% |
+| – | | test fix (`8417907`) | | 915 | unchanged |
+| 2 | #22 | `chore/first-run` | conflicts in `eval/runner.py`, `tests/eval/test_experiments.py`, `docs/eval-runbook.md` | 951 | 94% / 99% / 100% |
+| – | | resume spend + cancelled batch (`8c1dd7c`) | | 955 | 94% / 99% / 100% |
+| – | | UI image test, two more surfaces (`7eb99c9`) | | 966 | 94.4% / 99.4% / 100% |
+
+### #23: one flaky assertion
+
+`tests/eval/test_experiments.py::test_plan_and_summary_commands` checked that
+`"lists no runs"` appears in Typer's error panel. Rich wraps that panel at 80 columns, and
+pytest's tmp path (`/tmp/pytest-of-root/pytest-N/test_plan_and_summary_commands0/empty.tsv`) is
+long enough to split the message, so the test fails or passes depending on the path length. The
+assertion now strips the panel's borders and line breaks first.
+
+### #22 onto #23: `eval/runner.py`
+
+#23 records spend per LLM call (`SpendMeter`, `report_spend`), so `--budget-usd` counts tasks
+that time out or crash (review-2 M2). #22 split `run_task` into `_execute` (agent),
+`_score` and `_result`, added `--batch` (`BatchJudge`) and `--resume`.
+
+- **The meter now lives in `_execute`.** When the agent returns no cost (timeout, crash), it sets
+  `out.cost_usd` to the metered spend. The row's `cost_usd` and `run_tasks`' running spend
+  (`new_spend = ex.out.cost_usd`) both read it, so the cap and the resume both count it.
+- **Direct and batched judge spend.** `spent()` reads `judge.cost`. `BatchJudge.cost` is the
+  wrapped `LLMJudge`'s `CostTracker`, which both `create_batch` (at half price) and the direct
+  fallback add to. So the cap counts both kinds of judge call: direct ones as they happen,
+  batched ones when the batch returns. New test: `tests/eval/test_budget_resume.py`, with both
+  judge kinds.
+- **`--resume` carries over all recorded spend (fix).** #22 took a resumed run's earlier spend
+  from `meta.json`'s `spend_usd`, which was written only when a run finished. For a run that was
+  killed, it fell back to summing the rows' `cost_usd`, which leaves out judge spend.
+  A killed *resume* was worse: it kept the stale `spend_usd` of the run before it. Now
+  `spend_usd` is rewritten after every row, atomically (`meta.json.tmp` and rename). Only the
+  spend of tasks still in flight at the kill is lost, at most `--concurrency` tasks.
+- **Ctrl-C sent a paid batch (fix).** When a `--batch` run was cancelled, each cancelled task's
+  `finally` called `maybe_flush()`. The queued verdicts then went out as a Message Batch that
+  nobody waited for: it was paid for, its spend was never recorded, and the run threw away its
+  results. Cancellation now sets `stopping`, and no flush starts after that. Queued verdicts stay
+  `pending_judge`, and the resume re-grades them. The test asserts that no batch is created.
+- `tests/eval/test_experiments.py`: both sides added tests at the same place; I kept both.
+- `docs/eval-runbook.md`: #22 says the API key must be exported (`.env` is read for `AGENT_*`
+  only) and preflight fails without it. #23 says `eval run` prints a warning and scores ADV by
+  rules only. Both are true (`judge_configured()` reads only the environment; `eval/cli.py`
+  prints the warning), so the bullet keeps both. The *Interrupted runs* and *Budget caps*
+  sections now describe the spend carry-over and the Ctrl-C behaviour.
+- `core/config.py`, `docs/configuration.md`, `.env.example`: only #22 changed them
+  (`AGENT_JUDGE_BATCH_ENABLED`, `AGENT_JUDGE_BATCH_POLL_S`), so there was no conflict.
+  `tests/test_config.py` passes. #23's ~35 doc fixes and #22's runbook rewrite are both kept.
+  The one overlap is the API-key bullet above.
+- README: #23 updated one test count to 915 but missed the *measured numbers* table (still
+  898). Both now say 966, and coverage 94.4%.
+
+### UI image surfaces: one test for all of them
+
+The untrusted-Markdown image bug had been fixed three times in three places: the report (review
+M2), the rewritten UI (round 3) and `st.metric` values (review-2 M4).
+`tests/frontend/test_no_untrusted_images.py` now covers every surface:
+
+- every public function of `frontend/render.py` and `frontend/ui_helpers.py`, and every function
+  of `frontend/app.py`, must be classified as a renderer or not. A new function fails the test
+  until it is classified;
+- each helper renderer gets a Markdown image and an HTML `<img>`, plus short forms that survive
+  the 40-character key-number clip. Its output is rendered as Streamlit would (raw HTML only for
+  `st.html` / `unsafe_allow_html=True`) and must have no `<img>`;
+- `app.py` runs against a recording fake Streamlit and an `httpx.MockTransport` API that puts
+  the payload in every untrusted field: dataset metadata, sample catalog, events, report, key
+  numbers, artifact names, approval reasons, API error details. Every Markdown- or
+  HTML-rendering argument of every `st.*` call is checked, and so is every `render_*` function
+  called directly.
+
+I checked that the test catches regressions by reverting fixes one at a time. Reverting M4
+(`scalar_numbers`), unwrapping the approval reasons, or adding an unsanitised `st.metric` label
+each makes it fail. My first payload was too long and was cut by the key-number clip, which is
+why the short forms are there. The test also found **two more surfaces**, now made inert with
+`safe_md`:
+- the sample catalog's example-question buttons (`st.button` labels render images; the catalog
+  is operator-controlled, so this is defence in depth);
+- the job status in `st.status` labels.
+
+### Verification (all local)
+
+- **`analyst-agent ask --dry-run` flag matrix:** all 32 combinations of routing × semantic
+  layer × approval (auto, row threshold 0) × structured report × memory, with the trace store
+  on and JSON logs on in half. **32/32 `completed`**, every answer "North America", one
+  approval in each of the 16 approval-on runs and none otherwise, 33 span trees.
+  `AGENT_MAX_CRITIC_ROUNDS=0` gives `completed_with_issues` with 0 critic rounds.
+- **`eval run --agent dry-run --limit 5 --batch`** with all nine flags on (routing, semantic,
+  structured, memory, approval, Langfuse, samples, trace store, JSON logs). Without a key, the
+  CLI turns the judge (and so `--batch`) off. So I ran it against a local fake Anthropic API
+  (`/v1/messages` + `/v1/messages/batches`, real SDK client, `AGENT_JUDGE_BATCH_POLL_S=1`).
+  The stratified sample includes `l3_ecom_2025_overview` and `adv_01_injection_revenue_zero`.
+  - Uninterrupted: 5/5 `ok`; **one batch of 2 requests**, no direct calls;
+    `judge_batch = {batches: 1, batched_requests: 2, direct_requests: 0, fallback: null}`;
+    `spend_usd` 0.006.
+  - **Killed with SIGINT (Ctrl-C) after 4 rows**, `--concurrency 1`: exit 130, **no API call
+    after the kill**, the L3 row left as `pending_judge`, no sandbox process left behind.
+    `--resume <run> --batch`: "3 done, 1 to re-score, 1 to run". L3 was re-graded from the saved
+    answer without re-running the agent, ADV ran, one batch of 2 was sent, 5 final rows.
+  - **Killed with SIGKILL after 4 rows** (direct judge): `meta.json` had `spend_usd` 0.006 (the
+    L3 verdict) and no `finished_at`. `--resume --batch`: "4 done, 0 to re-score, 1 to run
+    (spent so far $0.01)", `prior_spend_usd` 0.006, a batch of 1, final `spend_usd` 0.009
+    (0.006 direct + 0.003 batched).
+  - The dry-run agent's L1/L2 answers do not match these tasks' expected values, so they fail
+    scoring here (as in CI, where this run uses `--no-score`).
+- **`scripts/preflight.sh --dry-run`:** every check `ok` except `extra [embeddings]` (FAIL,
+  expected with `--no-extra embeddings`) and Message Batches (WARN: the scripted LLM has no
+  batches API). Exit 1 because of the missing extra. Estimate: $142.58 for all experiments,
+  $213.87 capped.
+- **CI jobs, run as in the workflows:**
+  - `ci.yml` test: `uv lock --check`, `uv sync --locked --all-extras --no-extra embeddings`,
+    lint, format, `pytest --cov` (966 passed), gate: overall 94.39% (≥ 92), `sandbox/` 99.38%
+    (≥ 97), `core/loop.py` 100% (≥ 98). `eval/` 93%, `eval/runner.py` 95%.
+  - `ci.yml` eval-smoke: oracle `--limit 5` 100%; dry run (3) ok; dry run with every flag (5)
+    ok, 5 span trees, 101 JSON log lines carrying `task_id` (review-2 L1 holds).
+  - `ui-e2e.yml`: `scripts/ui-e2e/run.sh`, **24/24** checks (approve and deny).
+  - `nightly.yml`: kernel 6.18, Landlock ABI 7. Fuzzer with the fixed seed (20261104) and a new
+    seed (20261106): 500/500 each, 0 network hits, about 128 s each.
+- **review-2 regression tests** (M1 ×2, M2, M3, M4, L1) pass on merged `main`: 10 cases.
+
+### Branches
+
+Deleted the remote branches of merged or closed PRs: `docs/eval-runbook` (#19), `docs/final`
+(#18), `test/coverage-and-properties` (#20), `test/sandbox-fuzz` (#21), and, once pushing
+`main` marked them merged, `fix/review-2` (#23) and `chore/first-run` (#22). #15's branch was
+already gone. I kept `main` and the `claude/*` session branches, which have no PR.
+
+### Still open
+
+- **Embedding and hybrid retrieval are still not measured** (no `embeddings` extra), and the
+  Results table is still empty. Both need the real run, which `docs/eval-runbook.md` now walks
+  through (preflight, smoke, baseline, rest, `--resume`).
+- **Message Batches against the real API** were exercised only through the SDK against a local
+  fake that follows the documented request and result shapes. The first real `--batch` run is
+  the check. If it fails, the runner falls back to direct calls and records `fallback` in
+  `meta.json`.
+- **In-flight spend at a hard kill** is not recorded (at most `--concurrency` tasks). A
+  `SpendMeter` that wrote through to disk would close this; not worth it for the size of the
+  numbers involved.
+- **Docker image, Cloud Run, a real LLM:** not available here, as in earlier rounds.
+
 ## Round 4: #20, #21, #19, #18 (2026-11-04)
 
 Merged into `main` in this order, all as merge commits. After each merge I ran
@@ -186,8 +335,8 @@ sandbox and CI decisions.
   (`tests/eval/test_experiments.py`). Still not gated per file.
 - **The Docker image is still not built here** (no daemon, `ghcr.io` blocked); `scripts/demo.sh`
   and `make demo` were not run.
-- **PRs:** #20, #21, #19 and #18 are merge commits on `main`, so GitHub marks them merged once
-  `main` is pushed.
+- ~~**PRs:** #20, #21, #19 and #18 are merge commits on `main`, so GitHub marks them merged once
+  `main` is pushed.~~ Done; their branches were deleted in round 5.
 
 ## Round 3: #17, #15, #16, #13, #12, #14 (2026-11-04)
 
