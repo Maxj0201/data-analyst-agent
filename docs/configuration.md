@@ -71,6 +71,8 @@ How each surface answers an approval request when `AGENT_APPROVAL_ENABLED=true`:
 | `AGENT_MAX_UPLOAD_MB` | `50` | API | Max dataset upload size. |
 | `AGENT_LANGFUSE_ENABLED` | `false` | API | Send traces to Langfuse (keys from `LANGFUSE_*`, see [observability.md](observability.md)). |
 | `AGENT_CORS_ORIGINS` | `[]` | API | Allowed CORS origins, as a JSON list. |
+| `AGENT_SAMPLES_ENABLED` | `false` | API | **Feature flag.** Serve the bundled sample datasets (`GET /datasets/samples`) so the UI can offer them with example questions. `docker compose` turns it on. |
+| `AGENT_SAMPLES_DIR` | `benchmarks/data` | API | Directory scanned for sample datasets (read-only, never copied); the API image ships `/app/benchmarks/data`. |
 | `AGENT_JUDGE_MODEL` | *(unset)* | Eval | LLM judge model for L3/ADV rubric tasks; unset = `AGENT_MODEL`. |
 | `AGENT_JUDGE_EFFORT` | `low` | Eval | Effort for the judge. |
 | `AGENT_EVAL_CONCURRENCY` | `4` | Eval | Default `eval run --concurrency`. |

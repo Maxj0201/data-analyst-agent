@@ -78,6 +78,8 @@ class Settings(BaseSettings):
     max_upload_mb: int = Field(default=50, ge=1)
     langfuse_enabled: bool = False  # keys come from the standard LANGFUSE_* env vars
     cors_origins: list[str] = Field(default_factory=list)  # JSON list
+    samples_enabled: bool = False  # GET /datasets/samples: bundled demo datasets
+    samples_dir: Path = Path("benchmarks/data")
 
     # Eval harness (eval/)
     judge_model: str | None = None  # LLM judge; None = ``model``
