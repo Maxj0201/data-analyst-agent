@@ -32,6 +32,13 @@ def ask(
         Path | None, typer.Option(help="Write the full run trace as JSON to this path.")
     ] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Print each step.")] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Use a scripted offline LLM (no API key, no cost) to exercise the full pipeline.",
+        ),
+    ] = False,
 ) -> None:
     """Answer QUESTION over the given data file(s); prints the report and a cost summary."""
     from analyst_agent import sandbox
@@ -62,9 +69,14 @@ def ask(
         if verbose:
             typer.secho(f"[{kind}] {json.dumps(payload, default=str)[:300]}", err=True, dim=True)
 
-    loop = AgentLoop(
-        LLMClient(settings), build_default_registry(), ctx, settings, on_event=on_event
-    )
+    if dry_run:
+        from analyst_agent.core.fake_llm import dry_run_llm
+
+        typer.secho("Dry run: scripted offline LLM, no API calls.", err=True, dim=True)
+        llm = dry_run_llm(question, tables[0], sandbox.run_sql)
+    else:
+        llm = LLMClient(settings)
+    loop = AgentLoop(llm, build_default_registry(), ctx, settings, on_event=on_event)
     result = loop.run(question)
 
     typer.echo(result.report)

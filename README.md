@@ -136,6 +136,12 @@ Ask a question from the CLI (prints the report and a cost summary):
 uv run analyst-agent ask --data path/to/data.csv "Which product category had the highest revenue last quarter?"
 ```
 
+Check the whole pipeline offline (scripted LLM, no API key, no cost):
+
+```bash
+uv run analyst-agent ask --data benchmarks/data/saas/subscriptions.csv "which region has the highest revenue" --dry-run
+```
+
 Run the tests and linter (no API calls are made):
 
 ```bash
