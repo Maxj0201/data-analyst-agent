@@ -143,7 +143,7 @@ class EventedLLM:
 
 
 def core_runner(*, dataset_path: Path, question: str, emit: EmitFn) -> AgentOutcome:
-    """Run the real agent loop over one uploaded CSV (mirrors ``analyst_agent.cli.ask``)."""
+    """Run the real agent loop over one uploaded dataset (mirrors ``analyst_agent.cli.ask``)."""
     try:
         from analyst_agent.core import AgentLoop, LLMClient, Settings
         from analyst_agent.core.llm import estimate_cost_usd

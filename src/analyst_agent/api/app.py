@@ -6,7 +6,7 @@ Run with::
 
 Endpoints
 ---------
-``POST /datasets``            upload a CSV, returns ``dataset_id``
+``POST /datasets``            upload a CSV/Parquet/SQLite/DuckDB file, returns ``dataset_id``
 ``GET  /datasets/{id}``       dataset metadata
 ``POST /ask``                 ``{dataset_id, question}`` -> ``job_id`` (runs in the background)
 ``GET  /jobs/{id}``           status, progress, cost, full step trace and result

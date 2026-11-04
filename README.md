@@ -40,7 +40,7 @@ flowchart TB
 
     subgraph Core["Agent core (hand-written loop)"]
         LOOP["Planner loop<br/>Plan → Execute → Verify → Revise"]
-        STATE["RunState<br/>messages · tool results · plan · cost"]
+        STATE["AgentState<br/>messages · tool results · plan · cost"]
         BUDGET{{"Budget guard<br/>max turns · max tokens"}}
         LLM["LLM client wrapper<br/>retries · prompt caching · CostTracker"]
         CRITIC["Critic<br/>separate LLM call, own system prompt<br/>verdict: pass | revise"]
@@ -136,6 +136,10 @@ Ask a question from the CLI (prints the report and a cost summary):
 uv run analyst-agent ask --data path/to/data.csv "Which product category had the highest revenue last quarter?"
 ```
 
+Supported inputs (CLI `--data` and API upload): **CSV, Parquet, SQLite and DuckDB** files. A SQLite
+or DuckDB file expands to one table per base table in the file; other files become one table named
+after the file.
+
 Check the whole pipeline offline (scripted LLM, no API key, no cost):
 
 ```bash
@@ -164,7 +168,7 @@ Or with Docker: `cp .env.example .env` (add `ANTHROPIC_API_KEY`), then `docker c
 
 | Endpoint                   | Purpose                                                        |
 |----------------------------|----------------------------------------------------------------|
-| `POST /datasets`           | upload a CSV (multipart `file`) → `dataset_id`                 |
+| `POST /datasets`           | upload a CSV, Parquet, SQLite or DuckDB file (multipart `file`) → `dataset_id` |
 | `POST /ask`                | `{dataset_id, question}` → `job_id` (runs in the background)   |
 | `GET /jobs/{id}`           | status, progress, cost, step trace and result                  |
 | `GET /jobs/{id}/events`    | Server-Sent Events: plan, LLM/tool calls, critic verdict, final |

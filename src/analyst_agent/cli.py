@@ -23,7 +23,13 @@ def ask(
     question: Annotated[str, typer.Argument(help="Natural-language question about the data.")],
     data: Annotated[
         list[Path],
-        typer.Option("--data", "-d", exists=True, dir_okay=False, help="CSV/Parquet file(s)."),
+        typer.Option(
+            "--data",
+            "-d",
+            exists=True,
+            dir_okay=False,
+            help="CSV, Parquet, SQLite or DuckDB file(s); repeat for several.",
+        ),
     ],
     max_turns: Annotated[int | None, typer.Option(help="Override AGENT_MAX_TURNS.")] = None,
     token_budget: Annotated[int | None, typer.Option(help="Override AGENT_TOKEN_BUDGET.")] = None,
@@ -59,7 +65,10 @@ def ask(
             raise typer.BadParameter(f"two files map to the same table name {name!r}")
         datasets[name] = p
 
-    tables = sandbox.load_data(datasets, artifacts_dir=settings.artifacts_dir)
+    try:
+        tables = sandbox.load_data(datasets, artifacts_dir=settings.artifacts_dir)
+    except sandbox.DataLoadError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--data") from exc
     ctx = ToolContext(
         tables=tables,
         artifacts_dir=settings.artifacts_dir,

@@ -23,7 +23,7 @@ flowchart TB
 
     subgraph Core["Agent core (hand-written loop)"]
         LOOP["Planner loop<br/>Plan → Execute → Verify → Revise"]
-        STATE["RunState<br/>messages · tool results · plan · cost"]
+        STATE["AgentState<br/>messages · tool results · plan · cost"]
         BUDGET{{"Budget guard<br/>max turns · max tokens"}}
         LLM["LLM client wrapper<br/>retries · prompt caching · CostTracker"]
         CRITIC["Critic<br/>separate LLM call, own system prompt<br/>verdict: pass | revise"]
@@ -132,7 +132,7 @@ JSON-schema definitions plus Python handlers registered in `tools/registry.py`.
 ### Sandbox (`sandbox/`)
 Two independent layers, detailed in `docs/sandbox.md` (written alongside the sandbox):
 
-- **DuckDB runner:** in-memory database loaded from CSV / SQLite / DuckDB (and Parquet) sources, read-only connection,
+- **DuckDB runner:** in-memory database loaded from CSV, Parquet, SQLite or DuckDB files (SQLite / DuckDB files give one table per base table), read-only connection,
   statement allowlist, 30 s timeout, first 200 rows plus total count.
 - **Python runner:** separate interpreter per call, 60 s wall clock, `RLIMIT` memory cap, sockets
   blocked at import time via `sitecustomize`, temp-dir cwd, curated library set, structured errors.
@@ -142,6 +142,14 @@ Two independent layers, detailed in `docs/sandbox.md` (written alongside the san
 depends only on these two functions, so the sandbox can be stubbed (same signatures) while it is
 under development, and its internals can change without touching the agent core. Errors are returned
 as fields on the result, not raised.
+
+**Per-job sandbox (`ToolContext.sandbox`).** The module-level functions share process-global state,
+which is fine for the CLI (one run per process) but unsafe when runs execute concurrently. The API
+job pool and the eval runner therefore create one sandbox per job with
+`tools.create_sandbox(datasets, artifacts_dir=...)`, pass it as `ToolContext(tables=..., sandbox=sb)`
+and close it when the job ends. Tool handlers call `ctx.run_sql` / `ctx.run_python`, which use
+`ToolContext.sandbox` when set and otherwise fall back to the module-level functions, so both paths
+return the same `SqlResult` / `PyResult` dataclasses.
 
 ### Critic (`core/critic.py`)
 A second LLM call with its own system prompt. It receives the draft answer, the executed SQL / code,
@@ -155,7 +163,7 @@ row-set match, LLM-as-judge for rubrics, and rule + judge scoring for adversaria
 aggregates a run; `compare` diffs two runs.
 
 ### API and streaming (`api/`)
-FastAPI exposes dataset upload, `POST /ask` (returns a `job_id`), job status / report / artifacts,
+FastAPI exposes dataset upload (CSV, Parquet, SQLite or DuckDB files, validated by magic bytes), `POST /ask` (returns a `job_id`), job status / report / artifacts,
 and `GET /jobs/{id}/events`, a Server-Sent Events stream that emits each plan, tool call, tool-result
 summary and critic verdict as it happens. Jobs run as background tasks against an in-memory store
 with a SQLite fallback. The loop emits step events through a callback, so the CLI, API and eval runner

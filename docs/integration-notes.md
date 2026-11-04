@@ -80,15 +80,10 @@ final suite: 309 passed, 0 skipped).
   (North America by MRR). On tables without a `region` column it picks arbitrary columns, for
   example `orders.csv` gives "completed has the highest total_unit_price". It checks the
   plumbing, not the analysis. With several `--data` files it only uses the first table.
-- **There are two ways to reach the sandbox.** One is the module-level functions from
-  CLAUDE.md, used by the CLI. The other is the per-run `ToolContext.sandbox`, used by the API
-  and eval. CLAUDE.md only describes the first; consider documenting the second.
-- **`RunState` vs `AgentState`.** The architecture diagram (README and `docs/architecture.md`)
-  says `RunState`, but the code class is `core.loop.AgentState`.
-- **Input formats differ.** The CLI `--data` help says "CSV/Parquet". The sandbox also loads
-  SQLite, but `table_name_for` gives one name per file while a SQLite file expands to one table
-  per SQLite table. The API upload only accepts `.csv`. The README and architecture doc mention
-  CSV / SQLite / DuckDB.
+- ~~Two ways to reach the sandbox / `RunState` vs `AgentState` / input formats differ~~ —
+  resolved in `chore/consistency`: `ToolContext.sandbox` is documented in CLAUDE.md and
+  `docs/architecture.md`, the diagrams say `AgentState`, and CLI, API, README and docs all list
+  CSV, Parquet, SQLite and DuckDB (the sandbox gained DuckDB-file loading there).
 - **`httpx` appears twice.** It is in the `dev` dependency group and in the `frontend` extra.
   This is harmless.
 - **`docs/kickoff/*.md` still describe the pre-merge plan,** including the stubs. They are
