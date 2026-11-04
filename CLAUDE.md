@@ -7,6 +7,7 @@ A Python agent that answers natural-language questions over tabular data (CSV / 
 - Package layout: src/analyst_agent/{core,tools,sandbox,eval,api}/
 - All LLM calls go through src/analyst_agent/core/llm.py (single wrapper: model name, max_tokens, prompt caching, token/cost accounting)
 - Config via pydantic-settings, env vars prefixed AGENT_ (AGENT_MODEL, AGENT_MAX_TURNS, AGENT_TOKEN_BUDGET)
+- All AGENT_* settings live in the single class src/analyst_agent/core/config.py:Settings; add new ones there with a default, plus a row in docs/configuration.md and a line in .env.example (tests/test_config.py enforces this). New features go behind an AGENT_*_ENABLED flag that defaults to false.
 - Tests in tests/ with pytest; mock the LLM in tests, never call the real API
 - Type hints everywhere, ruff for lint/format, line length 100
 - Work on your own branch named after your task, commit in small logical steps, open a PR when done
@@ -15,4 +16,4 @@ A Python agent that answers natural-language questions over tabular data (CSV / 
 
 ## Sandbox access: module-level vs per-job
 - Single-run callers (the CLI) use the module-level `sandbox.run_sql` / `sandbox.run_python` after `sandbox.load_data(...)`. State is process-global.
-- Concurrent callers (the API job pool, the eval runner) must not share that global. They create one sandbox per job with `tools.create_sandbox(datasets, artifacts_dir=...)`, pass it as `ToolContext(tables=sb.tables, sandbox=sb)`, and close it afterwards. Tool handlers call `ctx.run_sql` / `ctx.run_python`, which use `ToolContext.sandbox` when set and fall back to the module-level functions otherwise. Both paths return the same `SqlResult` / `PyResult` dataclasses.
+- Concurrent callers (the API job pool, the eval runner, the MCP server) must not share that global. They create one sandbox per job with `tools.create_sandbox(datasets, artifacts_dir=...)`, pass it as `ToolContext(tables=sb.tables, sandbox=sb)`, and close it afterwards. Tool handlers call `ctx.run_sql` / `ctx.run_python`, which use `ToolContext.sandbox` when set and fall back to the module-level functions otherwise. Both paths return the same `SqlResult` / `PyResult` dataclasses.

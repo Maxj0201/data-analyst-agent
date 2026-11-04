@@ -5,8 +5,9 @@ and executing SQL/Python in a sandbox. It self-verifies its answers with a separ
 produces Markdown reports with charts. An evaluation benchmark measures accuracy, robustness, cost
 and latency.
 
-> **Status:** early development. Agent core, sandbox, eval harness and serving layer are merged;
-> no benchmark results have been published yet.
+> **Status:** early development. Agent core, sandbox, eval harness, serving layer, MCP server,
+> semantic layer, model routing and human-in-the-loop approval are merged; no benchmark results
+> have been published yet.
 
 ## Overview
 
@@ -14,12 +15,19 @@ and latency.
   turn and token budgets that degrade gracefully instead of failing.
 - **Tools:** `inspect_schema`, `run_sql`, `run_python`, `make_chart`, `final_report`.
 - **Sandbox:** exposes `run_sql(query) -> SqlResult` and `run_python(code) -> PyResult`
-  (dataclasses); read-only in-memory DuckDB for SQL; resource-limited, network-less subprocess for Python.
+  (dataclasses); read-only in-memory DuckDB for SQL; resource-limited, network-less subprocess
+  for Python. Concurrent callers (API jobs, eval tasks, the MCP server) get one sandbox each.
 - **Critic:** an independent LLM call reviews the draft answer, the code that produced it and the
   result tables, and can send the agent back to revise (max 2 rounds).
-- **Serving:** FastAPI with background jobs and an SSE step stream; Streamlit frontend.
-- **Eval:** 30 tasks (L1/L2/L3) plus 10 adversarial prompt-injection / PII tasks, with scorers
-  and run-vs-run comparison.
+- **Feature flags** (all off by default, combinable; see [Feature flags](#feature-flags)):
+  model routing, a semantic layer of governed metric definitions, and human-in-the-loop approval.
+- **Prompt versioning:** every system prompt has a version and a content fingerprint, recorded in
+  traces, eval runs and API job results.
+- **Serving:** FastAPI with background jobs, an SSE step stream and an approval endpoint;
+  Streamlit frontend with an approve/deny panel.
+- **MCP server:** the data tools over stdio for Claude Desktop, Claude Code or any MCP client.
+- **Eval:** 30 tasks (L1/L2/L3) plus 10 adversarial prompt-injection / PII tasks, with scorers,
+  per-task process isolation, run-vs-run comparison and an offline CI smoke job.
 - **Observability:** optional Langfuse tracing of every LLM and tool call.
 
 ## Architecture
@@ -28,22 +36,31 @@ and latency.
 flowchart TB
     subgraph Clients
         CLI["CLI<br/>analyst-agent ask"]
-        UI["Streamlit frontend"]
-        EVALCLI["Eval CLI<br/>runner / report / compare"]
+        UI["Streamlit frontend<br/>step log · approve/deny panel"]
+        EVALCLI["Eval CLI<br/>run / report / compare"]
+        MCPC["MCP client<br/>Claude Desktop / Claude Code"]
     end
 
     subgraph API["API layer (FastAPI)"]
         REST["POST /datasets, POST /ask<br/>GET /jobs/{id}, /report, /artifacts"]
+        APPROVE["POST /jobs/{id}/approve"]
         SSE["GET /jobs/{id}/events<br/>(SSE step stream)"]
         JOBS[("Job store<br/>in-memory + SQLite fallback")]
+        BROKER["ApprovalBroker<br/>per-job wait · timeout = deny"]
     end
 
+    MCPS["MCP server (stdio)<br/>analyst-agent-mcp"]
+
     subgraph Core["Agent core (hand-written loop)"]
+        ROUTER["Router (flag)<br/>L1/L2/L3 → working model<br/>escalation on failure"]
+        SEM["Semantic layer (flag)<br/>BM25 over metrics.yaml"]
         LOOP["Planner loop<br/>Plan → Execute → Verify → Revise"]
-        STATE["AgentState<br/>messages · tool results · plan · cost"]
+        GATE{{"Approval gate (flag)<br/>EXPLAIN rows · run_python · budget"}}
+        STATE["AgentState<br/>messages · tool results · route · approvals · cost"]
         BUDGET{{"Budget guard<br/>max turns · max tokens"}}
-        LLM["LLM client wrapper<br/>retries · prompt caching · CostTracker"]
+        LLM["LLM client wrapper<br/>retries · prompt caching · CostTracker per model"]
         CRITIC["Critic<br/>separate LLM call, own system prompt<br/>verdict: pass | revise"]
+        PROMPTS[("Versioned prompts<br/>core/prompts.py")]
     end
 
     subgraph Tools["Tool registry"]
@@ -55,40 +72,51 @@ flowchart TB
         WRAP["Untrusted-data wrapper<br/>delimiters + label"]
     end
 
-    subgraph Sandbox["Sandbox"]
+    subgraph Sandbox["Sandbox (one per job / task / server)"]
         DUCK[("DuckDB, in-memory<br/>read-only · SELECT/WITH/EXPLAIN allowlist<br/>30s timeout · 200-row cap")]
         PY["Python subprocess<br/>no network · rlimit memory · 60s timeout<br/>temp cwd · pandas/numpy/matplotlib/scipy"]
         ART[("artifacts/ (chart PNGs)")]
     end
 
+    METRICS[("benchmarks/metrics/*.yaml")]
     ANTHROPIC(["Anthropic API"])
     LF[("Langfuse<br/>traces · spans · cost")]
 
     subgraph Eval["Eval harness"]
-        TASKS[("benchmarks/*.yaml<br/>L1 · L2 · L3 · ADV")]
-        ERUN["runner<br/>async · per-task timeout"]
+        TASKS[("benchmarks/tasks<br/>L1 · L2 · L3 · ADV")]
+        ERUN["runner<br/>child process per task · killed on timeout<br/>auto-approves gates"]
         SCORE["scorers<br/>numeric · row-set · LLM judge · ADV rules"]
-        RUNS[("runs/&lt;timestamp&gt;/*.jsonl")]
-        EREP["report / compare"]
+        RUNS[("runs/&lt;timestamp&gt;/<br/>results.jsonl · meta.json (prompt versions)")]
+        EREP["report / compare<br/>routing · semantic · prompt diffs"]
     end
 
     CLI --> LOOP
     UI --> REST
+    UI --> APPROVE
     UI --> SSE
     REST --> JOBS
-    REST -->|background task| LOOP
+    REST -->|background job| LOOP
+    APPROVE --> BROKER
+    BROKER -->|decision| GATE
     LOOP -->|step events| SSE
     LOOP --> JOBS
 
+    LOOP -->|first: classify| ROUTER
+    ROUTER --> LLM
+    LOOP -->|then: retrieve| SEM
+    SEM --> METRICS
     LOOP <--> STATE
     LOOP --> BUDGET
     LOOP --> LLM
+    PROMPTS --> LOOP
     LLM <--> ANTHROPIC
     LOOP -->|draft answer + SQL/code + tables| CRITIC
     CRITIC --> LLM
     CRITIC -->|revise: issues + suggested_fix| LOOP
 
-    LOOP -->|tool_use| Tools
+    LOOP -->|tool_use| GATE
+    GATE -->|approved / not gated| Tools
+    GATE -->|denied: error result, re-plan| LOOP
     T2 --> WRAP
     T1 --> WRAP
     T3 --> WRAP
@@ -98,6 +126,9 @@ flowchart TB
     T3 --> PY
     T4 --> ART
     T5 -->|terminates loop| LOOP
+
+    MCPC <--> MCPS
+    MCPS -->|same handlers, no loop| Tools
 
     LLM -.->|generation spans| LF
     Tools -.->|tool spans| LF
@@ -112,8 +143,8 @@ flowchart TB
     SCORE --> EREP
 ```
 
-Component details and the reasoning behind key choices (hand-written loop, separate critic,
-sandboxing, budget degradation, untrusted tool output) are in
+The same diagram, with component details and the reasoning behind key choices (hand-written loop,
+separate critic, sandboxing, budget degradation, untrusted tool output, feature flags), is in
 [`docs/architecture.md`](docs/architecture.md).
 
 ## Quickstart
@@ -123,7 +154,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 ```bash
 git clone https://github.com/maxj0201/data-analyst-agent.git
 cd data-analyst-agent
-uv sync --all-extras   # core + api/frontend extras + dev tools
+uv sync --all-extras   # core + api, frontend and mcp extras + dev tools
 ```
 
 ```bash
@@ -136,15 +167,34 @@ Ask a question from the CLI (prints the report and a cost summary):
 uv run analyst-agent ask --data path/to/data.csv "Which product category had the highest revenue last quarter?"
 ```
 
-Supported inputs (CLI `--data` and API upload): **CSV, Parquet, SQLite and DuckDB** files. A SQLite
-or DuckDB file expands to one table per base table in the file; other files become one table named
-after the file.
+Supported inputs (CLI `--data`, API upload and MCP `--data`): **CSV, Parquet, SQLite and DuckDB**
+files. A SQLite or DuckDB file expands to one table per base table in the file; other files become
+one table named after the file.
 
-Check the whole pipeline offline (scripted LLM, no API key, no cost):
+Check the whole pipeline offline (scripted LLM, no API key, no cost). `--dry-run` works with every
+flag below:
 
 ```bash
 uv run analyst-agent ask --data benchmarks/data/saas/subscriptions.csv "which region has the highest revenue" --dry-run
 ```
+
+```bash
+uv run analyst-agent ask --data benchmarks/data/saas/subscriptions.csv "which region has the highest mrr" --dry-run --routing --semantic-layer --require-approval --auto-approve --trace trace.json
+```
+
+`ask` options:
+
+| Option | Effect |
+|---|---|
+| `--data/-d FILE` | data file; repeat for several |
+| `--dry-run` | scripted offline LLM (`core/fake_llm.py`): no API key, no cost |
+| `--routing/--no-routing` | override `AGENT_ROUTING_ENABLED` |
+| `--semantic-layer/--no-semantic-layer` | override `AGENT_SEMANTIC_LAYER_ENABLED` |
+| `--require-approval/--no-require-approval` | override `AGENT_APPROVAL_ENABLED` |
+| `--auto-approve` | approve every gated step without the y/n prompt |
+| `--model`, `--max-turns`, `--token-budget` | override `AGENT_MODEL`, `AGENT_MAX_TURNS`, `AGENT_TOKEN_BUDGET` |
+| `--trace FILE` | write the full run trace as JSON (plans, tool calls, critic, route, retrieved metrics, approvals, cost per model, prompt versions) |
+| `--verbose/-v` | print each step to stderr |
 
 Run the tests and linter (no API calls are made):
 
@@ -153,13 +203,34 @@ uv run pytest
 uv run ruff check .
 ```
 
-Configuration uses `AGENT_*` environment variables, e.g. `AGENT_MODEL`, `AGENT_MAX_TURNS`,
-`AGENT_TOKEN_BUDGET`, `AGENT_LANGFUSE_ENABLED`.
+## Configuration
 
-Model routing (off by default): `AGENT_ROUTING_ENABLED=true` uses a cheap router call
-(`AGENT_ROUTER_MODEL`) to label each question L1/L2/L3 and runs it on `AGENT_MODEL_L1/L2/L3`.
-It escalates a tier on a second critic "revise" or a repeated tool error. See
-[docs/model-routing.md](docs/model-routing.md).
+All configuration is `AGENT_*` environment variables (or `.env`) read by one class,
+`analyst_agent.core.config.Settings`. Every variable, its default and what it does is in
+[`docs/configuration.md`](docs/configuration.md); [`.env.example`](.env.example) lists them all.
+An empty value means unset for optional settings.
+
+### Feature flags
+
+| Flag (default `false`) | Effect | Details |
+|---|---|---|
+| `AGENT_ROUTING_ENABLED` | One cheap router call (`AGENT_ROUTER_MODEL`) labels the question L1/L2/L3 and runs it on `AGENT_MODEL_L1/L2/L3`; escalates a tier on a second critic "revise" or the same tool erroring twice in a row (human denials never escalate). | [docs/model-routing.md](docs/model-routing.md) |
+| `AGENT_SEMANTIC_LAYER_ENABLED` | Retrieves the top `AGENT_SEMANTIC_TOP_K` governed metric definitions from `AGENT_SEMANTIC_METRICS_DIR` (default `benchmarks/metrics`) into the first user message, as labelled reference material. | [benchmarks/README.md](benchmarks/README.md#semantic-layer-metrics) |
+| `AGENT_APPROVAL_ENABLED` | Pauses before costly or risky steps until a human approves. | [below](#human-in-the-loop-approval) |
+
+How each surface handles approval: the CLI prompts y/n (or `--auto-approve`); the API and UI wait
+for `POST /jobs/{id}/approve`; the eval harness auto-approves (`--no-auto-approve` to measure the
+deny path); the MCP server exposes tools only, so nothing is gated.
+
+### Prompt versioning
+
+The planner, critic, report-writer, router and semantic-layer prompts are `Prompt(name, version,
+text)` objects in `core/prompts.py`, each with a 12-character sha256 fingerprint.
+`prompt_versions()` is written into every `ask --trace`, every eval run's `meta.json` and every
+API job result (`GET /jobs/{id}` → `result.prompts`, also in the `final` SSE event).
+`eval compare` lists prompts that changed between two runs and flags text changes without a
+version bump; `tests/test_prompts.py` fails on such a change. Edit a prompt only together with a
+version bump.
 
 ## Serving (API + UI)
 
@@ -169,15 +240,20 @@ uv run uvicorn analyst_agent.api.app:app --reload          # http://localhost:80
 uv run streamlit run frontend/app.py                        # http://localhost:8501
 ```
 
-Or with Docker: `cp .env.example .env` (add `ANTHROPIC_API_KEY`), then `docker compose up --build`.
+Or with Docker: `cp .env.example .env` (add `ANTHROPIC_API_KEY`, set any feature flags), then
+`docker compose up --build`. Compose passes the three feature flags through from `.env` or the
+shell, e.g. `AGENT_SEMANTIC_LAYER_ENABLED=true docker compose up --build`. The API image ships
+the metric definitions at `/app/benchmarks/metrics` (but not the benchmark data or tasks).
 
 | Endpoint                   | Purpose                                                        |
 |----------------------------|----------------------------------------------------------------|
+| `GET /healthz`             | liveness + job-store mode                                      |
 | `POST /datasets`           | upload a CSV, Parquet, SQLite or DuckDB file (multipart `file`) → `dataset_id` |
+| `GET /datasets/{id}`       | dataset metadata (columns)                                      |
 | `POST /ask`                | `{dataset_id, question}` → `job_id` (runs in the background)   |
-| `GET /jobs/{id}`           | status, progress, cost, step trace and result                  |
-| `GET /jobs/{id}/events`    | Server-Sent Events: plan, LLM/tool calls, critic verdict, final |
-| `POST /jobs/{id}/approve`  | `{approve, note?, action_id?}` → resolve a pending approval     |
+| `GET /jobs/{id}`           | status, progress, cost, `pending_approval`, result (report, key numbers, artifacts, prompt versions) |
+| `GET /jobs/{id}/events`    | Server-Sent Events: plan, route, metric retrieval, LLM/tool calls, approvals, escalations, critic verdict, final |
+| `POST /jobs/{id}/approve`  | `{approve, note?, action_id?}` → resolve a pending approval (404 unknown job, 409 nothing pending) |
 | `GET /jobs/{id}/report`    | final report as `text/markdown`                                |
 | `GET /artifacts/{path}`    | chart images                                                   |
 
@@ -187,22 +263,29 @@ Off by default. With `AGENT_APPROVAL_ENABLED=true` the loop pauses before a step
 `run_sql`'s DuckDB `EXPLAIN` estimate exceeds `AGENT_APPROVAL_ROW_THRESHOLD` rows (default
 1,000,000), (b) `run_python` is about to run (`AGENT_APPROVAL_PYTHON`, default true), or (c) token
 spend exceeds `AGENT_APPROVAL_BUDGET_FRACTION` of `AGENT_TOKEN_BUDGET` (default 0.8; asked once
-per run once approved). It emits `approval_required`, waits up to `AGENT_APPROVAL_TIMEOUT_S`
-(default 300) for a decision, then emits `approval_decision`. A denial or timeout is returned to
-the model as a tool error so it re-plans; every decision is in the trace (`approvals` in
-`--trace`, the events in `GET /jobs/{id}`). `final_report` is never gated.
+per run once approved). It emits `approval_required`, waits for a decision, then emits
+`approval_decision`. A denial, a timeout (`AGENT_APPROVAL_TIMEOUT_S`, default 300, API only) or a
+missing approver is returned to the model as a tool error so it re-plans; every decision is in the
+trace (`approvals` in `--trace`, the events in `GET /jobs/{id}/events`). `final_report` is never
+gated.
 
 - API/UI: `GET /jobs/{id}` shows `pending_approval`; `POST /jobs/{id}/approve`; the Streamlit UI
-  shows an approve/deny panel.
+  pauses the step stream and shows an approve/deny panel with the reasons, the SQL or code and an
+  optional note for the agent.
 - CLI: `analyst-agent ask --require-approval ...` prompts y/n on the terminal (no answer = deny);
   add `--auto-approve` to approve everything.
+- Eval: gated steps are auto-approved and recorded as `decided_by: auto`.
 
 Deployment: [deploy/cloudrun.md](deploy/cloudrun.md). Tracing: [docs/observability.md](docs/observability.md).
+UI end-to-end check (headless browser, approval on): [scripts/ui-e2e/](scripts/ui-e2e/README.md).
 
 ## MCP server
 
-Use the data tools (`inspect_schema`, `run_sql`, `run_python`, `make_chart`) from Claude Desktop,
-Claude Code or any MCP client — same handlers and sandbox, no API key needed:
+`analyst-agent-mcp` exposes the data tools (`inspect_schema`, `run_sql`, `run_python`,
+`make_chart`) over stdio to Claude Desktop, Claude Code or any MCP client. It uses the same tool
+schemas, handlers and sandbox as the agent (one sandbox per server), wraps results as untrusted
+data, and needs no API key: the client's model does the reasoning, so the agent loop, critic,
+routing, semantic layer and approval gate are not involved.
 
 ```bash
 uv sync --extra mcp
@@ -228,28 +311,40 @@ by the generator script, so it is correct by construction.
 uv run python -m analyst_agent.eval run -d L1 --limit 5      # cheap dev run
 uv run python -m analyst_agent.eval report runs/<timestamp>
 uv run python -m analyst_agent.eval compare runs/<a> runs/<b>   # incl. prompt-version diffs
-# A/B model routing
-uv run python -m analyst_agent.eval run --no-routing   # baseline
-uv run python -m analyst_agent.eval run --routing      # routed; report adds a Routing section
 ```
 
-Each task runs in its own child process (`--isolation process`, the default), which is killed
-together with any sandbox subprocesses when `--timeout` expires. Every run's `meta.json` records
-the prompt versions from `core/prompts.py`. Edit a prompt only together with a version bump;
-`tests/test_prompts.py` fails if the text changes and the version stays the same.
+`eval run` options beyond the task filters:
 
-CI (`eval-smoke` job) runs two offline checks on every PR. Neither makes any API calls:
+| Option | Effect |
+|---|---|
+| `--agent core\|dry-run\|oracle\|module:callable` | `core` = the real agent; `dry-run` = real loop/tools/sandbox with the scripted LLM; `oracle` = answers from ground truth (harness check) |
+| `--routing/--no-routing` | force model routing on/off for `core`/`dry-run` (A/B; the report adds a Routing section) |
+| `--auto-approve/--no-auto-approve` | approval gates are auto-approved by default (no human during eval); `--no-auto-approve` leaves no approver, so gated steps are denied |
+| `--isolation process\|inline` | `process` (default): each task in its own child process, killed with its sandbox subprocesses on `--timeout` |
+| `--no-judge`, `--no-score` | skip the LLM judge (L3 rubric tasks are reported as skipped), or skip scoring |
+| `--fail-under X`, `--fail-on-error` | exit 1 below accuracy X, or if any task errors, times out or stops early (CI gates) |
+
+The semantic layer has no eval flag; set `AGENT_SEMANTIC_LAYER_ENABLED` and compare runs (the
+report shows "Semantic layer on" and "Mean metrics retrieved"). Every run's `meta.json` records
+the prompt versions.
+
+CI (`eval-smoke` job) runs three offline checks on every PR. None makes any API calls:
 
 ```bash
 uv run python -m analyst_agent.eval run --agent oracle --no-judge --limit 5 --fail-under 1.0 --fail-on-error
 ```
 
 ```bash
-uv run python -m analyst_agent.eval run --agent dry-run --no-score --limit 3 --fail-on-error
+uv run python -m analyst_agent.eval run --agent dry-run --no-score --limit 3 --timeout 120 --fail-on-error
+```
+
+```bash
+AGENT_ROUTING_ENABLED=true AGENT_SEMANTIC_LAYER_ENABLED=true AGENT_APPROVAL_ENABLED=true AGENT_APPROVAL_ROW_THRESHOLD=0 \
+  uv run python -m analyst_agent.eval run --agent dry-run --no-score --limit 3 --timeout 120 --fail-on-error
 ```
 
 Without a judge, L3 rubric tasks are reported as *skipped* and left out of accuracy. The `dry-run`
-agent runs the real loop, tools and sandbox with the scripted `FakeLLM`.
+agent's answers are not analyses, so its runs are only checked for completing.
 
 See [`benchmarks/README.md`](benchmarks/README.md) for task format and more options.
 
@@ -287,6 +382,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the trade-offs and
 - [x] Eval: synthetic datasets, 30 + 10 task benchmark, runner, scorers, reports, CI
 - [x] Serving: FastAPI, SSE step stream, Streamlit frontend, Docker, Cloud Run
 - [x] Observability: Langfuse tracing
-- [ ] Publish first benchmark results in this README
+- [x] MCP server, semantic layer, model routing, human-in-the-loop approval, prompt versioning
+- [ ] Publish first benchmark results in this README (incl. routing and semantic-layer A/B)
 - [ ] Container-level sandbox isolation for multi-tenant use
 - [ ] More data sources (Postgres, BigQuery) and multi-table dataset uploads

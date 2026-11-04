@@ -78,6 +78,12 @@ AGENT_TOKEN_BUDGET=400000
 AGENT_MAX_CONCURRENT_JOBS=4
 AGENT_MAX_UPLOAD_MB=50
 AGENT_LANGFUSE_ENABLED=true
+# Feature flags (default false; see docs/configuration.md). The image ships the semantic-layer
+# metrics at /app/benchmarks/metrics. Approval needs someone to answer in the UI within
+# AGENT_APPROVAL_TIMEOUT_S, otherwise the gated step is denied.
+AGENT_ROUTING_ENABLED=false
+AGENT_SEMANTIC_LAYER_ENABLED=false
+AGENT_APPROVAL_ENABLED=false
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...
 LANGFUSE_HOST=https://langfuse.example.com

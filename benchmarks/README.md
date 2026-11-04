@@ -90,7 +90,8 @@ Each run writes `runs/<timestamp>/`:
 - `report.md`
 
 Settings come from `AGENT_*` env vars: `AGENT_JUDGE_MODEL` (default: `AGENT_MODEL`),
-`AGENT_JUDGE_EFFORT`, `AGENT_EVAL_CONCURRENCY`, `AGENT_EVAL_TIMEOUT_S`, `AGENT_EVAL_RUNS_DIR`.
+`AGENT_JUDGE_EFFORT`, `AGENT_EVAL_CONCURRENCY`, `AGENT_EVAL_TIMEOUT_S`, `AGENT_EVAL_RUNS_DIR`
+(all in `analyst_agent.core.config.Settings`; see `docs/configuration.md`).
 
 ## Semantic layer metrics
 
@@ -103,7 +104,10 @@ first planner message, before any SQL is written.
 
 Every `sql_fragment` is executed against the CSVs by `tests/semantic/test_benchmark_metrics.py`.
 
-Each retrieval is recorded in the trace as `{"type": "semantic_retrieval", "metrics": [...]}`.
+Each retrieval is recorded in the trace as `{"type": "semantic_retrieval", "metrics": [...]}`
+(after the `route` event when routing is on). The Docker API image ships this directory at
+`/app/benchmarks/metrics` (`AGENT_SEMANTIC_METRICS_DIR` is set there); the data and tasks are not
+in the image.
 `eval report` / `eval compare` show "Semantic layer on" and "Mean metrics retrieved":
 
 ```bash
