@@ -126,3 +126,9 @@ def test_create_sandbox_artifacts_dir(data_files, tmp_path):
     with create_sandbox(data_files, artifacts_dir=tmp_path / "a") as sb:
         res = sb.run_python("plt.plot([1, 2])")
     assert res.ok and [Path(p).parent for p in res.artifacts] == [tmp_path / "a"]
+
+
+def test_duckdb_tables_available_in_python(duckdb_file):
+    with create_sandbox({"shop": duckdb_file}) as sb:
+        res = sb.run_python("print(len(orders), len(customers))")
+        assert res.error is None and "5 1" in res.stdout

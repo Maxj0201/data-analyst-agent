@@ -47,6 +47,71 @@ async def test_upload_rejects_bad_files(client, settings, name, content, status)
     assert list(settings.uploads_dir.iterdir()) == []
 
 
+def _parquet_bytes(tmp_path) -> bytes:
+    import duckdb
+
+    path = tmp_path / "t.parquet"
+    duckdb.sql("SELECT 'north' AS region, 100 AS revenue").write_parquet(str(path))
+    return path.read_bytes()
+
+
+def _sqlite_bytes(tmp_path) -> bytes:
+    import sqlite3
+
+    path = tmp_path / "t.sqlite"
+    with sqlite3.connect(path) as con:
+        con.execute("CREATE TABLE sales (region TEXT, revenue INT)")
+        con.execute("INSERT INTO sales VALUES ('north', 100)")
+    con = sqlite3.connect(path)
+    con.close()
+    return path.read_bytes()
+
+
+def _duckdb_bytes(tmp_path) -> bytes:
+    import duckdb
+
+    path = tmp_path / "t.duckdb"
+    con = duckdb.connect(str(path))
+    con.execute("CREATE TABLE sales AS SELECT 'north' AS region, 100 AS revenue")
+    con.close()
+    return path.read_bytes()
+
+
+@pytest.mark.parametrize(
+    ("name", "maker", "columns"),
+    [
+        ("sales.parquet", _parquet_bytes, ["region", "revenue"]),
+        ("shop.sqlite", _sqlite_bytes, ["sales.region", "sales.revenue"]),
+        ("shop.db", _sqlite_bytes, ["sales.region", "sales.revenue"]),
+        ("shop.duckdb", _duckdb_bytes, ["sales.region", "sales.revenue"]),
+    ],
+)
+async def test_upload_accepts_parquet_sqlite_duckdb(
+    client, settings, tmp_path, name, maker, columns
+):
+    content = maker(tmp_path)
+    resp = await client.post("/datasets", files={"file": (name, content)})
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["stored_name"] == name
+    assert body["columns"] == columns
+    assert (settings.uploads_dir / body["dataset_id"] / name).read_bytes() == content
+
+
+@pytest.mark.parametrize("name", ["bad.parquet", "bad.sqlite", "bad.duckdb"])
+async def test_upload_rejects_fake_binary_formats(client, settings, name):
+    resp = await client.post("/datasets", files={"file": (name, b"just some text" * 20)})
+    assert resp.status_code == 400
+    assert list(settings.uploads_dir.iterdir()) == []
+
+
+async def test_upload_rejects_unsupported_extension(client, settings):
+    resp = await client.post("/datasets", files={"file": ("x.xlsx", b"PK\x03\x04")})
+    assert resp.status_code == 415
+    assert ".parquet" in resp.json()["detail"] and ".duckdb" in resp.json()["detail"]
+    assert list(settings.uploads_dir.iterdir()) == []
+
+
 async def test_upload_enforces_size_limit(client, settings):
     big = b"a,b\n" + b"1,2\n" * (300 * 1024)  # > 1 MB limit configured in the fixture
     resp = await client.post("/datasets", files={"file": ("big.csv", big, "text/csv")})

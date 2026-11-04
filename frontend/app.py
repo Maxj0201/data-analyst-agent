@@ -145,9 +145,12 @@ def render_result(job_id: str) -> None:
 # ---- page ----------------------------------------------------------------------------------
 
 st.title("📊 Data Analyst Agent")
-st.caption("Upload a CSV, ask a question, and watch the agent work.")
+st.caption("Upload a data file, ask a question, and watch the agent work.")
 
-uploaded = st.file_uploader("Dataset (CSV)", type=["csv"])
+uploaded = st.file_uploader(
+    "Dataset (CSV, Parquet, SQLite, DuckDB)",
+    type=["csv", "parquet", "sqlite", "sqlite3", "db", "duckdb"],
+)
 if uploaded is not None and st.session_state.get("upload_id") != uploaded.file_id:
     with st.spinner("Uploading…"):
         resp = api().post("/datasets", files={"file": (uploaded.name, uploaded.getvalue())})
@@ -204,7 +207,7 @@ if dataset:
     if st.session_state.get("job_id"):
         render_result(st.session_state.job_id)
 else:
-    st.info("Upload a CSV to get started.")
+    st.info("Upload a data file to get started.")
 
 with st.sidebar:
     st.markdown(f"**API:** `{API_URL}`")

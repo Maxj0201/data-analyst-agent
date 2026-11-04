@@ -94,6 +94,20 @@ def test_hostile_file_names_become_safe_identifiers(tmp_path):
     r.close()
 
 
+def test_duckdb_file_source(duckdb_file):
+    r = DuckDBRunner([duckdb_file])
+    assert sorted(r.tables) == ["customers", "orders"]  # base tables only, no views
+    assert r.run_sql("SELECT count(*) AS n FROM orders").rows == [{"n": 5}]
+    r.close()
+
+
+def test_corrupt_duckdb_file_is_load_error(tmp_path):
+    bad = tmp_path / "bad.duckdb"
+    bad.write_bytes(b"not a database" * 100)
+    with pytest.raises(DataLoadError):
+        DuckDBRunner([bad])
+
+
 def test_load_errors(tmp_path):
     with pytest.raises(DataLoadError):
         DuckDBRunner([tmp_path / "missing.csv"])

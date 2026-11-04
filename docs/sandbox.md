@@ -11,7 +11,7 @@ it**.
 ```python
 from analyst_agent import sandbox
 
-sb = sandbox.create_sandbox({"orders": Path("orders.csv")})   # CSV / Parquet / SQLite
+sb = sandbox.create_sandbox({"orders": Path("orders.csv")})   # CSV / Parquet / SQLite / DuckDB
 sb.run_sql("SELECT ...")      # -> SqlResult
 sb.run_python("print(df.head())")  # -> PyResult
 

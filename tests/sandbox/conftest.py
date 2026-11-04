@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 import pytest
 
@@ -31,6 +32,18 @@ def sqlite_file(tmp_path: Path) -> Path:
         pd.DataFrame({"name": ["alice", "bob"], "tier": ["gold", "silver"]}).to_sql(
             "customers", con, index=False
         )
+    return path
+
+
+@pytest.fixture()
+def duckdb_file(tmp_path: Path) -> Path:
+    path = tmp_path / "shop.duckdb"
+    con = duckdb.connect(str(path))
+    con.register("orders_df", ORDERS)
+    con.execute("CREATE TABLE orders AS SELECT * FROM orders_df")
+    con.execute("CREATE TABLE customers AS SELECT 'alice' AS name, 'gold' AS tier")
+    con.execute("CREATE VIEW big_orders AS SELECT * FROM orders WHERE amount > 10")
+    con.close()
     return path
 
 

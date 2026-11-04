@@ -1,4 +1,4 @@
-"""Turn CSV / Parquet / SQLite files into named tables.
+"""Turn CSV / Parquet / SQLite / DuckDB files into named tables.
 
 Runs in the trusted parent process. Data files are treated as untrusted *data*:
 names derived from file names / SQLite table names are sanitized into safe identifiers
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 
 import duckdb
@@ -18,7 +18,8 @@ import pandas as pd
 CSV_SUFFIXES = {".csv", ".tsv", ".txt"}
 PARQUET_SUFFIXES = {".parquet", ".pq"}
 SQLITE_SUFFIXES = {".sqlite", ".sqlite3", ".db"}
-SUPPORTED_SUFFIXES = CSV_SUFFIXES | PARQUET_SUFFIXES | SQLITE_SUFFIXES
+DUCKDB_SUFFIXES = {".duckdb", ".ddb"}
+SUPPORTED_SUFFIXES = CSV_SUFFIXES | PARQUET_SUFFIXES | SQLITE_SUFFIXES | DUCKDB_SUFFIXES
 
 _IDENT_RE = re.compile(r"\W+")
 
@@ -42,8 +43,8 @@ def quote_ident(name: str) -> str:
 def normalize_sources(sources: DataSources | None) -> dict[str, Path]:
     """Accept a path, a list of paths, or a {name: path} mapping; return {name: path}.
 
-    For SQLite files the name is a prefix hint only (each SQLite table becomes its own
-    table, see :func:`iter_tables`).
+    For SQLite / DuckDB database files the name is a hint only (each table in the file becomes
+    its own table).
     """
     if sources is None:
         return {}
@@ -84,6 +85,48 @@ def _read_sqlite_table(path: Path, table: str) -> pd.DataFrame:
         return pd.read_sql_query(f"SELECT * FROM {quote_ident(table)}", con)
 
 
+def _duckdb_tables(path: Path) -> list[tuple[str, str]]:
+    """(schema, table) for every base table in a DuckDB file, opened read-only."""
+    try:
+        con = duckdb.connect(str(path), read_only=True)
+    except duckdb.Error as exc:
+        raise DataLoadError(f"cannot open DuckDB file {path.name}: {exc}") from exc
+    try:
+        return [
+            (r[0], r[1])
+            for r in con.execute(
+                "SELECT table_schema, table_name FROM information_schema.tables "
+                "WHERE table_type = 'BASE TABLE' ORDER BY 1, 2"
+            ).fetchall()
+        ]
+    finally:
+        con.close()
+
+
+def _duckdb_table_name(schema: str, table: str) -> str:
+    return safe_identifier(table if schema == "main" else f"{schema}_{table}")
+
+
+def _sql_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _copy_duckdb_tables(
+    con: duckdb.DuckDBPyConnection, path: Path, create: Callable[[str, str], None]
+) -> None:
+    """ATTACH the file read-only and call ``create(table_name, source_sql)`` per base table."""
+    tables = _duckdb_tables(path)
+    con.execute(f"ATTACH {_sql_literal(str(path))} AS __src (READ_ONLY)")
+    try:
+        for schema, table in tables:
+            create(
+                _duckdb_table_name(schema, table),
+                f"SELECT * FROM __src.{quote_ident(schema)}.{quote_ident(table)}",
+            )
+    finally:
+        con.execute("DETACH __src")
+
+
 def load_into_duckdb(con: duckdb.DuckDBPyConnection, sources: Mapping[str, Path]) -> list[str]:
     """Create one table per source in a *writable* build connection. Returns table names."""
     created: list[str] = []
@@ -104,6 +147,12 @@ def load_into_duckdb(con: duckdb.DuckDBPyConnection, sources: Mapping[str, Path]
             con.execute(
                 f"CREATE TABLE {_check(name)} AS SELECT * FROM read_parquet(?)", [str(path)]
             )
+        elif suffix in DUCKDB_SUFFIXES:  # one table per base table in the file
+
+            def _create(table: str, select: str) -> None:
+                con.execute(f"CREATE TABLE {_check(table)} AS {select}")
+
+            _copy_duckdb_tables(con, path, _create)
         else:  # SQLite: one DuckDB table per SQLite table, read via the stdlib driver
             for table in _sqlite_tables(path):
                 df = _read_sqlite_table(path, table)
@@ -127,6 +176,12 @@ def load_dataframes(sources: Mapping[str, Path]) -> dict[str, pd.DataFrame]:
                 frames[name] = con.execute("SELECT * FROM read_csv_auto(?)", [str(path)]).df()
             elif suffix in PARQUET_SUFFIXES:
                 frames[name] = con.execute("SELECT * FROM read_parquet(?)", [str(path)]).df()
+            elif suffix in DUCKDB_SUFFIXES:
+
+                def _fetch(table: str, select: str) -> None:
+                    frames[table] = con.execute(select).df()
+
+                _copy_duckdb_tables(con, path, _fetch)
             else:
                 for table in _sqlite_tables(path):
                     frames[safe_identifier(table)] = _read_sqlite_table(path, table)
