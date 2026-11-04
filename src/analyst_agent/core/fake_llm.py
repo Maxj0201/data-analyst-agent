@@ -154,7 +154,9 @@ def _pick_columns(cols: list[tuple[str, str]], question: str) -> tuple[str | Non
     return group, measure or (num_cols[0] if num_cols else None)
 
 
-def dry_run_llm(question: str, table: str, run_sql: SqlFn) -> FakeLLM:
+def dry_run_llm(
+    question: str, table: str, run_sql: SqlFn, *, structured_report: bool = False
+) -> FakeLLM:
     """Script a deterministic run over ``table``: inspect schema, aggregate with SQL, chart it,
     report, critic passes (plus a router verdict, used only when routing is on).
 
@@ -163,6 +165,9 @@ def dry_run_llm(question: str, table: str, run_sql: SqlFn) -> FakeLLM:
     pre-run once via ``run_sql`` so the scripted report quotes the real numbers. The agent loop
     then executes the same tool calls for real through the tool registry and sandbox. This
     exercises the plumbing; it is not an analysis.
+
+    ``structured_report`` (``AGENT_STRUCTURED_REPORT_ENABLED``) submits ``final_report`` as the
+    structured fields (headline, key_numbers, method, caveats, charts) instead of Markdown.
     """
     zero = Usage()  # no tokens are spent, so the cost summary reads $0
     kw: dict[str, Any] = {"usage": zero, "model": DRY_RUN_MODEL}
@@ -227,7 +232,19 @@ def dry_run_llm(question: str, table: str, run_sql: SqlFn) -> FakeLLM:
         f"# {question}\n\n> Dry run: scripted offline LLM, no API calls.\n\n{headline}\n\n"
         f"{table_md}\n\nQuery:\n\n```sql\n{sql}\n```\n"
     )
-    agent.append(resp(tool_use("final_report", markdown=markdown, key_numbers=key_numbers), **kw))
+    if structured_report:
+        report = tool_use(
+            "final_report",
+            headline=headline,
+            key_numbers=key_numbers,
+            method=f"Dry run: scripted offline LLM, no API calls. Query on `{table}`: {sql}",
+            caveats=["Dry run: the query is chosen by a heuristic, not by analysis."],
+            charts=[],  # make_chart's artifacts are still listed with the report
+            details=table_md,
+        )
+    else:
+        report = tool_use("final_report", markdown=markdown, key_numbers=key_numbers)
+    agent.append(resp(report, **kw))
     # Only consumed when AGENT_ROUTING_ENABLED is on: a grouped query is L2, a single aggregate L1.
     tier = "L2" if group else "L1"
     route = json.dumps({"tier": tier, "reason": "dry run: scripted from the planned query shape"})

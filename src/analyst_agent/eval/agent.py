@@ -211,7 +211,7 @@ def output_from_core(result: Any, recorder: TraceRecorder | None = None) -> Agen
     )
 
 
-LLMFactory = Callable[[str, Any], Any]  # (question, sandbox) -> LLM
+LLMFactory = Callable[[str, Any, Any], Any]  # (question, sandbox, settings) -> LLM
 
 
 def make_recorder(inp: AgentInput) -> TraceRecorder:
@@ -269,7 +269,7 @@ def _run_core(
     # Per-task sandbox: tasks run concurrently, so the module-level sandbox must not be shared.
     with create_sandbox(datasets, artifacts_dir=settings.artifacts_dir) as sb:
         ctx = ToolContext(tables=sb.tables, artifacts_dir=settings.artifacts_dir, sandbox=sb)
-        llm = llm_factory(question, sb) if llm_factory else LLMClient(settings)
+        llm = llm_factory(question, sb, settings) if llm_factory else LLMClient(settings)
         # Nobody is at the keyboard during eval: with AGENT_APPROVAL_ENABLED on and no approver,
         # every gated step would be denied. Auto-approve by default (recorded as decided_by
         # "auto" in the trace); ``eval run --no-auto-approve`` measures the deny path instead.
@@ -311,10 +311,12 @@ async def core_agent(
     return output_from_core(result, recorder)
 
 
-def _dry_run_llm(question: str, sb: Any) -> Any:
+def _dry_run_llm(question: str, sb: Any, settings: Any) -> Any:
     from analyst_agent.core.fake_llm import dry_run_llm
 
-    return dry_run_llm(question, sb.tables[0], sb.run_sql)
+    return dry_run_llm(
+        question, sb.tables[0], sb.run_sql, structured_report=settings.structured_report_enabled
+    )
 
 
 async def dry_run_agent(

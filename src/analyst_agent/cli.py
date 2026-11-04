@@ -136,7 +136,12 @@ def ask(
         from analyst_agent.core.fake_llm import dry_run_llm
 
         typer.secho("Dry run: scripted offline LLM, no API calls.", err=True, dim=True)
-        llm = dry_run_llm(question, tables[0], sandbox.run_sql)
+        llm = dry_run_llm(
+            question,
+            tables[0],
+            sandbox.run_sql,
+            structured_report=settings.structured_report_enabled,
+        )
     else:
         llm = LLMClient(settings)
     approver: Approver = AutoApprover() if auto_approve else CallbackApprover(prompt_approval)

@@ -46,7 +46,7 @@ class SleepingCoreAgent:
 
     def __call__(self, inp: AgentInput) -> AgentOutput:  # sync, like the worst-case agent
         llm = SleepingLLM(self.log, self.sleep_s)
-        result = _run_core(inp.question, list(inp.dataset_paths), lambda q, sb: llm)
+        result = _run_core(inp.question, list(inp.dataset_paths), lambda q, sb, settings: llm)
         return output_from_core(result)
 
 

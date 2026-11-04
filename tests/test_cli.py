@@ -138,12 +138,23 @@ def test_ask_no_stdin_denies(tmp_path, monkeypatch):
 @pytest.mark.parametrize("routing", [True, False])
 @pytest.mark.parametrize("semantic", [True, False])
 @pytest.mark.parametrize("approval", ["auto", "prompt-yes", "prompt-no", "off"])
+@pytest.mark.parametrize("structured", [True, False])
+@pytest.mark.parametrize("memory", [True, False])
 def test_ask_dry_run_every_flag_combination(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, routing: bool, semantic: bool, approval: str
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    routing: bool,
+    semantic: bool,
+    approval: str,
+    structured: bool,
+    memory: bool,
 ):
     import json
 
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AGENT_STRUCTURED_REPORT_ENABLED", str(structured).lower())
+    monkeypatch.setenv("AGENT_MEMORY_ENABLED", str(memory).lower())
+    monkeypatch.setenv("AGENT_MEMORY_DB_PATH", str(tmp_path / "memory.sqlite3"))
     monkeypatch.setenv("AGENT_ARTIFACTS_DIR", str(tmp_path / "art"))
     monkeypatch.setenv("AGENT_SEMANTIC_METRICS_DIR", str(REPO / "benchmarks/metrics"))
     monkeypatch.setenv("AGENT_APPROVAL_ROW_THRESHOLD", "0")  # gate every SELECT
@@ -175,6 +186,14 @@ def test_ask_dry_run_every_flag_combination(
     sl = t["semantic_layer"]
     assert sl["enabled"] is semantic and bool(sl["retrieved_metrics"]) is semantic
     assert sl["error"] is None
+    # Structured reports: the dry run submits the structured fields and the checks pass.
+    assert (t["structured_report"] is not None) is structured
+    if structured:
+        assert t["structured_report"]["key_numbers"]["top_region"] == "North America"
+    mem = t["memory"]
+    assert mem["enabled"] is memory and mem["error"] is None
+    if memory and approval != "prompt-no":
+        assert mem["saved"] and mem["fingerprint"]
     decisions = {(a["decision"]["approved"], a["decision"]["decided_by"]) for a in t["approvals"]}
     assert (
         decisions
