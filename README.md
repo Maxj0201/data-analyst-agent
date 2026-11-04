@@ -28,7 +28,9 @@ and latency.
 - **MCP server:** the data tools over stdio for Claude Desktop, Claude Code or any MCP client.
 - **Eval:** 30 tasks (L1/L2/L3) plus 10 adversarial prompt-injection / PII tasks, with scorers,
   per-task process isolation, run-vs-run comparison and an offline CI smoke job.
-- **Observability:** optional Langfuse tracing of every LLM and tool call.
+- **Observability:** a run → turn → LLM/tool/critic/approval/route span tree per run, sent to
+  Langfuse (with eval scores on each trace) or shown offline with `analyst-agent trace show`, plus
+  JSON logs correlated by `run_id` / `job_id`.
 
 ## Architecture
 
@@ -193,8 +195,12 @@ uv run analyst-agent ask --data benchmarks/data/saas/subscriptions.csv "which re
 | `--require-approval/--no-require-approval` | override `AGENT_APPROVAL_ENABLED` |
 | `--auto-approve` | approve every gated step without the y/n prompt |
 | `--model`, `--max-turns`, `--token-budget` | override `AGENT_MODEL`, `AGENT_MAX_TURNS`, `AGENT_TOKEN_BUDGET` |
-| `--trace FILE` | write the full run trace as JSON (plans, tool calls, critic, route, retrieved metrics, approvals, cost per model, prompt versions) |
+| `--trace FILE` | write the full run trace as JSON (plans, tool calls, critic, route, retrieved metrics, approvals, cost per model, prompt versions, and the span tree under `spans`) |
 | `--verbose/-v` | print each step to stderr |
+
+`analyst-agent trace show <run_id|job_id|file>` prints a saved run as a tree with timings and costs
+(saved when `AGENT_TRACE_STORE_ENABLED=true`, or via `--trace FILE`); `analyst-agent trace ls`
+lists them. See [docs/observability.md](docs/observability.md).
 
 Run the tests and linter (no API calls are made):
 
@@ -381,7 +387,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the trade-offs and
 - [x] Sandbox: DuckDB runner, Python subprocess runner, security tests
 - [x] Eval: synthetic datasets, 30 + 10 task benchmark, runner, scorers, reports, CI
 - [x] Serving: FastAPI, SSE step stream, Streamlit frontend, Docker, Cloud Run
-- [x] Observability: Langfuse tracing
+- [x] Observability: Langfuse span trees + eval scores, `trace show`, correlated JSON logs
 - [x] MCP server, semantic layer, model routing, human-in-the-loop approval, prompt versioning
 - [ ] Publish first benchmark results in this README (incl. routing and semantic-layer A/B)
 - [ ] Container-level sandbox isolation for multi-tenant use
