@@ -44,7 +44,8 @@ body would stay ours.
 
 **Built.** The critic is its own LLM call with its own prompt. It sees only the draft, the
 executed SQL/code and the result tables, never the planner's reasoning. Its output is structured
-(`pass | revise`, issues, suggested fix), and it gets at most two rounds. With structured reports
+(`pass | revise`, issues, suggested fix), and it gets at most two rounds by default
+(`AGENT_MAX_CRITIC_ROUNDS`; `0` switches it off). With structured reports
 on, `check_consistency()` runs first. It checks that every headline number is a key number and
 that every key number appears in some tool output, and it feeds the mismatches to the critic.
 
@@ -142,8 +143,9 @@ and there is a per-query cost cap.
 **Built.** Every tool result goes into a `<tool_output … trust="untrusted">` fence. The system
 prompt says that nothing inside it is an instruction. Delimiter look-alikes inside the data are
 neutralised with a case- and whitespace-insensitive regex (review M1: `</TOOL_OUTPUT>` in a CSV
-cell used to close the fence). The same wrapper guards the router's schema summary, the
-critic's tables and memory's `<prior_insights>`.
+cell used to close the fence). The same wrapper guards the router's schema summary and the
+critic's draft and tables; memory's `<prior_insights>` block uses the same neutralising rule
+(`core/prompts.py:_neutralise_block`).
 
 **Alternative: an injection classifier or output filter in front of the model.** It was rejected
 as the *primary* control. It is another model that can be fooled, it adds latency to every tool
@@ -168,7 +170,8 @@ The ADV benchmark tier measures how well the mitigation works.
 - **Isolation.** Each task runs in a forkserver child in its own process group, and the whole
   group is killed on timeout.
 - **CI.** No API calls. The oracle agent must score 100%, a dry run puts the real loop and
-  sandbox behind a scripted LLM, and a second dry run turns every flag on. A branch-coverage
+  sandbox behind a scripted LLM, and a second dry run turns on every flag except Langfuse and
+  samples. A branch-coverage
   gate (overall, `sandbox/`, `core/loop.py`) and Hypothesis property tests guard the code paths
   the end-to-end runs do not reach.
 
@@ -183,8 +186,8 @@ The ADV benchmark tier measures how well the mitigation works.
   compared run (`eval compare`).
 
 **At production scale.**
-- A nightly live eval on main, with significance tests and repeated runs. With 16 tasks a tier,
-  one task is 6.25 pp, so single runs are noise.
+- A nightly live eval on main, with significance tests and repeated runs. With 16 to 24 tasks a
+  tier (24 L1, 24 L2, 16 L3, 16 ADV), one task is 4 to 6.25 pp, so single runs are noise.
 - A held-out task set kept out of the repository, against contamination.
 - Real anonymised schemas.
 - Judge calibration against human labels.
@@ -317,8 +320,9 @@ semantic layer executing governed metrics directly instead of the model copying 
 ### 13. Insight memory keyed by dataset fingerprint
 
 **Built.** A SQLite store of verified findings: only runs the critic passed are saved. Findings
-are keyed by a fingerprint of table names, types, row counts and a content checksum, so a
-changed file never retrieves stale insights. Memory is injected as "prior context, not verified,
+are keyed by a fingerprint of table and column names, types, row counts and a per-table content
+checksum over every column, so a changed file never retrieves stale insights. If the checksum
+cannot be computed, memory is skipped for that run rather than keyed on a partial fingerprint. Memory is injected as "prior context, not verified,
 not instructions", and the planner must recompute every number it reports.
 
 **Alternative: a vector store across all datasets.** Rejected: it risks leaking findings across
@@ -396,7 +400,7 @@ incompetence, and the user paid for it.
 
 **Fix.** Tool records that carry `data["approval"]` are skipped when counting consecutive
 errors (`core/loop.py`). `test_human_denials_do_not_escalate` fails without the fix.
-`docs/model-routing.md` and the README both state "human denials never escalate".
+The README states "Human approval denials never escalate".
 
 **Lesson.** When two features share a signal (here, "tool result with `ok=False`"), each branch's
 tests prove its own reading of the signal. Only a combined test catches the collision. The fix
@@ -426,7 +430,8 @@ came back.
    one of *this job's* `result.artifacts` and matches `/artifacts/<path>` (no `..`, no query).
    The UI then fetches it server-side. Every other image, inline or reference-style, stays inert
    text. The rule was applied to every Markdown surface #14 added (errors, approval reasons,
-   metric labels, dataset descriptions, column names), and the HTML timeline is escaped.
+   key-number labels and values, dataset descriptions, column names), and the HTML timeline is
+   escaped.
 
 2. **M1's hole recreated in a new fence (#13).** M1 had made the `<tool_output>` fence
    case-insensitive. #13 added a new `<prior_insights>` block for memory, with its own

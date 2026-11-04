@@ -45,15 +45,17 @@ sandbox.run_python(code) -> PyResult
 Error kinds produced by the sandbox itself (`sandbox/_errors.py`): `StatementNotAllowed`,
 `Timeout`, `MemoryLimitExceeded`, `PermissionDenied`, `QueryError`, `NoData`,
 `DataLoadError`, `ProcessCrashed`. Python exceptions from user code use the exception class
-name. The only raising path is the trusted one: `load_data`/`create_sandbox` raise
+name. A bootstrap that refuses to run (see *Fail closed* below) reports `SandboxSetupError`.
+The only raising path is the trusted one: `load_data`/`create_sandbox` raise
 `DataLoadError` for a missing or unsupported file.
 
 Inside `run_python`: `pd`, `np`, `plt` (Agg backend) and `scipy` are pre-imported. Every
 table is in `tables[name]` and is also a variable of that name. When there is exactly one
 table it is also `df`. Figures left open, plus `.png/.jpg/.csv/.json/.txt/.md` files written
 to the cwd, are copied to the `artifacts_dir` given to `load_data`/`create_sandbox` and
-listed in `artifacts`. If none was given, they go to `$AGENT_ARTIFACTS_DIR`, or `artifacts/`
-when that is unset.
+listed in `artifacts`. `load_data` defaults to `artifacts/`. If `create_sandbox` was given
+none (or `load_data` got `artifacts_dir=None`), they go to `$AGENT_ARTIFACTS_DIR`, or
+`artifacts/` when that is unset.
 
 ## Threat model
 
@@ -92,6 +94,7 @@ data: the sandbox never interpolates data values into SQL.
 |---|---|---|
 | Separate interpreter | A fresh `python -s -B` subprocess for every call, in its own session/process group | OS boundary |
 | Wall-clock timeout | 60 s (configurable), then `SIGKILL` to the whole process group. Ignoring signals or catching exceptions doesn't help | OS |
+| Dies with its parent | The child sets `PR_SET_PDEATHSIG(SIGKILL)` at start-up (and exits if its parent is already gone), so it cannot outlive the process that enforces its timeout: an eval task killed on timeout or a crashed API takes its sandbox child with it. It runs in its own session, so killing the parent's process group alone would not reach it | OS |
 | Memory | `RLIMIT_AS` (default 1 GiB) via `resource.setrlimit`, applied by the child's `sitecustomize` before any other code (no `preexec_fn`, which can deadlock in a threaded server). Allocation bombs raise `MemoryError` → `MemoryLimitExceeded` | OS |
 | Other rlimits | `RLIMIT_CPU` (timeout + 5 s), `RLIMIT_FSIZE` 64 MiB (a full disk or giant files), `RLIMIT_NOFILE` 256, no core dumps. Hard limit = soft limit, and seccomp blocks `setrlimit`/`prlimit64`, so the child cannot raise them | OS |
 | seccomp-bpf (`_child/_oslock.py`) | Installed on every thread just before user code. These fail with `EPERM`: `execve`/`execveat`, `fork`/`vfork`, `clone` without `CLONE_THREAD`; **every** `socket()`, `AF_UNIX` included; `ptrace`, `process_vm_*`, `pidfd_*`, `kcmp`; signals to any process but itself (`kill`/`tgkill`/`rt_*sigqueueinfo` are checked against the child's pid); rlimit, priority and scheduler changes; namespace and mount syscalls; `chmod`/`chown`/`utimes`/xattr changes (path and fd forms) and `chattr`-style `ioctl`s; and host-wide syscalls that need a capability the service may hold as root (`reboot`, `init_module`, `kexec_*`, `sethostname`, `settimeofday`/`clock_settime`, `syslog`, `swapon`, `acct`, `iopl`, …). `clone3` and every syscall numbered 463 or higher (newer than anything the interpreter uses) get `ENOSYS`. Foreign-ABI (i386/x32) syscalls are refused. The full list is `_DENIED` / `_SELF_ONLY` / `_IOCTL_DENIED` in `_oslock.py`; the program is 115 BPF instructions on x86_64 and 103 on aarch64 (which lacks the legacy `fork`/`chmod`/`utime` syscalls). Required on Linux: if it cannot be installed, the bootstrap refuses to run | Kernel |
@@ -165,8 +168,9 @@ locally with:
 uv run pytest -m slow tests/sandbox/test_fuzz_escape.py
 ```
 
-`SANDBOX_FUZZ_SEED`, `SANDBOX_FUZZ_N` and `SANDBOX_FUZZ_REPORT` (a JSON report) are
-optional. A cheap test that the corpus compiles and covers every attack runs in normal CI.
+`SANDBOX_FUZZ_SEED`, `SANDBOX_FUZZ_N`, `SANDBOX_FUZZ_WORKERS` and `SANDBOX_FUZZ_REPORT` (a
+JSON report) are optional. A cheap test that the corpus compiles and covers every attack runs
+in normal CI.
 
 ### Found by the fuzzer and fixed
 
@@ -271,4 +275,4 @@ Be honest about this before exposing the agent to untrusted users:
 |---|---|---|
 | SQL timeout / row cap / memory | `DuckDBRunner(timeout_s=, row_limit=, memory_limit=)` | 30 s / 200 / 2GB |
 | Python timeout / memory | `python_runner.run_python(timeout_s=, memory_limit_mb=)` | 60 s / 1024 MiB |
-| Artifact directory | `load_data(..., artifacts_dir=)`, `create_sandbox(..., artifacts_dir=)`, else `AGENT_ARTIFACTS_DIR` | `artifacts/` |
+| Artifact directory | `load_data(..., artifacts_dir=)` (default `artifacts/`), `create_sandbox(..., artifacts_dir=)`, else `AGENT_ARTIFACTS_DIR` | `artifacts/` |

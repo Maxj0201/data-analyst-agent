@@ -56,6 +56,46 @@ def test_fingerprint_changes_when_data_changes(sales_csv: Path, tmp_path: Path) 
     assert fp(edited) != before
 
 
+@pytest.mark.parametrize("column", ["t", "T", "x"])
+def test_fingerprint_covers_every_column_whatever_the_names(column: str, tmp_path: Path) -> None:
+    """Review-2 M1: ``hash(t)`` hashed a column named ``t`` instead of the row, so a change in
+    any other column kept the fingerprint and stale insights were retrieved."""
+
+    def fp(text: str) -> str:
+        path = tmp_path / "sales.csv"
+        path.write_text(text)
+        sb = create_sandbox({"sales": path}, artifacts_dir=tmp_path / "a")
+        try:
+            return dataset_fingerprint(ToolContext(tables=sb.tables, sandbox=sb))
+        finally:
+            sb.close()
+
+    before = fp(f"{column},revenue\n1,10\n2,20\n")
+    assert fp(f"{column},revenue\n1,999\n2,20\n") != before
+
+
+def test_fingerprint_fails_closed_when_the_checksum_is_unavailable(
+    sales_csv: Path, tmp_path: Path
+) -> None:
+    """Review-2 M1: without a content checksum the fingerprint is schema + row count only,
+    which an edited file keeps; memory must be skipped rather than serve stale insights."""
+    sb = create_sandbox({"sales": sales_csv}, artifacts_dir=tmp_path / "a")
+    real = sb.run_sql
+
+    def no_checksum(query: str):  # e.g. the 30 s SQL timeout on a very large table
+        if "hash(" in query:
+            return sandbox.SqlResult(False, [], [], 0, False, "", "Timeout: interrupted", 1)
+        return real(query)
+
+    try:
+        ctx = ToolContext(tables=sb.tables, sandbox=sb)
+        ctx.run_sql = no_checksum  # type: ignore[method-assign]
+        with pytest.raises(RuntimeError, match="checksum"):
+            dataset_fingerprint(ctx)
+    finally:
+        sb.close()
+
+
 def test_fingerprint_with_module_level_sandbox(ctx: ToolContext) -> None:
     assert dataset_fingerprint(ctx) == dataset_fingerprint(ctx)
 

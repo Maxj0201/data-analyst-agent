@@ -107,11 +107,11 @@ analyst-agent trace show run_563d6c7512934a43
 Example output (abridged, illustrative numbers):
 
 ```
-✓ run run_563d6c7512934a43 status=completed tier=L2                        +   0.00s    708ms
+✓ run run_563d6c7512934a43 status=completed tier=L2                        +   0.00s   14.20s   $0.0912
 ├─ ✓ route L2 → claude-opus-5-5                                            +   0.03s    310ms   $0.0001
 │  └─ ✓ llm:router claude-haiku-5-5 in=412 out=18 prompt=router@1.0.0      +   0.03s    310ms   $0.0001
 ├─ ✓ turn 1 model=claude-opus-5-5 tier=L2                                  +   0.34s    2.81s   $0.0213
-│  ├─ ✓ llm:agent claude-opus-5-5 [L2] in=3,912 out=301 prompt=planner@1.0.0 …
+│  ├─ ✓ llm:agent claude-opus-5-5 [L2] in=3,912 out=301 prompt=planner@1.1.0 …
 │  ├─ ✓ plan "1. Inspect `payroll`. 2. Aggregate SUM("base_pay") by `pay_p…"
 │  └─ ✓ tool:inspect_schema                                                +   2.95s      7ms
 …
@@ -120,8 +120,8 @@ Example output (abridged, illustrative numbers):
    └─ ! critic round=1 verdict=revise                                      …                $0.0080  (revise)
       └─ ✓ llm:critic claude-opus-5-5 …
 
-total 14.2s | $0.0912 | 6 LLM calls | 4 tool calls | models: claude-haiku-5-5, claude-opus-5-5
-prompts: critic@1.0.0, planner@1.0.0, report_writer@1.0.0, router@1.0.0, semantic_layer_rules@1.0.0
+total 14.20s | $0.0912 | 6 LLM calls | 4 tool calls | models: claude-haiku-5-5, claude-opus-5-5
+prompts: critic@1.1.0, memory_rules@1.0.0, planner@1.1.0, report_writer@1.0.0, router@1.0.0, semantic_layer_rules@1.0.0, structured_report_rules@1.0.0
 ```
 
 Each line shows its status (`✓` ok, `!` warning, `✗` error), its offset from the run start, its
@@ -150,8 +150,11 @@ joined on `job_id` and `run_id`:
 `AGENT_LOG_JSON_ENABLED=true` switches the stderr handler to JSON lines. Otherwise text lines
 carry the same fields as `[job_id=… run_id=…]`. `AGENT_LOG_LEVEL` sets the level. The API
 configures logging at startup (`uvicorn analyst_agent.api.app:app`). The CLI and `eval run`
-keep stderr at `WARNING` unless `--verbose`, `AGENT_LOG_LEVEL` or JSON logs are set. The ids are
-context variables, so concurrent jobs never mix: each worker thread or asyncio task has its own.
+keep stderr at `WARNING` unless `--verbose` (`ask` only), `AGENT_LOG_LEVEL` or JSON logs are
+set. The ids are context variables, so concurrent jobs never mix: each worker thread or asyncio
+task has its own. `eval run`'s process-isolated task children (the default `--isolation process`) are configured
+with the parent's format and level, so their loop and sandbox lines carry `task_id` and `run_id`
+too.
 
 ## Self-hosting Langfuse with Docker
 

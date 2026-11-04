@@ -45,7 +45,7 @@ compare directly. It is `None` in normal use, and then nothing is recorded.
 ## Environment
 
 The numbers below come from one run of the script, with medians over 5 repeats (warm queries:
-20).
+20; process-cold `run_sql` and cold-host `run_python`: 2).
 
 - 4 vCPU Linux VM, kernel 6.18, Landlock ABI 7, glibc 2.39
 - Python 3.11.18, DuckDB 2.0.0, pandas 3.1.0, pyarrow 26.0.1

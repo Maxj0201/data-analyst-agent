@@ -44,7 +44,14 @@ from analyst_agent.core.langfuse_export import (
 from analyst_agent.core.logs import log_context
 from analyst_agent.core.prompts import prompt_versions
 from analyst_agent.core.tracing import Span, save_trace
-from analyst_agent.eval.agent import AgentFn, AgentInput, AgentOutput, call_agent
+from analyst_agent.eval.agent import (
+    AgentFn,
+    AgentInput,
+    AgentOutput,
+    SpendMeter,
+    call_agent,
+    metering,
+)
 from analyst_agent.eval.isolation import AgentTimeout, check_picklable, run_in_subprocess
 from analyst_agent.eval.judge import Judge
 from analyst_agent.eval.schema import Task
@@ -211,11 +218,13 @@ async def run_task(
     t0 = time.perf_counter()
     status, error = "ok", None
     out = AgentOutput()
+    meter = SpendMeter()  # what the agent reported spending, even if it never returns
     try:
         if isolation == "process":
-            out = await run_in_subprocess(agent, inp, timeout_s)
+            out = await run_in_subprocess(agent, inp, timeout_s, spend=meter)
         elif isolation == "inline":
-            out = await asyncio.wait_for(call_agent(agent, inp), timeout=timeout_s)
+            with metering(meter):
+                out = await asyncio.wait_for(call_agent(agent, inp), timeout=timeout_s)
         else:
             raise ValueError(f"unknown isolation {isolation!r}")
     except (TimeoutError, AgentTimeout):
@@ -226,6 +235,9 @@ async def run_task(
     latency = time.perf_counter() - t0
     if status == "ok" and out.error and out.status == "error":
         status, error = "error", out.error
+    # A timed-out or crashed task returns no output, but its LLM calls were still paid for:
+    # count what it reported so --budget-usd sees it (review-2 M2).
+    cost_usd = out.cost_usd if out.cost_usd else meter.usd
 
     if status == "ok" and score:
         sc = await score_task(task, out, judge)
@@ -246,7 +258,7 @@ async def run_task(
         answer=out.answer,
         key_numbers=out.key_numbers,
         trace=out.trace,
-        cost_usd=out.cost_usd,
+        cost_usd=round(cost_usd, 6),
         input_tokens=out.input_tokens,
         output_tokens=out.output_tokens,
         latency_s=round(latency, 3),

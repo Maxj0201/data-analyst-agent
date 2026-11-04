@@ -157,3 +157,57 @@ async def test_eval_auto_approves_gated_steps_by_default(
     assert approvals and all(e["tool"] == "run_sql" for e in approvals)
     expected = (True, "auto") if auto_approve else (False, "unavailable")
     assert {(e["approved"], e["decided_by"]) for e in approvals} == {expected}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("isolation", ["process", "inline"])
+async def test_budget_counts_the_spend_of_timed_out_tasks(
+    isolation: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review-2 M2: a task killed on timeout returned no output, so its LLM spend was recorded
+    as $0 and ``--budget-usd`` kept starting tasks that each burned a full timeout."""
+    monkeypatch.setenv("AGENT_ARTIFACTS_DIR", str(tmp_path / "art"))
+    log = tmp_path / "llm_calls.log"
+    agent = SleepingCoreAgent(log, sleep_s=60 if isolation == "process" else 3)
+    tasks = [_l1_task().model_copy(update={"id": f"t{i}"}) for i in range(2)]
+    _, results = await run_tasks(
+        tasks,
+        agent,
+        config=RunConfig(
+            concurrency=1, isolation=isolation, timeout_s=6, budget_usd=1e-6, score=False
+        ),
+        run_dir=tmp_path / "run",
+        progress=False,
+    )
+    assert results[0].status == "timeout"
+    assert results[0].cost_usd > 0  # the first LLM call was paid for before the hang
+    assert results[1].status == "over_budget"
+
+
+def test_process_isolated_tasks_write_correlated_json_logs(tmp_path: Path) -> None:
+    """Review-2 L1 (fixed): forkserver children did not inherit the parent's log handler, so with
+    ``AGENT_LOG_JSON_ENABLED=true`` the default ``--isolation process`` wrote no task logs."""
+    import json
+    import subprocess
+    import sys
+
+    env = {
+        **os.environ,
+        "AGENT_LOG_JSON_ENABLED": "true",
+        "AGENT_ARTIFACTS_DIR": str(tmp_path / "art"),
+    }
+    env.pop("ANTHROPIC_API_KEY", None)
+    proc = subprocess.run(
+        [sys.executable, "-m", "analyst_agent.eval", "run", "--agent", "dry-run", "--limit", "1"]
+        + ["--no-score", "--runs-dir", str(tmp_path / "runs")],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    lines = [json.loads(ln) for ln in proc.stderr.splitlines() if ln.startswith("{")]
+    started = [ln for ln in lines if ln["msg"] == "run started"]
+    assert len(started) == 1
+    assert started[0]["task_id"] and started[0]["run_id"].startswith("run_")
+    assert any(ln["msg"] == "sandbox sql" and ln.get("task_id") for ln in lines)

@@ -18,15 +18,12 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
-from ui_helpers import split_report
+from ui_helpers import safe_md, split_report
+
+__all__ = ["code_span", "is_artifact_url", "report_parts", "safe_md"]
 
 # What the API's /artifacts route serves: a relative path of plain segments, no query string.
 _ARTIFACT_URL = re.compile(r"^/artifacts/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*$")
-
-
-def safe_md(text: object) -> str:
-    """Markdown with every image (inline, reference-style or nested) turned into plain text."""
-    return str(text).replace("![", "!\\[")
 
 
 def code_span(text: object) -> str:

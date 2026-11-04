@@ -71,10 +71,13 @@ and multi-series bars are grouped. The tool result reports the chart type it cho
 Code: [`core/memory.py`](../src/analyst_agent/core/memory.py).
 
 * **Fingerprint**: a hash over the sorted table names, column names and types, row counts and an
-  order-independent DuckDB content checksum (`SUM(hash(row))`) per table, computed with
-  `ToolContext.run_sql`. It works with the module-level sandbox and with per-job sandboxes. When
-  the data changes, the fingerprint changes, so insights from an old version of a file are not
-  retrieved. A DuckDB upgrade that changes `hash()` also starts a fresh memory.
+  order-independent DuckDB content checksum per table (`SUM(hash(row("col1", "col2", …)))`, a row
+  built from every column by name), computed with `ToolContext.run_sql`. It works with the
+  module-level sandbox and with per-job sandboxes. When the data changes, the fingerprint changes,
+  so insights from an old version of a file are not retrieved. If the checksum cannot be computed
+  (for example the SQL timeout on a very large table), the run proceeds **without memory**
+  (`memory.error` says why) rather than keying on schema and row counts alone, which an edited
+  file would keep. A DuckDB upgrade that changes `hash()` also starts a fresh memory.
 * **Store**: SQLite at `AGENT_MEMORY_DB_PATH`, holding `(fingerprint, question, headline,
   key_numbers, caveats, created_at)`. Each call opens its own connection and the database runs
   in WAL mode, so the API job pool and the eval workers can share the file. Asking the same
