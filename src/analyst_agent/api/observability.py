@@ -1,25 +1,26 @@
-"""Langfuse tracing, behind the ``AGENT_LANGFUSE_ENABLED`` feature flag.
+"""Per-job tracing for the API: Langfuse (``AGENT_LANGFUSE_ENABLED``) and/or saved span trees
+(``AGENT_TRACE_STORE_ENABLED``).
 
-One Langfuse trace per job. The job's root observation is an ``agent`` span; every agent step
-event becomes a child observation:
+Each job gets a :class:`~analyst_agent.core.tracing.TraceRecorder` fed by the job's event
+stream, which builds the run → turn → llm_call / tool_call / critic / approval / route tree
+(see ``core/tracing.py``). A :class:`~analyst_agent.core.langfuse_export.LangfuseSink` mirrors it
+into one Langfuse trace live; on finish the tree is optionally saved as
+``<AGENT_TRACES_DIR>/<job_id>.json`` for ``analyst-agent trace show <job_id|run_id>``.
 
-* ``llm_call``     -> ``generation`` (model, token usage, USD cost)
-* ``tool_call``    -> ``tool`` span, opened on the call and closed by the matching ``tool_result``
-* ``plan``/``critic`` -> ``span`` / ``evaluator`` observations
-
-Tracing is driven entirely by the event stream, so the agent core doesn't import Langfuse and
-tracing can never break a job: every SDK call is wrapped and failures are logged once.
+The agent core doesn't import Langfuse, and tracing can never break a job: the recorder catches
+sink failures and :class:`JobTracer` catches its own.
 """
 
 from __future__ import annotations
 
 import logging
-import threading
+from pathlib import Path
 from typing import Any, Protocol
 
-logger = logging.getLogger(__name__)
+from analyst_agent.core.langfuse_export import LangfuseSink, make_langfuse_client
+from analyst_agent.core.tracing import SpanSink, TraceRecorder, save_trace
 
-_MAX_FIELD_CHARS = 20_000
+logger = logging.getLogger(__name__)
 
 
 class JobTracer(Protocol):
@@ -48,132 +49,83 @@ class NoopTracerFactory:
         pass
 
 
-def _clip(value: Any) -> Any:
-    if isinstance(value, str) and len(value) > _MAX_FIELD_CHARS:
-        return value[:_MAX_FIELD_CHARS] + "…[truncated]"
-    return value
+class RecorderTracer:
+    """A job's span tree, mirrored to its sinks and optionally saved on finish."""
 
-
-class LangfuseJobTracer:
-    def __init__(self, client: Any, *, job_id: str, dataset_id: str, question: str) -> None:
-        self._client = client
-        self._lock = threading.Lock()
-        self._open_tools: dict[str, Any] = {}
-        self._root = client.start_observation(
-            name="analyst-job",
-            as_type="agent",
-            input={"question": question, "dataset_id": dataset_id},
-            metadata={"job_id": job_id, "dataset_id": dataset_id},
-        )
+    def __init__(self, recorder: TraceRecorder, *, store_dir: Path | None, job_id: str) -> None:
+        self.recorder = recorder
+        self._store_dir = store_dir
+        self._job_id = job_id
 
     def on_event(self, type: str, data: dict[str, Any]) -> None:
-        try:
-            with self._lock:
-                self._handle(type, data)
-        except Exception:  # noqa: BLE001 - tracing must never break a job
-            logger.exception("Langfuse tracing failed for event %s", type)
-
-    def _handle(self, type: str, data: dict[str, Any]) -> None:
-        root = self._root
-        if type == "llm_call":
-            usage = {
-                k: int(data[src])
-                for k, src in (
-                    ("input", "input_tokens"),
-                    ("output", "output_tokens"),
-                    ("cache_read_input_tokens", "cache_read_tokens"),
-                    ("cache_creation_input_tokens", "cache_write_tokens"),
-                )
-                if data.get(src) is not None
-            }
-            gen = root.start_observation(
-                name=f"llm:{data.get('purpose') or 'call'}",
-                as_type="generation",
-                model=data.get("model"),
-                input=_clip(data.get("input")),
-                output=_clip(data.get("output")),
-                usage_details=usage or None,
-                cost_details={"total": float(data["usd"])} if data.get("usd") is not None else None,
-                metadata={"latency_ms": data.get("latency_ms")},
-            )
-            gen.end()
-        elif type == "tool_call":
-            key = str(data.get("id") or data.get("name"))
-            self._open_tools[key] = root.start_observation(
-                name=f"tool:{data.get('name')}", as_type="tool", input=_clip(data.get("input"))
-            )
-        elif type == "tool_result":
-            key = str(data.get("id") or data.get("name"))
-            span = self._open_tools.pop(key, None) or root.start_observation(
-                name=f"tool:{data.get('name')}", as_type="tool"
-            )
-            ok = data.get("ok", True)
-            span.update(
-                output=_clip(data.get("summary")),
-                level="DEFAULT" if ok else "ERROR",
-                status_message=None if ok else str(data.get("error") or data.get("summary")),
-            )
-            span.end()
-        elif type == "plan":
-            root.start_observation(
-                name="plan", as_type="span", output=_clip(data.get("plan"))
-            ).end()
-        elif type == "critic":
-            root.start_observation(
-                name="critic",
-                as_type="evaluator",
-                output=data,
-                level="WARNING" if data.get("verdict") == "revise" else "DEFAULT",
-            ).end()
+        self.recorder.on_event(type, data)  # never raises
 
     def finish(self, *, status: str, output: Any = None, error: str | None = None) -> None:
         try:
-            with self._lock:
-                for span in self._open_tools.values():
-                    span.update(level="WARNING", status_message="tool span never closed")
-                    span.end()
-                self._open_tools.clear()
-                self._root.update(
-                    output=_clip(output),
-                    level="ERROR" if status == "failed" else "DEFAULT",
-                    status_message=error,
-                    metadata={"status": status},
-                )
-                self._root.end()
-            self._client.flush()
-        except Exception:  # noqa: BLE001
-            logger.exception("Langfuse tracing failed while finishing job")
+            root = self.recorder.finish(status=str(status), output=output, error=error)
+            if self._store_dir is not None:
+                path = save_trace(self._store_dir, root, name=self._job_id)
+                logger.info("trace saved", extra={"trace_path": str(path)})
+        except Exception:  # noqa: BLE001 - tracing must never fail a job
+            logger.exception("Tracing failed while finishing job")
 
 
-class LangfuseTracerFactory:
-    def __init__(self, client: Any | None = None) -> None:
-        if client is None:
-            from langfuse import Langfuse  # imported lazily: optional dependency
+class RecorderTracerFactory:
+    """Builds a :class:`RecorderTracer` per job.
 
-            client = Langfuse()  # LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_HOST
+    ``client`` is a Langfuse client (or a fake in tests); ``None`` disables Langfuse.
+    ``store_dir`` enables saving span trees.
+    """
+
+    def __init__(self, client: Any | None = None, *, store_dir: Path | None = None) -> None:
         self._client = client
+        self._store_dir = store_dir
+
+    @property
+    def langfuse_enabled(self) -> bool:
+        return self._client is not None
 
     def __call__(self, *, job_id: str, dataset_id: str, question: str) -> JobTracer:
+        sinks: list[SpanSink] = []
+        if self._client is not None:
+            sinks.append(LangfuseSink(self._client, root_name="analyst-job"))
         try:
-            return LangfuseJobTracer(
-                self._client, job_id=job_id, dataset_id=dataset_id, question=question
+            recorder = TraceRecorder(
+                sinks=sinks,
+                metadata={"job_id": job_id, "dataset_id": dataset_id},
+                question=question,
             )
         except Exception:  # noqa: BLE001
-            logger.exception("Could not start Langfuse trace; continuing without tracing")
+            logger.exception("Could not start trace; continuing without tracing")
             return NoopTracer()
+        return RecorderTracer(recorder, store_dir=self._store_dir, job_id=job_id)
 
     def shutdown(self) -> None:
+        if self._client is None:
+            return
         try:
             self._client.shutdown()
         except Exception:  # noqa: BLE001
             logger.exception("Langfuse shutdown failed")
 
 
-def make_tracer_factory(enabled: bool) -> TracerFactory:
-    if not enabled:
+class LangfuseTracerFactory(RecorderTracerFactory):
+    """Langfuse-backed factory; creates the SDK client from ``LANGFUSE_*`` when not given."""
+
+    def __init__(self, client: Any | None = None, *, store_dir: Path | None = None) -> None:
+        if client is None:
+            from langfuse import Langfuse  # imported lazily: optional dependency
+
+            client = Langfuse()  # LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_HOST
+        super().__init__(client, store_dir=store_dir)
+
+
+def make_tracer_factory(enabled: bool, store_dir: Path | None = None) -> TracerFactory:
+    """``enabled`` = ``AGENT_LANGFUSE_ENABLED``; ``store_dir`` set when
+    ``AGENT_TRACE_STORE_ENABLED``. Neither → no tracing at all."""
+    client = make_langfuse_client() if enabled else None
+    if client is None and store_dir is None:
         return NoopTracerFactory()
-    try:
-        return LangfuseTracerFactory()
-    except Exception:  # noqa: BLE001
-        logger.exception("AGENT_LANGFUSE_ENABLED is set but Langfuse could not be initialised")
-        return NoopTracerFactory()
+    if client is not None:
+        return LangfuseTracerFactory(client, store_dir=store_dir)
+    return RecorderTracerFactory(None, store_dir=store_dir)

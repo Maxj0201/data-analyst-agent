@@ -96,6 +96,12 @@ class Settings(BaseSettings):
     langfuse_enabled: bool = False  # keys come from the standard LANGFUSE_* env vars
     cors_origins: list[str] = Field(default_factory=list)  # JSON list
 
+    # Observability (core/tracing.py, core/logs.py; docs/observability.md)
+    trace_store_enabled: bool = False  # save each run's span tree as <traces_dir>/<id>.json
+    traces_dir: Path = Path("traces")
+    log_json_enabled: bool = False  # JSON log lines (with run_id/job_id) instead of text
+    log_level: str = "INFO"
+
     # Eval harness (eval/)
     judge_model: str | None = None  # LLM judge; None = ``model``
     judge_effort: str = "low"

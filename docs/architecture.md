@@ -279,10 +279,13 @@ used by the core, CLI, API, eval and MCP server. The full list with defaults is 
 [`configuration.md`](configuration.md), kept in sync with the class by `tests/test_config.py`.
 All LLM calls, including the critic, router and eval judge, go through `core/llm.py`.
 
-### Observability (Langfuse)
-Behind `AGENT_LANGFUSE_ENABLED`. Every LLM call (including critic and judge calls) and every tool
-call is a span under one trace per run. With the flag off the instrumentation is a no-op. See
-[`observability.md`](observability.md).
+### Observability
+`core/tracing.py` folds each run's event stream into a span tree (run → turn → llm_call /
+tool_call / critic / approval / route) carrying cost, model, prompt version and routed tier. The
+tree is mirrored live to Langfuse (`AGENT_LANGFUSE_ENABLED`, which also pushes eval scores onto
+the traces) and/or saved as JSON for `analyst-agent trace show` (`AGENT_TRACE_STORE_ENABLED`).
+Logs carry `run_id` / `job_id` / `task_id` on every line (`AGENT_LOG_JSON_ENABLED` for JSON).
+With the flags off nothing is sent or written. See [`observability.md`](observability.md).
 
 ## Design decisions & trade-offs
 

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from analyst_agent.core.approval import ApprovalBroker
+from analyst_agent.core.logs import log_context
 
 from .agent import AgentOutcome, AgentRunner
 from .models import Artifact, Cost, EventType, Job, JobResult, JobStatus, Progress
@@ -62,7 +63,8 @@ class JobManager:
     def submit(self, *, dataset_id: str, dataset_path: Path, question: str) -> Job:
         job = self.store.create(Job(id=new_job_id(), dataset_id=dataset_id, question=question))
         self.store.append_event(job.id, EventType.status, {"status": JobStatus.queued})
-        self._executor.submit(self._run, job.id, dataset_path)
+        logger.info("job queued", extra={"job_id": job.id, "dataset_id": dataset_id})
+        self._executor.submit(self._run_with_context, job.id, dataset_path)
         return job
 
     def shutdown(self) -> None:
@@ -71,6 +73,22 @@ class JobManager:
         self.tracer_factory.shutdown()
 
     # ---- worker ------------------------------------------------------------------------
+
+    def _run_with_context(self, job_id: str, dataset_path: Path) -> None:
+        # Every log line of this job (API, agent loop, sandbox) carries its job_id.
+        with log_context(job_id=job_id):
+            started = time.perf_counter()
+            logger.info("job started")
+            self._run(job_id, dataset_path)
+            job = self.store.get(job_id)
+            logger.info(
+                "job finished",
+                extra={
+                    "status": str(job.status) if job else None,
+                    "duration_s": round(time.perf_counter() - started, 3),
+                    "cost_usd": round(job.cost.usd, 6) if job else None,
+                },
+            )
 
     def _run(self, job_id: str, dataset_path: Path) -> None:
         try:

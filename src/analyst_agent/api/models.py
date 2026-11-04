@@ -22,8 +22,10 @@ class JobStatus(StrEnum):
 
 
 class EventType(StrEnum):
-    """Step types streamed over SSE. The agent core may emit any of the first eleven."""
+    """Step types streamed over SSE. The agent core may emit any of the first thirteen."""
 
+    run_start = "run_start"
+    turn = "turn"
     plan = "plan"
     llm_call = "llm_call"
     tool_call = "tool_call"

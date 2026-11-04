@@ -7,6 +7,9 @@ its event hook into the API's event contract.
 
 Event contract (what the job store, SSE stream, frontend and tracing consume)
 ---------------------------------------------------------------------------
+``run_start``    ``{"run_id", "question", "tables", "model", "max_turns", "token_budget",
+                  "flags", "prompts"}`` (first event of every run)
+``turn``         ``{"turn", "max_turns", "model", "tier"}`` (start of each agent turn)
 ``plan``         ``{"plan": str, "turn"?}``
 ``llm_call``     ``{"model", "purpose", "input_tokens", "output_tokens", "cache_read_tokens",
                   "cache_write_tokens", "usd", "latency_ms", "stop_reason"}``
@@ -34,12 +37,16 @@ passed through to the stream untouched.
 from __future__ import annotations
 
 import itertools
-import time
 from collections import deque
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
+
+# Lives in core so the CLI and the eval harness trace LLM calls the same way; re-exported here.
+from analyst_agent.core.tracing import EventedLLM
+
+__all__ = ["AgentOutcome", "AgentRunner", "EventTranslator", "EventedLLM", "core_runner"]
 
 EmitFn = Callable[[str, dict[str, Any]], None]
 
@@ -99,59 +106,6 @@ class EventTranslator:
             if "ok" not in data:
                 data["ok"] = not data.pop("is_error", False)
         self._emit(kind, data)
-
-
-class EventedLLM:
-    """Wraps a ``core.llm.LLM`` and emits one ``llm_call`` event per completed request.
-
-    All calls still go through the wrapped client (``core/llm.py``); this only observes them,
-    which is how every LLM call becomes a Langfuse generation span without the core knowing.
-    """
-
-    def __init__(
-        self,
-        inner: Any,
-        emit: EmitFn,
-        cost_fn: Callable[[str, Any], float] | None = None,
-    ) -> None:
-        self._inner = inner
-        self._emit = emit
-        self._cost_fn = cost_fn
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
-
-    def create(self, **kwargs: Any) -> Any:
-        started = time.perf_counter()
-        response = self._inner.create(**kwargs)
-        latency_ms = round((time.perf_counter() - started) * 1000, 1)
-        usage = getattr(response, "usage", None)
-        model = getattr(response, "model", None) or kwargs.get("model") or ""
-
-        def tokens(name: str) -> int:
-            return int(getattr(usage, name, 0) or 0)
-
-        usd = 0.0
-        if self._cost_fn is not None and usage is not None:
-            try:
-                usd = float(self._cost_fn(model, usage))
-            except Exception:  # noqa: BLE001 - pricing gaps must not fail the call
-                usd = 0.0
-        self._emit(
-            "llm_call",
-            {
-                "model": model,
-                "purpose": kwargs.get("role", "agent"),
-                "input_tokens": tokens("input_tokens"),
-                "output_tokens": tokens("output_tokens"),
-                "cache_read_tokens": tokens("cache_read_input_tokens"),
-                "cache_write_tokens": tokens("cache_creation_input_tokens"),
-                "usd": round(usd, 6),
-                "latency_ms": latency_ms,
-                "stop_reason": getattr(response, "stop_reason", None),
-            },
-        )
-        return response
 
 
 # ---- default runner: analyst_agent.core.AgentLoop ------------------------------------------
