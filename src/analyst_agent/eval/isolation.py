@@ -63,9 +63,30 @@ def check_picklable(agent: AgentFn) -> None:
         ) from e
 
 
-def _child_main(conn: Connection, agent: AgentFn, inp: AgentInput) -> None:
+def _apply_env(env: dict[str, str]) -> None:
+    """Make the child's environment the parent's environment *at task start*.
+
+    A forkserver child inherits the environment the fork server was started with (the first
+    task of the process), not the parent's current one, so AGENT_* changes made later (a test's
+    monkeypatch, a second run in the same process) would be silently ignored.
+    """
+    os.environ.clear()
+    os.environ.update(env)
+    try:  # drop a Settings object cached during the fork server's preload
+        from analyst_agent.core.config import get_settings
+
+        get_settings.cache_clear()
+    except ImportError:  # pragma: no cover - core not installed
+        pass
+
+
+def _child_main(
+    conn: Connection, agent: AgentFn, inp: AgentInput, env: dict[str, str] | None = None
+) -> None:
     if hasattr(os, "setsid"):
         os.setsid()  # own process group: the parent can kill everything we spawn at once
+    if env is not None:
+        _apply_env(env)
     try:
         out = asyncio.run(call_agent(agent, inp))
         msg: tuple[str, Any] = ("ok", out)
@@ -118,7 +139,8 @@ async def run_in_subprocess(agent: AgentFn, inp: AgentInput, timeout_s: float) -
     """
     ctx = _context()
     recv_conn, send_conn = ctx.Pipe(duplex=False)
-    proc = ctx.Process(target=_child_main, args=(send_conn, agent, inp), daemon=True)
+    env = dict(os.environ)
+    proc = ctx.Process(target=_child_main, args=(send_conn, agent, inp, env), daemon=True)
     try:
         await asyncio.to_thread(proc.start)
         send_conn.close()  # only the child holds the write end now: EOF if it dies

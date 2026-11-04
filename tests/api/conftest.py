@@ -12,7 +12,7 @@ import pytest_asyncio
 
 from analyst_agent.api.agent import AgentOutcome, EmitFn
 from analyst_agent.api.app import create_app
-from analyst_agent.api.settings import ApiSettings
+from analyst_agent.core.config import Settings
 
 # Smallest valid PNG (1x1 transparent pixel).
 PNG_BYTES = bytes.fromhex(
@@ -53,8 +53,8 @@ class FakeAgent:
 
 
 @pytest.fixture
-def settings(tmp_path: Path) -> ApiSettings:
-    return ApiSettings(
+def settings(tmp_path: Path) -> Settings:
+    return Settings(
         data_dir=tmp_path / "data",
         artifacts_dir=tmp_path / "artifacts",
         job_db_path=tmp_path / "data" / "jobs.sqlite3",
@@ -64,13 +64,13 @@ def settings(tmp_path: Path) -> ApiSettings:
 
 
 @pytest.fixture
-def fake_agent(settings: ApiSettings) -> FakeAgent:
+def fake_agent(settings: Settings) -> FakeAgent:
     settings.artifacts_dir.mkdir(parents=True, exist_ok=True)
     return FakeAgent(settings.artifacts_dir)
 
 
 @pytest_asyncio.fixture
-async def client(settings: ApiSettings, fake_agent: FakeAgent) -> AsyncIterator[httpx.AsyncClient]:
+async def client(settings: Settings, fake_agent: FakeAgent) -> AsyncIterator[httpx.AsyncClient]:
     app = create_app(settings, runner=fake_agent)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:

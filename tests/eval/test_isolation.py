@@ -127,3 +127,33 @@ async def test_dry_run_with_routing_forced_on_runs_in_child_processes(
     )
     assert [r.status for r in results] == ["ok"] * 2, [r.error for r in results]
     assert all(r.routing and r.routing["route"]["source"] == "router" for r in results)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("auto_approve", [True, False])
+async def test_eval_auto_approves_gated_steps_by_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, auto_approve: bool
+) -> None:
+    """With every flag on, eval must not stall or deny on approval gates (no human attached)."""
+    from analyst_agent.eval.agent import load_agent
+
+    monkeypatch.setenv("AGENT_ARTIFACTS_DIR", str(tmp_path / "art"))
+    for flag in ("ROUTING", "SEMANTIC_LAYER", "APPROVAL"):
+        monkeypatch.setenv(f"AGENT_{flag}_ENABLED", "true")
+    monkeypatch.setenv("AGENT_APPROVAL_ROW_THRESHOLD", "0")  # gate every SELECT
+    agent = load_agent("dry-run", auto_approve=auto_approve)
+    _, results = await run_tasks(
+        load_tasks(limit=1),
+        agent,
+        config=RunConfig(score=False, timeout_s=120, auto_approve=auto_approve),
+        run_dir=tmp_path / "run",
+        progress=False,
+    )
+    (r,) = results
+    assert r.status == "ok" and r.agent_status == "completed", r.error
+    types = [e["type"] for e in r.trace]
+    assert types[:2] == ["route", "semantic_retrieval"]
+    approvals = [e for e in r.trace if e["type"] == "approval"]
+    assert approvals and all(e["tool"] == "run_sql" for e in approvals)
+    expected = (True, "auto") if auto_approve else (False, "unavailable")
+    assert {(e["approved"], e["decided_by"]) for e in approvals} == {expected}

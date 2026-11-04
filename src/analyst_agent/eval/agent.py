@@ -21,6 +21,10 @@ this order and only when the feature is on:
   follows the tool calls, and each tool call is tagged with the ``model`` that issued it;
 - semantic layer: ``{"type": "semantic_retrieval", "metrics": [names], "scores": [...]}``.
   Its absence means the layer was off, which is how ``eval compare`` tells on/off runs apart.
+
+After the tool calls (and escalations) come one ``{"type": "approval", "tool": ..., "approved":
+..., "decided_by": "auto" | ...}`` per human-in-the-loop gate when ``AGENT_APPROVAL_ENABLED`` is
+on; eval runs auto-approve them unless ``eval run --no-auto-approve`` is given.
 """
 
 from __future__ import annotations
@@ -145,6 +149,18 @@ def output_from_core(result: Any) -> AgentOutput:
         trace.append(event)
     if routing:
         trace += [{"type": "escalation", **e} for e in routing["escalations"]]
+    for a in getattr(state, "approvals", None) or []:  # human-in-the-loop gates (if enabled)
+        action, decision = _jsonable(a.action), _jsonable(a.decision)
+        trace.append(
+            {
+                "type": "approval",
+                "tool": action.get("tool"),
+                "triggers": action.get("triggers"),
+                "turn": action.get("turn"),
+                "approved": decision.get("approved"),
+                "decided_by": decision.get("decided_by"),
+            }
+        )
     reviews = [_jsonable(r) for r in state.critic_reviews]
     trace += [{"type": "critic", **r} for r in reviews]
     status = getattr(result.status, "value", str(result.status))
@@ -177,9 +193,11 @@ def _run_core(
     paths: list[Path],
     llm_factory: LLMFactory | None = None,
     routing_enabled: bool | None = None,
+    auto_approve: bool = True,
 ) -> Any:
     try:
         from analyst_agent.core import AgentLoop, LLMClient, Settings
+        from analyst_agent.core.approval import AutoApprover
         from analyst_agent.tools import (
             ToolContext,
             build_default_registry,
@@ -204,17 +222,24 @@ def _run_core(
     with create_sandbox(datasets, artifacts_dir=settings.artifacts_dir) as sb:
         ctx = ToolContext(tables=sb.tables, artifacts_dir=settings.artifacts_dir, sandbox=sb)
         llm = llm_factory(question, sb) if llm_factory else LLMClient(settings)
-        loop = AgentLoop(llm, build_default_registry(), ctx, settings)
+        # Nobody is at the keyboard during eval: with AGENT_APPROVAL_ENABLED on and no approver,
+        # every gated step would be denied. Auto-approve by default (recorded as decided_by
+        # "auto" in the trace); ``eval run --no-auto-approve`` measures the deny path instead.
+        approver = AutoApprover() if auto_approve else None
+        loop = AgentLoop(llm, build_default_registry(), ctx, settings, approver=approver)
         return loop.run(question)
 
 
-async def core_agent(inp: AgentInput, routing_enabled: bool | None = None) -> AgentOutput:
+async def core_agent(
+    inp: AgentInput, routing_enabled: bool | None = None, auto_approve: bool = True
+) -> AgentOutput:
     """Run the real agent (``AgentLoop``, sync) in a worker thread.
 
     ``routing_enabled`` overrides ``AGENT_ROUTING_ENABLED`` for this run (eval A/B).
+    ``auto_approve`` approves every human-in-the-loop gate (``AGENT_APPROVAL_ENABLED``).
     """
     result = await asyncio.to_thread(
-        _run_core, inp.question, list(inp.dataset_paths), None, routing_enabled
+        _run_core, inp.question, list(inp.dataset_paths), None, routing_enabled, auto_approve
     )
     return output_from_core(result)
 
@@ -225,10 +250,17 @@ def _dry_run_llm(question: str, sb: Any) -> Any:
     return dry_run_llm(question, sb.tables[0], sb.run_sql)
 
 
-async def dry_run_agent(inp: AgentInput, routing_enabled: bool | None = None) -> AgentOutput:
+async def dry_run_agent(
+    inp: AgentInput, routing_enabled: bool | None = None, auto_approve: bool = True
+) -> AgentOutput:
     """Run the real agent loop with the scripted offline LLM (no API calls)."""
     result = await asyncio.to_thread(
-        _run_core, inp.question, list(inp.dataset_paths), _dry_run_llm, routing_enabled
+        _run_core,
+        inp.question,
+        list(inp.dataset_paths),
+        _dry_run_llm,
+        routing_enabled,
+        auto_approve,
     )
     return output_from_core(result)
 
@@ -243,17 +275,21 @@ class CoreAgent:
 
     dry_run: bool = False
     routing_enabled: bool | None = None
+    auto_approve: bool = True
 
     async def __call__(self, inp: AgentInput) -> AgentOutput:
         fn = dry_run_agent if self.dry_run else core_agent
-        return await fn(inp, routing_enabled=self.routing_enabled)
+        return await fn(inp, routing_enabled=self.routing_enabled, auto_approve=self.auto_approve)
 
 
-def make_core_agent(routing_enabled: bool | None = None, dry_run: bool = False) -> AgentFn:
-    """``core`` (or ``dry-run``) agent with model routing forced on/off (``None`` = env)."""
-    if routing_enabled is None:
+def make_core_agent(
+    routing_enabled: bool | None = None, dry_run: bool = False, auto_approve: bool = True
+) -> AgentFn:
+    """``core`` (or ``dry-run``) agent with model routing forced on/off (``None`` = env) and
+    human-in-the-loop gates auto-approved (default) or left without an approver (denied)."""
+    if routing_enabled is None and auto_approve:
         return dry_run_agent if dry_run else core_agent
-    return CoreAgent(dry_run=dry_run, routing_enabled=routing_enabled)
+    return CoreAgent(dry_run=dry_run, routing_enabled=routing_enabled, auto_approve=auto_approve)
 
 
 # --------------------------------------------------------------------------------------------
@@ -296,17 +332,20 @@ class OracleAgent:
 
 
 def load_agent(
-    spec: str, tasks: list[Task] | None = None, routing_enabled: bool | None = None
+    spec: str,
+    tasks: list[Task] | None = None,
+    routing_enabled: bool | None = None,
+    auto_approve: bool = True,
 ) -> AgentFn:
     """Resolve ``core``, ``oracle`` or ``package.module:attr`` into an agent callable.
 
     If ``attr`` is a class or zero-arg factory returning a callable, it is instantiated.
-    ``routing_enabled`` only applies to ``core`` and ``dry-run``.
+    ``routing_enabled`` and ``auto_approve`` only apply to ``core`` and ``dry-run``.
     """
     if spec == "core":
-        return make_core_agent(routing_enabled)
+        return make_core_agent(routing_enabled, auto_approve=auto_approve)
     if spec == "dry-run":
-        return make_core_agent(routing_enabled, dry_run=True)
+        return make_core_agent(routing_enabled, dry_run=True, auto_approve=auto_approve)
     if spec == "oracle":
         return OracleAgent(tasks or [])
     if ":" not in spec:

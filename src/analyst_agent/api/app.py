@@ -32,6 +32,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 
 from analyst_agent.core.approval import ApprovalBroker
+from analyst_agent.core.config import Settings
 
 from .agent import AgentRunner, core_runner
 from .datasets import DatasetStore
@@ -48,7 +49,6 @@ from .models import (
     JobView,
 )
 from .observability import TracerFactory, make_tracer_factory
-from .settings import ApiSettings
 from .store import JobStore
 
 logger = logging.getLogger(__name__)
@@ -65,14 +65,14 @@ SSE_HEARTBEAT_S = 15.0
 
 
 def create_app(
-    settings: ApiSettings | None = None,
+    settings: Settings | None = None,
     *,
     runner: AgentRunner | None = None,
     store: JobStore | None = None,
     tracer_factory: TracerFactory | None = None,
     approvals: ApprovalBroker | None = None,
 ) -> FastAPI:
-    settings = settings or ApiSettings()
+    settings = settings or Settings()
     settings.artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     datasets = DatasetStore(settings.uploads_dir, settings.max_upload_mb * 1024 * 1024)

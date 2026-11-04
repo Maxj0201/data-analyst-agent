@@ -204,7 +204,10 @@ def _read_capped(path: Path) -> str:
 
 
 def default_artifacts_dir() -> Path:
-    return Path(os.environ.get("AGENT_ARTIFACTS_DIR", "artifacts"))
+    """``AGENT_ARTIFACTS_DIR`` via the package's single ``Settings`` class (env or ``.env``)."""
+    from analyst_agent.core.config import Settings  # lazy: core imports the sandbox
+
+    return Settings().artifacts_dir
 
 
 def _export_artifacts(work_dir: Path, artifacts_dir: Path) -> list[str]:

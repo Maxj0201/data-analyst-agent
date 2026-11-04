@@ -44,6 +44,9 @@ class RunConfig:
     score: bool = True
     judge_model: str | None = None
     routing_enabled: bool | None = None  # None = whatever AGENT_ROUTING_ENABLED says
+    # Approve every human-in-the-loop gate (AGENT_APPROVAL_ENABLED); False = no approver, so
+    # gated steps are denied. Applies to the core/dry-run agents (see eval.agent.load_agent).
+    auto_approve: bool = True
     filters: dict[str, Any] = field(default_factory=dict)
 
 

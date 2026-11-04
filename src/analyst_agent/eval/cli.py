@@ -8,14 +8,14 @@ from typing import Annotated
 
 import typer
 
+from analyst_agent.core.config import Settings
 from analyst_agent.eval.agent import load_agent
-from analyst_agent.eval.config import EvalSettings
 from analyst_agent.eval.judge import LLMJudge
 from analyst_agent.eval.report import compare_runs, report_run, summarize
 from analyst_agent.eval.runner import RunConfig, load_results, new_run_dir, run_tasks
 from analyst_agent.eval.schema import DEFAULT_BENCHMARK_ROOT, load_tasks
 
-SETTINGS = EvalSettings()
+SETTINGS = Settings()
 
 app = typer.Typer(help="Benchmark evaluation harness for the analyst agent.", no_args_is_help=True)
 
@@ -79,6 +79,14 @@ def run(
             help="force model routing on/off for the core agent (default: AGENT_ROUTING_ENABLED)",
         ),
     ] = None,
+    auto_approve: Annotated[
+        bool,
+        typer.Option(
+            "--auto-approve/--no-auto-approve",
+            help="approve every human-in-the-loop gate when AGENT_APPROVAL_ENABLED is on "
+            "(eval has no human; --no-auto-approve leaves no approver, so gated steps are denied)",
+        ),
+    ] = True,
     benchmarks: Path = DEFAULT_BENCHMARK_ROOT,
     runs_dir: Path = SETTINGS.eval_runs_dir,
 ) -> None:
@@ -88,7 +96,7 @@ def run(
     tasks = load_tasks(benchmarks, difficulty, tag, task, limit)
     if not tasks:
         raise typer.BadParameter("no tasks match the filters")
-    agent_fn = load_agent(agent, tasks, routing_enabled=routing)
+    agent_fn = load_agent(agent, tasks, routing_enabled=routing, auto_approve=auto_approve)
     judge = (
         None
         if (no_judge or no_score)
@@ -102,6 +110,7 @@ def run(
         score=not no_score,
         judge_model=None if judge is None else (judge_model or "AGENT_MODEL"),
         routing_enabled=routing,
+        auto_approve=auto_approve,
         filters={"difficulty": difficulty, "tag": tag, "task": task, "limit": limit},
     )
     run_dir = new_run_dir(runs_dir)
