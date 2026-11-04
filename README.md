@@ -210,6 +210,16 @@ uv run pytest
 uv run ruff check .
 ```
 
+CI also measures branch coverage and fails below fixed floors (see the "Coverage gate" step in
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
+
+```bash
+uv run pytest --cov=analyst_agent --cov-report=term-missing
+```
+
+Property-based tests (Hypothesis) live in `tests/property/`. They are deterministic by default
+(profile `ci`, 150 examples each); `HYPOTHESIS_PROFILE=dev` runs 1000 random examples per test.
+
 ## Configuration
 
 All configuration is `AGENT_*` environment variables (or `.env`) read by one class,
