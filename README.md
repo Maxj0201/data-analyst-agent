@@ -53,7 +53,7 @@ flowchart TB
 
     subgraph Core["Agent core (hand-written loop)"]
         ROUTER["Router (flag)<br/>L1/L2/L3 → working model<br/>escalation on failure"]
-        SEM["Semantic layer (flag)<br/>BM25 over metrics.yaml"]
+        SEM["Semantic layer (flag)<br/>BM25 / embeddings / hybrid<br/>over metrics.yaml"]
         LOOP["Planner loop<br/>Plan → Execute → Verify → Revise"]
         GATE{{"Approval gate (flag)<br/>EXPLAIN rows · run_python · budget"}}
         STATE["AgentState<br/>messages · tool results · route · approvals · cost"]

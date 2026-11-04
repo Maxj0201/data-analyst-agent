@@ -98,8 +98,9 @@ Settings come from `AGENT_*` env vars: `AGENT_JUDGE_MODEL` (default: `AGENT_MODE
 `metrics/*.yaml` holds governed metric definitions (schema: `analyst_agent.semantic.schema`):
 `name`, `definition`, `sql_fragment` (read-only DuckDB SQL), `domain`, `synonyms`, `caveats`,
 plus optional `label` and `tables`. With `AGENT_SEMANTIC_LAYER_ENABLED=true` the agent retrieves
-the top `AGENT_SEMANTIC_TOP_K` definitions (BM25 over name + synonyms + definition, restricted to
-metrics whose `tables` are loaded) and puts them in a labelled `<metric_reference>` block in the
+the top `AGENT_SEMANTIC_TOP_K` definitions (BM25 over name + synonyms + definition by default, or
+embeddings / a hybrid via `AGENT_SEMANTIC_BACKEND`; restricted to metrics whose `tables` are
+loaded) and puts them in a labelled `<metric_reference>` block in the
 first planner message, before any SQL is written.
 
 Every `sql_fragment` is executed against the CSVs by `tests/semantic/test_benchmark_metrics.py`.
@@ -115,3 +116,19 @@ AGENT_SEMANTIC_LAYER_ENABLED=false uv run python -m analyst_agent.eval run -d L2
 AGENT_SEMANTIC_LAYER_ENABLED=true  uv run python -m analyst_agent.eval run -d L2 -d L3
 uv run python -m analyst_agent.eval compare runs/<off> runs/<on>
 ```
+
+### Retrieval eval
+
+`metrics/retrieval_eval.yaml` maps every benchmark question (plus a few paraphrases) to its
+intended metric(s); `kind: retrieval_eval` keeps the metrics loader from reading it as
+definitions. It measures retrieval alone, with no LLM call:
+
+```bash
+uv run python -m analyst_agent.semantic eval                 # all backends; -v for per-case ranks
+uv run python -m analyst_agent.semantic eval -b bm25 --no-rerank   # raw backend ranking
+uv sync --extra embeddings                                    # needed for embedding / hybrid
+```
+
+Hit rate counts a case as a top-k hit if any expected metric is in the first k results; MRR uses
+the rank of the first expected metric (0 if not retrieved). Cases with no intended metric are
+listed for completeness but not scored. Backends that cannot load are reported as skipped.
