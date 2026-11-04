@@ -63,6 +63,15 @@ class Settings(BaseSettings):
     semantic_metrics_dir: Path = Path("benchmarks/metrics")
     semantic_top_k: int = 4
 
+    # Structured final report (core/report.py): enforce the headline / key_numbers / method /
+    # caveats / charts schema and flag numbers the tool results don't support to the critic.
+    structured_report_enabled: bool = False
+
+    # Cross-session insight memory (core/memory.py), keyed by dataset fingerprint.
+    memory_enabled: bool = False
+    memory_db_path: Path = Path("data/memory.sqlite3")
+    memory_top_k: int = Field(default=3, ge=0)
+
     # Human-in-the-loop approval (see core/approval.py). Off unless approval_enabled is set.
     approval_enabled: bool = False
     approval_row_threshold: int | None = 1_000_000  # EXPLAIN row estimate; None = never

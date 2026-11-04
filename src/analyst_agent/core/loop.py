@@ -33,11 +33,19 @@ from analyst_agent.core.approval import (
 from analyst_agent.core.config import Settings, get_settings
 from analyst_agent.core.critic import Critic, CriticVerdict
 from analyst_agent.core.llm import LLM, CostTracker
+from analyst_agent.core.memory import InsightStore, dataset_fingerprint, insight_from_result
 from analyst_agent.core.prompts import (
     REPORT_WRITER_SYSTEM,
     planner_system,
     prompt_versions,
     render_metric_reference,
+    render_prior_insights,
+)
+from analyst_agent.core.report import (
+    StructuredReport,
+    check_consistency,
+    missing_chart_paths,
+    structured_final_report_schema,
 )
 from analyst_agent.core.router import (
     Escalation,
@@ -108,6 +116,16 @@ class AgentState:
     retrieved_metrics: list[str] = field(default_factory=list)
     retrieved_scores: list[float] = field(default_factory=list)
     semantic_error: str | None = None
+    # Structured report (AGENT_STRUCTURED_REPORT_ENABLED): the parsed fields of the latest
+    # submission and one consistency check per submission.
+    structured_report: dict[str, Any] | None = None
+    report_checks: list[dict[str, Any]] = field(default_factory=list)
+    # Insight memory (AGENT_MEMORY_ENABLED)
+    memory_enabled: bool = False
+    dataset_fingerprint: str | None = None
+    prior_insights: list[dict[str, Any]] = field(default_factory=list)
+    memory_saved: bool = False
+    memory_error: str | None = None
     # Routing (all empty / None when routing is disabled)
     route: RouteDecision | None = None
     tier: Tier | None = None
@@ -173,6 +191,15 @@ class AgentResult:
                 "error": s.semantic_error,
             },
             "approvals": [asdict(a) for a in s.approvals],
+            "structured_report": s.structured_report,
+            "report_checks": s.report_checks,
+            "memory": {
+                "enabled": s.memory_enabled,
+                "fingerprint": s.dataset_fingerprint,
+                "prior_insights": s.prior_insights,
+                "saved": s.memory_saved,
+                "error": s.memory_error,
+            },
             "cost": s.cost.to_dict(),
             "prompts": prompt_versions(),
             "routing": s.routing_summary(),
@@ -195,6 +222,7 @@ class AgentLoop:
         router: Router | None = None,
         approver: Approver | None = None,
         policy: ApprovalPolicy | None = None,
+        memory: InsightStore | None = None,
     ) -> None:
         self.llm = llm
         self.registry = registry
@@ -208,6 +236,7 @@ class AgentLoop:
         self.router = router
         self.approver = approver
         self.policy = policy or ApprovalPolicy.from_settings(self.settings)
+        self._memory = memory
 
     # ------------------------------------------------------------------ public
 
@@ -219,6 +248,8 @@ class AgentLoop:
             log.exception("agent loop failed")
             state.status = RunStatus.ERROR
             state.detail = f"{type(exc).__name__}: {exc}"
+        if state.memory_enabled and state.status is RunStatus.COMPLETED:
+            self._remember(state)
         return self._result(state)
 
     # ------------------------------------------------------------------ internals
@@ -267,9 +298,97 @@ class AgentLoop:
         )
         return render_metric_reference([h.metric for h in hits])
 
-    def _initial_message(self, question: str, reference: str = "") -> dict[str, Any]:
+    # ------------------------------------------------------------------ insight memory
+
+    def _memory_store(self) -> InsightStore:
+        if self._memory is None:
+            self._memory = InsightStore(self.settings.memory_db_path)
+        return self._memory
+
+    def _recall(self, state: AgentState) -> str:
+        """Retrieve prior insights for this dataset; return the labelled context block.
+
+        Failures never fail the run: the error is recorded and the agent proceeds without memory.
+        """
+        state.memory_enabled = True
+        try:
+            state.dataset_fingerprint = dataset_fingerprint(self.ctx)
+            hits = self._memory_store().search(
+                state.dataset_fingerprint, state.question, k=self.settings.memory_top_k
+            )
+        except Exception as exc:  # noqa: BLE001 - optional context must not break the run
+            log.exception("insight memory retrieval failed")
+            state.memory_error = f"{type(exc).__name__}: {exc}"
+            hits = []
+        state.prior_insights = [h.to_dict() for h in hits]
+        self._emit(
+            "memory_retrieval",
+            fingerprint=state.dataset_fingerprint,
+            questions=[h.question for h in hits],
+            scores=[h.score for h in hits],
+            error=state.memory_error,
+        )
+        return render_prior_insights(hits)
+
+    def _remember(self, state: AgentState) -> None:
+        """Save a critic-approved run's findings. Never raises."""
+        if state.dataset_fingerprint is None:
+            return
+        try:
+            insight = insight_from_result(
+                state.dataset_fingerprint,
+                state.question,
+                state.draft_report or "",
+                state.key_numbers,
+                state.structured_report,
+            )
+            if insight is not None:
+                self._memory_store().add(insight)
+                state.memory_saved = True
+        except Exception as exc:  # noqa: BLE001
+            log.exception("insight memory save failed")
+            state.memory_error = f"{type(exc).__name__}: {exc}"
+        self._emit("memory_saved", saved=state.memory_saved, error=state.memory_error)
+
+    # ------------------------------------------------------------------ structured report
+
+    def _enforce_structured_report(self, state: AgentState, res: ToolResult) -> ToolResult:
+        """With structured reports on, reject free-Markdown submissions and unknown charts."""
+        structured = res.data.get("structured")
+        if structured is None:
+            return ToolResult(
+                "final_report must use the structured fields: headline, key_numbers, method, "
+                "caveats and charts (see the tool schema). Submit again in that form.",
+                is_error=True,
+            )
+        missing = missing_chart_paths(StructuredReport.from_dict(structured), state.artifacts)
+        if missing:
+            return ToolResult(
+                "These chart paths were not produced by a tool in this run: "
+                + ", ".join(missing)
+                + ". Create them with make_chart and use the returned path, or drop them.",
+                is_error=True,
+            )
+        return res
+
+    def _consistency_notes(self, state: AgentState) -> str:
+        """Run the headline / key-number consistency check on the current structured draft."""
+        if state.structured_report is None:
+            return ""
+        check = check_consistency(
+            StructuredReport.from_dict(state.structured_report),
+            [asdict(r) for r in state.tool_results],
+            question=state.question,
+        )
+        state.report_checks.append(check.to_dict())
+        self._emit("report_check", **check.to_dict())
+        return check.as_critic_notes()
+
+    def _initial_message(
+        self, question: str, reference: str = "", prior: str = ""
+    ) -> dict[str, Any]:
         tables = ", ".join(self.ctx.tables) or "(none)"
-        ref = f"{reference}\n\n" if reference else ""
+        ref = "".join(f"{block}\n\n" for block in (reference, prior) if block)
         return {
             "role": "user",
             "content": (
@@ -334,9 +453,16 @@ class AgentLoop:
         if self.router is not None:
             self._route(state)
         reference = self._retrieve_metrics(state) if s.semantic_layer_enabled else ""
-        state.messages.append(self._initial_message(state.question, reference))
-        system = planner_system(s.semantic_layer_enabled)
+        prior = self._recall(state) if s.memory_enabled else ""
+        state.messages.append(self._initial_message(state.question, reference, prior))
+        system = planner_system(
+            s.semantic_layer_enabled, s.structured_report_enabled, s.memory_enabled
+        )
         tools = self.registry.schemas()
+        if s.structured_report_enabled:
+            tools = [
+                structured_final_report_schema() if t["name"] == TERMINAL_TOOL else t for t in tools
+            ]
 
         while True:
             if self._over_budget(state):
@@ -387,6 +513,8 @@ class AgentLoop:
                 self._emit("tool_call", name=name, input=args, turn=state.turns)
                 denied = self._gate(state, name, args)
                 res = denied or self.registry.execute(name, args, self.ctx)
+                if name == TERMINAL_TOOL and s.structured_report_enabled and not res.is_error:
+                    res = self._enforce_structured_report(state, res)
                 record = ToolCallRecord(
                     id=tu["id"],
                     name=name,
@@ -430,6 +558,7 @@ class AgentLoop:
                 tu, data = submitted
                 state.draft_report = data["markdown"]
                 state.key_numbers = dict(data["key_numbers"])
+                state.structured_report = data.get("structured")
                 done, feedback = self._verify(state)
                 result_blocks.append(
                     {"type": "tool_result", "tool_use_id": tu["id"], "content": feedback}
@@ -495,6 +624,7 @@ class AgentLoop:
             return True, "Report accepted without review (budget exhausted)."
 
         state.critic_rounds += 1
+        notes = self._consistency_notes(state)
         try:
             verdict = self.critic.review(
                 state.question,
@@ -502,6 +632,7 @@ class AgentLoop:
                 state.key_numbers,
                 [asdict(r) for r in state.tool_results],
                 cost=state.cost,
+                **({"consistency_notes": notes} if notes else {}),
             )
         except Exception as exc:  # noqa: BLE001
             log.exception("critic failed")

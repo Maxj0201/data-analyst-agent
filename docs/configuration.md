@@ -14,12 +14,14 @@ back to `AGENT_MODEL`.
 
 ## Feature flags
 
-All three are **off by default**, independent of each other, and can be combined.
+All five are **off by default**, independent of each other, and can be combined.
 
 | Flag | What it turns on | CLI override (`ask`) | Eval override (`eval run`) |
 |---|---|---|---|
 | `AGENT_ROUTING_ENABLED` | One cheap router call labels the question L1/L2/L3 and picks the working model; escalates on a second critic "revise" or a repeated tool error ([model-routing.md](model-routing.md)). | `--routing/--no-routing` | `--routing/--no-routing` |
 | `AGENT_SEMANTIC_LAYER_ENABLED` | BM25 retrieval of governed metric definitions (`AGENT_SEMANTIC_METRICS_DIR`) into the first user message, plus extra planner rules. | `--semantic-layer/--no-semantic-layer` | env only |
+| `AGENT_STRUCTURED_REPORT_ENABLED` | `final_report` must use the structured schema (headline, key_numbers, method, caveats, charts); the Markdown is rendered from it, and a consistency check flags headline numbers missing from key_numbers and key numbers no tool result supports to the critic ([report-and-memory.md](report-and-memory.md)). | env only | env only |
+| `AGENT_MEMORY_ENABLED` | Save verified findings per dataset fingerprint to SQLite (`AGENT_MEMORY_DB_PATH`) and inject the most relevant prior insights into the first user message as labelled prior context ([report-and-memory.md](report-and-memory.md)). | env only | env only |
 | `AGENT_APPROVAL_ENABLED` | Human-in-the-loop gate before costly/risky tool calls (large `EXPLAIN` estimate, `run_python`, budget fraction). | `--require-approval/--no-require-approval`; `--auto-approve` approves without prompting | gates are **auto-approved by default**; `--no-auto-approve` leaves no approver (gated steps are denied) |
 
 How each surface answers an approval request when `AGENT_APPROVAL_ENABLED=true`:
@@ -59,6 +61,10 @@ How each surface answers an approval request when `AGENT_APPROVAL_ENABLED=true`:
 | `AGENT_SEMANTIC_LAYER_ENABLED` | `false` | Semantic layer | **Feature flag.** Retrieve governed metric definitions into the first user message. |
 | `AGENT_SEMANTIC_METRICS_DIR` | `benchmarks/metrics` | Semantic layer | Directory (or file) of `metrics.yaml` definitions. Relative paths resolve against the working directory; the Docker image ships `/app/benchmarks/metrics`. |
 | `AGENT_SEMANTIC_TOP_K` | `4` | Semantic layer | Metric definitions retrieved per question. |
+| `AGENT_STRUCTURED_REPORT_ENABLED` | `false` | Report | **Feature flag.** Require the structured `final_report` schema and run the headline / key-number consistency check before the critic. |
+| `AGENT_MEMORY_ENABLED` | `false` | Memory | **Feature flag.** Store verified findings per dataset fingerprint and retrieve relevant prior insights into the planner's first message. |
+| `AGENT_MEMORY_DB_PATH` | `data/memory.sqlite3` | Memory | SQLite file for the insight store (shared safely by the API job pool and eval workers). |
+| `AGENT_MEMORY_TOP_K` | `3` | Memory | Prior insights retrieved per question (only from the same dataset fingerprint). |
 | `AGENT_APPROVAL_ENABLED` | `false` | Human-in-the-loop | **Feature flag.** Gate costly or risky tool calls behind a human approval. |
 | `AGENT_APPROVAL_ROW_THRESHOLD` | `1000000` | Human-in-the-loop | Gate `run_sql` when the `EXPLAIN` row estimate is above this (empty = never). |
 | `AGENT_APPROVAL_PYTHON` | `true` | Human-in-the-loop | Gate every `run_python` call. |

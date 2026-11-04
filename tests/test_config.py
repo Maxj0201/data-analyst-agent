@@ -59,7 +59,13 @@ def test_every_setting_is_in_env_example_with_its_default() -> None:
 
 def test_feature_flags_default_off() -> None:
     s = Settings(_env_file=None)
-    assert not (s.routing_enabled or s.semantic_layer_enabled or s.approval_enabled)
+    assert not (
+        s.routing_enabled
+        or s.semantic_layer_enabled
+        or s.approval_enabled
+        or s.structured_report_enabled
+        or s.memory_enabled
+    )
 
 
 def test_no_other_settings_classes() -> None:
