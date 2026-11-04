@@ -23,6 +23,9 @@ USER_CODE_FILENAME = "<analysis>"
 
 
 def _install() -> None:
+    from time import perf_counter
+
+    t_start = perf_counter()
     raw = os.environ.get(_CONFIG_ENV)
     if not raw:  # not running under the sandbox runner: do nothing
         return
@@ -39,9 +42,11 @@ def _install() -> None:
     allowed_imports = frozenset(cfg["allowed_imports"])
     write_flags = os.O_WRONLY | os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_TRUNC
 
-    # One-way state, only reachable via this closure. ``sandbox.lock`` audit event flips the
-    # guard from "setup" (libraries are being imported by the trusted bootstrap) to "user".
-    state = {"user_phase": False}
+    # The ``sandbox.lock`` audit event (sent by the bootstrap right before user code) adds
+    # ``user_hook`` below. It holds no mutable state: a flag here would be reachable from user
+    # code through the traceback of any SandboxViolation (``tb.tb_frame.f_locals``), and
+    # resetting it switched the user-phase checks off (found by test_fuzz_escape.py).
+    state = {"locked": False}
 
     class SandboxViolation(PermissionError):
         pass
@@ -55,19 +60,6 @@ def _install() -> None:
 
     def _deny(what: str):
         raise SandboxViolation(f"Blocked by sandbox: {what}")
-
-    def _is_user_import() -> bool:
-        # Find the frame that triggered the import, skipping import machinery.
-        f = getframe(2)
-        while f is not None:
-            fn = f.f_code.co_filename
-            if fn.startswith("<frozen importlib") or fn.endswith(
-                (f"importlib{sep}__init__.py", f"importlib{sep}_bootstrap.py")
-            ):
-                f = f.f_back
-                continue
-            return fn == USER_CODE_FILENAME
-        return False
 
     deny_prefixes = (
         "socket.",
@@ -128,9 +120,41 @@ def _install() -> None:
     }
     listing_events = {"os.listdir", "os.scandir", "os.walk", "glob.glob", "os.listxattr"}
 
+    # Bound here, not looked up at call time: user code can rebind module globals and
+    # builtins (``vars(pd)['__builtins__']`` is the real builtins dict).
+    plain_str = str.__str__  # a str subclass's own __str__ would run user code inside the hook
+    is_instance = isinstance
+    user_code_filename = USER_CODE_FILENAME
+    violation = SandboxViolation
+    importlib_files = (f"importlib{sep}__init__.py", f"importlib{sep}_bootstrap.py")
+    allowed_text = ", ".join(sorted(allowed_imports))
+
+    def user_hook(event: str, args: tuple) -> None:
+        # Everything this closes over is immutable or a builtin, so seeing this frame's locals
+        # (from a traceback) gives user code nothing to change.
+        if event.startswith(user_deny_prefixes):
+            raise violation(f"Blocked by sandbox: {event}")
+        if event != "import":
+            return
+        name = plain_str(args[0]) if is_instance(args[0], str) else ""
+        if name.partition(".")[0] in allowed_imports:
+            return
+        # Who triggered the import, skipping the import machinery?
+        f = getframe(1)
+        while f is not None:
+            fn = f.f_code.co_filename
+            if fn.startswith("<frozen importlib") or fn.endswith(importlib_files):
+                f = f.f_back
+                continue
+            if fn == user_code_filename:
+                raise violation(f"Blocked by sandbox: import of {name!r} (allowed: {allowed_text})")
+            return
+
     def hook(event: str, args: tuple) -> None:
         if event == "sandbox.lock":
-            state["user_phase"] = True
+            if not state["locked"]:
+                state["locked"] = True
+                sys.addaudithook(user_hook)
             return
         if event.startswith(deny_prefixes):
             _deny(event)
@@ -177,14 +201,6 @@ def _install() -> None:
             if not _under(target, read_roots):
                 _deny(f"{event} on {target!r}")
             return
-        if not state["user_phase"]:
-            return
-        if event.startswith(user_deny_prefixes):
-            _deny(event)
-        if event == "import":
-            top = str(args[0]).split(".")[0]
-            if top not in allowed_imports and _is_user_import():
-                _deny(f"import of {args[0]!r} (allowed: {', '.join(sorted(allowed_imports))})")
 
     # OS resource limits, applied here (before the hook denies ``resource.setrlimit``) rather
     # than in a ``preexec_fn``: the parent may be a multi-threaded server, where running Python
@@ -232,6 +248,8 @@ def _install() -> None:
 
     builtins_mod = sys.modules["builtins"]
     builtins_mod.__sandbox_violation__ = SandboxViolation  # used by the bootstrap for reporting
+    if cfg.get("profile"):  # scripts/bench_sandbox.py: phase timestamps (CLOCK_MONOTONIC)
+        builtins_mod.__sandbox_marks__ = {"site_start": t_start, "site_end": perf_counter()}
 
 
 _install()

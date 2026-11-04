@@ -7,7 +7,8 @@ Layers (see docs/sandbox.md for the threat model):
 * **OS limits** (``resource.setrlimit``, applied by the child's ``sitecustomize`` before any
   other code; no ``preexec_fn``): address space, CPU seconds, file size, open files, no cores.
 * **Kernel confinement** (``_child/_oslock.py``): Landlock limits file access to the read
-  roots and the temp dir; seccomp blocks exec, fork, non-AF_UNIX sockets and rlimit changes.
+  roots and the temp dir; seccomp blocks exec, fork, sockets, signals to other processes,
+  rlimit/scheduler/metadata changes and host-wide syscalls (see ``_oslock._DENIED``).
 * **Scrubbed environment** - only a handful of variables; no API keys, proxies or HOME.
 * **Temp cwd** - a fresh ``TemporaryDirectory`` that is deleted afterwards.
 * **In-interpreter guard** (``_child/sitecustomize.py``) - blocks sockets at import time and
@@ -90,6 +91,11 @@ ALLOWED_STDLIB = (
 )
 ALLOWED_IMPORTS = ALLOWED_THIRD_PARTY + ALLOWED_STDLIB
 
+# Set to a dict by scripts/bench_sandbox.py: each run_python call then fills it with phase
+# timestamps (``time.perf_counter()``; CLOCK_MONOTONIC, comparable across processes on Linux)
+# from the parent and the child. Off (None) in normal use; never set by the agent.
+_PROFILE: dict[str, float] | None = None
+
 # Data context accepted by run_python: DataFrames, file paths, or a mix keyed by name.
 DataContext = Mapping[str, "pd.DataFrame | str | Path"] | DataSources
 
@@ -158,6 +164,7 @@ def _child_env(work_dir: str, rlimits: dict[str, int] | None = None) -> dict[str
         "read_roots": read_roots,
         "allowed_imports": list(ALLOWED_IMPORTS),
         "rlimits": rlimits or {},
+        "profile": _PROFILE is not None,
     }
     return {
         "PATH": "/usr/bin:/bin",
@@ -276,6 +283,10 @@ def run_python(
     Never raises for user-code problems.
     """
     start = time.monotonic()
+    prof = _PROFILE
+    if prof is not None:
+        prof.clear()
+        prof["parent_start"] = time.perf_counter()
     artifacts_dir = Path(artifacts_dir) if artifacts_dir is not None else default_artifacts_dir()
     with tempfile.TemporaryDirectory(prefix="analyst-py-") as tmp:
         work_dir = Path(os.path.realpath(tmp))
@@ -289,6 +300,8 @@ def run_python(
 
         stdout_path, stderr_path = meta / "stdout.txt", meta / "stderr.txt"
         timed_out = False
+        if prof is not None:
+            prof["spawn"] = time.perf_counter()
         with stdout_path.open("wb") as out, stderr_path.open("wb") as err:
             proc = subprocess.Popen(
                 [sys.executable, "-s", "-B", str(CHILD_DIR / "bootstrap.py"), str(work_dir)],
@@ -309,6 +322,8 @@ def run_python(
                 except ProcessLookupError:
                     pass
                 exit_code = proc.wait()
+        if prof is not None:
+            prof["exited"] = time.perf_counter()
 
         stdout, stderr = _read_capped(stdout_path), _read_capped(stderr_path)
         payload: Any = None
@@ -323,6 +338,13 @@ def run_python(
         except OSError as exc:
             artifacts = []
             stderr += f"\n[sandbox] could not export artifacts: {exc}"
+        if prof is not None:
+            prof["exported"] = time.perf_counter()
+            child = payload.get("profile") if isinstance(payload, dict) else None
+            if isinstance(child, dict):
+                prof.update({k: float(v) for k, v in child.items() if isinstance(v, int | float)})
+    if prof is not None:
+        prof["parent_end"] = time.perf_counter()
 
     base: dict[str, Any] = dict(stdout=stdout, stderr=stderr, artifacts=artifacts)
 

@@ -378,4 +378,192 @@ def test_seccomp_filter_program_is_well_formed():
 
     for machine in ("x86_64", "aarch64"):
         prog = _oslock.build_filter(machine)
-        assert len(prog) % 8 == 0 and 0 < len(prog) // 8 < 64
+        assert len(prog) % 8 == 0 and 0 < len(prog) // 8 < 256
+
+
+# --- gaps found by the escape fuzzer (tests/sandbox/test_fuzz_escape.py) ---------------------
+
+_TAMPER = """
+try:
+    open('/nonexistent/x')
+except PermissionError as e:
+    tb = e.__traceback__
+    while tb:
+        for v in list(tb.tb_frame.f_locals.values()):
+            if isinstance(v, dict):
+                for k in list(v):
+                    if isinstance(v[k], bool):
+                        v[k] = not v[k]
+        tb = tb.tb_next
+"""
+
+
+@pytest.mark.parametrize(
+    "attack",
+    [
+        "g = {}\nexec(compile('import ctypes', 'lib.py', 'exec'), g)\ng['ctypes'].CDLL(None)",
+        "pd.io.common.os.sys.modules['gc'].get_objects()",
+        "pd.io.common.os.sys.modules['ctypes'].CDLL(None)",
+    ],
+)
+def test_user_phase_checks_survive_traceback_tampering(attack):
+    """The audit hook's user-phase flag used to sit in a dict that any SandboxViolation's
+    traceback exposed (``tb_frame.f_locals``); flipping it switched off the ctypes, gc and
+    import checks. The user-phase checks now live in a separate hook with no mutable state."""
+    res = run_python(_TAMPER + attack, timeout_s=30)
+    _blocked(res, "PermissionDenied")
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        "o.setpriority(o.PRIO_PROCESS, {victim}, 19)",
+        "o.setpriority(o.PRIO_PROCESS, 0, -20)",
+        "o.sched_setaffinity({victim}, {{0}})",
+        "o.sched_setscheduler(0, o.SCHED_FIFO, o.sched_param(1))",
+    ],
+)
+def test_scheduling_changes_are_blocked(call):
+    """No audit event covers these, so in production they worked: renicing other processes of
+    the service user, and SCHED_FIFO for the sandbox itself (a busy loop then starves a core)."""
+    victim = __import__("subprocess").Popen(["sleep", "60"])
+    try:
+        before = os.getpriority(os.PRIO_PROCESS, victim.pid)
+        code = "o = pd.io.common.os\n" + call.format(victim=victim.pid) + "\nprint('changed')"
+        res = run_python(code, timeout_s=30)
+        _blocked(res)
+        assert "changed" not in res.stdout
+        assert os.getpriority(os.PRIO_PROCESS, victim.pid) == before
+    finally:
+        victim.kill()
+        victim.wait()
+
+
+@pytest.fixture()
+def kernel_only(monkeypatch, tmp_path):
+    """Run with the Python guards removed (see tests/sandbox/_layers.py)."""
+    from . import _layers
+
+    _layers.install(monkeypatch, tmp_path / "shim")
+
+    def run(code: str, **kw):
+        with _layers.kernel_only():
+            return run_python(_layers.CTYPES_PRELUDE + code, timeout_s=30, **kw)
+
+    return run
+
+
+@pytest.mark.skipif(not os.path.exists("/proc/self/status"), reason="Linux only")
+def test_kernel_layer_blocks_unix_socket_connect(kernel_only, tmp_path):
+    """Landlock (ABI <= 7) does not mediate connect() to a pathname UNIX socket, and seccomp
+    allowed AF_UNIX: e.g. /var/run/docker.sock was reachable once the audit hook was bypassed."""
+    path = tmp_path / "s.sock"
+    srv = socket.socket(socket.AF_UNIX)
+    srv.bind(str(path))
+    srv.listen(1)
+    srv.settimeout(0.5)
+    try:
+        res = kernel_only(
+            "s = vars(pd)['__builtins__']['__import__']('socket')\n"
+            "c = [k for k in s.socket.__mro__ if k.__module__ == '_socket'][0](s.AF_UNIX)\n"
+            f"c.connect({str(path)!r})\nprint('connected')"
+        )
+        _blocked(res)
+        assert "connected" not in res.stdout
+        with pytest.raises(TimeoutError):
+            srv.accept()
+    finally:
+        srv.close()
+
+
+def _syscall_numbers() -> dict[str, int]:
+    from analyst_agent.sandbox._child import _oslock
+
+    return _oslock._ARCH[__import__("platform").machine()][1]
+
+
+@pytest.mark.skipif(not os.path.exists("/proc/self/status"), reason="Linux only")
+def test_kernel_layer_refuses_host_wide_and_cross_process_syscalls(kernel_only):
+    """Syscalls Landlock does not cover. The service often runs as root in a container, where
+    these reached the kernel: reboot, module loading, hostname and clock changes, mounts, the
+    kernel log, other processes' scheduling. Arguments are harmless even if one got through."""
+    nr = _syscall_numbers()
+    victim = __import__("subprocess").Popen(["sleep", "60"])
+    calls = {
+        "reboot": "0, 0, 0, 0",
+        "init_module": "0, 0, 0",
+        "sethostname": "0, 100000",
+        "settimeofday": "0, 0",
+        "mount": "0, 0, 0, 0, 0",
+        "syslog": "10, 0, 0",
+        "unshare": "0",
+        "setpriority": f"0, {victim.pid}, 19",
+        "kill": f"{victim.pid}, 0",
+        "tgkill": f"{victim.pid}, {victim.pid}, 0",
+        "pidfd_open": f"{victim.pid}, 0",
+        "fchmod": "-1, 0o644",
+        "utimensat": "-1, 0, 0, 0",
+        "fsetxattr": "-1, 0, 0, 0, 0",
+        "socket": "1, 1, 0",
+    }
+    try:
+        code = "".join(f"print({k!r}, *sc({nr[k]}, {a}))\n" for k, a in calls.items())
+        code += "print('setxattrat', *sc(463, -1, 0, 0, 0, 0, 0))\n"  # newer than the filter
+        code += "print('self', *sc(" + str(nr["kill"]) + ", os.getpid(), 0))\n"
+        res = kernel_only(code)
+        assert res.ok, res.error
+        got = {ln.split()[0]: ln.split()[1:] for ln in res.stdout.splitlines()}
+        for name in calls:
+            assert got[name] == ["-1", "1"], (name, got[name])  # EPERM
+        assert got["setxattrat"] == ["-1", "38"]  # ENOSYS
+        assert got["self"] == ["0", "0"]  # signalling itself still works
+        assert victim.poll() is None
+    finally:
+        victim.kill()
+        victim.wait()
+
+
+@pytest.mark.skipif(not os.path.exists("/proc/self/status"), reason="Linux only")
+def test_kernel_layer_blocks_metadata_changes_on_readable_files(kernel_only):
+    """Landlock grants reads under the read roots but does not mediate chmod/chown/utimes,
+    xattrs or chattr ioctls, so a read-only fd was enough to change a file's metadata."""
+    from analyst_agent.sandbox.python_runner import _mpl_cache_dir
+
+    target = Path(_mpl_cache_dir()) / f"meta-test-{os.getpid()}.txt"
+    target.write_text("x")
+    target.chmod(0o644)
+    before = target.stat()
+    try:
+        code = f"fd = os.open({str(target)!r}, os.O_RDONLY)\n" + "".join(
+            f"try:\n    {stmt}\n    print('changed')\nexcept OSError:\n    pass\n"
+            for stmt in (
+                "os.fchmod(fd, 0o777)",
+                f"os.chmod({str(target)!r}, 0o777)",
+                "os.fchown(fd, 1, 1)",
+                "os.utime(fd, (0, 0))",
+                "os.setxattr(fd, 'user.x', b'1')",
+                "vars(pd)['__builtins__']['__import__']('fcntl').ioctl(fd, 0x40086602, bytes(8))",
+            )
+        )
+        res = kernel_only(code)
+        assert res.ok, res.error
+        assert "changed" not in res.stdout
+        after = target.stat()
+        assert (after.st_mode, after.st_uid, after.st_mtime) == (
+            before.st_mode,
+            before.st_uid,
+            before.st_mtime,
+        )
+    finally:
+        target.unlink()
+
+
+def test_seccomp_signal_rule_embeds_the_child_pid():
+    import struct
+
+    from analyst_agent.sandbox._child import _oslock
+
+    prog = _oslock.build_filter("x86_64", pid=4242)
+    ks = [struct.unpack("=HBBI", prog[i : i + 8])[3] for i in range(0, len(prog), 8)]
+    assert 4242 in ks
+    assert _oslock.build_filter("x86_64", pid=1) != prog
