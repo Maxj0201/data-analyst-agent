@@ -52,6 +52,8 @@ class AgentOutcome:
     error: str | None = None
     agent_status: str | None = None
     """The loop's own status string (e.g. ``budget_exceeded``), kept for display."""
+    prompts: dict[str, dict[str, str]] = field(default_factory=dict)
+    """Prompt versions the run used, ``{name: {"version", "sha256"}}`` (``core.prompts``)."""
 
 
 class AgentRunner(Protocol):
@@ -237,6 +239,9 @@ def coerce_outcome(result: Any) -> AgentOutcome:
     artifacts = _get(result, "artifacts") or _get(state, "artifacts") or []
     detail = _get(result, "error", "detail") or _get(state, "detail") or None
     report = _get(result, "report_markdown", "report", default="") or ""
+    prompts = _get(result, "prompts")
+    if prompts is None and callable(getattr(result, "to_dict", None)):
+        prompts = result.to_dict().get("prompts")  # core.AgentResult: same as the trace
 
     return AgentOutcome(
         status=status,
@@ -246,4 +251,5 @@ def coerce_outcome(result: Any) -> AgentOutcome:
         cost=_as_dict(_get(result, "cost")),
         error=str(detail) if detail and status != "completed" else None,
         agent_status=raw_status,
+        prompts={str(k): dict(v) for k, v in (prompts or {}).items()},
     )

@@ -167,6 +167,7 @@ class JobManager:
             key_numbers=outcome.key_numbers,
             artifacts=[a for _, a in artifacts],
             agent_status=outcome.agent_status or outcome.status,
+            prompts=outcome.prompts,
         )
         # The final event is appended *before* the status flips to terminal so that SSE
         # readers, which stop once they observe a terminal status, never miss it.
@@ -178,6 +179,7 @@ class JobManager:
                 "cost": cost.model_dump(),
                 "artifacts": [a.model_dump() for a in result.artifacts],
                 "key_numbers": result.key_numbers,
+                "prompts": result.prompts,
                 "error": outcome.error,
             },
         )

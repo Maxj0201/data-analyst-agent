@@ -59,3 +59,9 @@ async def test_real_loop_through_api(settings, monkeypatch):
     assert job["cost"]["input_tokens"] == 300
     assert job["progress"]["max_turns"] is not None
     assert "350" in report
+    # prompt versions travel from the trace into the API result (and the final event)
+    from analyst_agent.core.prompts import prompt_versions
+
+    assert job["result"]["prompts"] == prompt_versions()
+    final = next(d for n, d in events if n == "final")
+    assert final["prompts"] == prompt_versions()

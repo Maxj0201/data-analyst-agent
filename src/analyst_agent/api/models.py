@@ -74,6 +74,8 @@ class JobResult(BaseModel):
     artifacts: list[Artifact] = Field(default_factory=list)
     agent_status: str | None = None
     """Raw status string reported by the agent loop (e.g. ``budget_exceeded``)."""
+    prompts: dict[str, dict[str, str]] = Field(default_factory=dict)
+    """Prompt versions used by the run: ``{name: {"version": ..., "sha256": ...}}``."""
 
 
 class Job(BaseModel):

@@ -129,3 +129,9 @@ def test_evented_llm_pricing_failure_is_swallowed():
 
     EventedLLM(inner, lambda t, d: events.append(d), cost_fn=broken).create(system="s")
     assert events[0]["usd"] == 0.0
+
+
+def test_coerce_carries_prompt_versions():
+    versions = {"planner": {"version": "1.0.0", "sha256": "abc"}}
+    assert coerce_outcome({"status": "completed", "prompts": versions}).prompts == versions
+    assert coerce_outcome(_result(RunStatus.COMPLETED)).prompts == {}  # no to_dict, no prompts
