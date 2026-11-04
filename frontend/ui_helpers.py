@@ -19,6 +19,14 @@ _CODE = re.compile(r"`([^`]+)`")
 _BOLD = re.compile(r"\*\*([^*]+)\*\*")
 
 
+def safe_md(text: object) -> str:
+    """Markdown with every image (inline, reference-style or nested) turned into plain text.
+
+    Lives here so the helpers below can use it; ``render.safe_md`` is the same function.
+    """
+    return str(text).replace("![", "!\\[")
+
+
 @dataclass
 class Step:
     """One row of the step timeline."""
@@ -236,7 +244,7 @@ def split_report(markdown: str) -> list[tuple[str, str, str]]:
 
 
 def scalar_numbers(key_numbers: dict[str, Any], limit: int = 8) -> list[tuple[str, str]]:
-    """Key numbers that fit a metric tile: ``(label, formatted value)``."""
+    """Key numbers that fit a metric tile: ``(label, formatted value)``, both image-inert."""
     out = []
     for key, value in key_numbers.items():
         if isinstance(value, bool) or not isinstance(value, int | float | str):
@@ -247,7 +255,8 @@ def scalar_numbers(key_numbers: dict[str, Any], limit: int = 8) -> list[tuple[st
             text = f"{value:,}"
         else:
             text = _clip(value, 40)
-        out.append((key.replace("_", " "), text))
+        # st.metric renders Markdown images in the label *and* the value (review-2 M4).
+        out.append((safe_md(key.replace("_", " ")), safe_md(text)))
         if len(out) >= limit:
             break
     return out

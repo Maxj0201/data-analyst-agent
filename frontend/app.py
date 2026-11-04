@@ -291,8 +291,9 @@ def render_report(job: dict[str, Any], markdown: str) -> None:
         for i in range(0, len(numbers), 3):
             cols = st.columns(3)
             for col, (label, value) in zip(cols, numbers[i : i + 3], strict=False):
-                # Metric labels render Markdown, images included: names come from the model.
-                col.metric(safe_md(label), value)
+                # Labels and values render Markdown, images included; scalar_numbers makes
+                # both inert (names and string values come from the model).
+                col.metric(label, value)
 
     # Charts render only from this job's own /artifacts URLs, fetched server-side; any other
     # image in the report (data-steered URLs included) stays inert text (render.report_parts).
