@@ -27,8 +27,15 @@ jobs:
         run: uv run ruff check .
       - name: Ruff format
         run: uv run ruff format --check .
-      - name: Unit tests
-        run: uv run pytest -q
+      - name: Unit tests (with branch coverage)
+        run: uv run pytest -q --cov=analyst_agent --cov-report=term-missing:skip-covered
+      - name: Coverage gate
+        # Floors are the levels reached when the gate was added, minus 2 points
+        # (overall 94%, sandbox/ 99%, core/loop.py 100%). Raise them as coverage improves.
+        run: |
+          uv run coverage report --fail-under=92 > /dev/null
+          uv run coverage report --include='*/analyst_agent/sandbox/*' --fail-under=97
+          uv run coverage report --include='*/analyst_agent/core/loop.py' --fail-under=98
 
   eval-smoke:
     # Offline end-to-end checks: no API key, no network to the LLM. Catches prompt / loop /

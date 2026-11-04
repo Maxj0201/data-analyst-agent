@@ -48,6 +48,8 @@ dev = [
     "pytest-asyncio",
     "ruff",
     "httpx",
+    "pytest-cov>=7.1.0",
+    "hypothesis>=6.170.14",
 ]
 
 [build-system]
@@ -73,3 +75,12 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+# Branch coverage: untested `if`/`except` arms count, not just unexecuted lines. The CI gate
+# (.github/workflows/ci.yml) enforces the overall, sandbox/ and core/loop.py floors.
+[tool.coverage.run]
+source = ["analyst_agent"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
