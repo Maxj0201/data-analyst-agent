@@ -214,6 +214,20 @@ def _install() -> None:
             value = min(int(value), hard)
         resource.setrlimit(res, (int(value), int(value)))
 
+    # Die with the parent. The child runs in its own session so the parent can kill its whole
+    # group on a timeout, but that also means killing the *parent's* group (an eval task
+    # timeout) or the parent itself (an API crash) left this process running with nothing to
+    # enforce the wall-clock limit (review-2 M3). Set before any user code; fail closed.
+    parent_pid = cfg.get("parent_pid")
+    if parent_pid and sys.platform.startswith("linux"):
+        import ctypes
+
+        libc = ctypes.CDLL(None, use_errno=True)
+        if libc.prctl(1, 9, 0, 0, 0) != 0:  # PR_SET_PDEATHSIG, SIGKILL
+            raise OSError(ctypes.get_errno(), "prctl(PR_SET_PDEATHSIG) failed")
+        if os.getppid() != parent_pid:  # the parent died before the call above
+            os._exit(137)
+
     sys.addaudithook(hook)
 
     # Import-time network block (belt and braces with the audit hook above).

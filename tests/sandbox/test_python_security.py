@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import socket
+import sys
 import threading
 from pathlib import Path
 
@@ -371,6 +372,68 @@ def test_rlimits_applied_without_preexec_fn(monkeypatch):
     lines = {ln.split("  ")[0]: ln for ln in res.stdout.splitlines()}
     assert str(512 * 1024 * 1024) in lines["Max address space"]
     assert "0" in lines["Max core file size"].split()
+
+
+def _bootstrap_children(parent_pid: int) -> list[int]:
+    """Live sandbox children (``_child/bootstrap.py``) whose parent is ``parent_pid``."""
+    found = []
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            stat = (entry / "stat").read_text()
+            cmdline = (entry / "cmdline").read_bytes()
+        except OSError:
+            continue
+        state, ppid = stat.rsplit(")", 1)[1].split()[:2]
+        if int(ppid) == parent_pid and state != "Z" and b"bootstrap.py" in cmdline:
+            found.append(int(entry.name))
+    return found
+
+
+def _alive(pid: int) -> bool:
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+    except OSError:
+        return False
+    return state != "Z"
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="PR_SET_PDEATHSIG is Linux-only")
+def test_child_dies_with_its_parent(tmp_path):
+    """Review-2 M3: the child runs in its own session, so killing the caller's process group
+    (an eval task timeout) or the API process left it running with no wall-clock limit."""
+    import signal
+    import subprocess
+    import time
+
+    script = (
+        "from analyst_agent.sandbox.python_runner import run_python\n"
+        "run_python('import time\\ntime.sleep(120)', timeout_s=120, "
+        f"artifacts_dir={str(tmp_path)!r})\n"
+    )
+    parent = subprocess.Popen([sys.executable, "-c", script], start_new_session=True)
+    try:
+        deadline = time.monotonic() + 30
+        children: list[int] = []
+        while not children and time.monotonic() < deadline:
+            children = _bootstrap_children(parent.pid)
+            time.sleep(0.05)
+        assert children, "the sandbox child never started"
+        time.sleep(1.0)  # past start-up: the child is in user code
+        os.killpg(parent.pid, signal.SIGKILL)  # what eval's isolation does on a timeout
+        parent.wait()
+        deadline = time.monotonic() + 10
+        while any(_alive(c) for c in children) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        survivors = [c for c in children if _alive(c)]
+        for c in survivors:
+            os.kill(c, signal.SIGKILL)
+        assert not survivors, "the sandbox child outlived its parent"
+    finally:
+        if parent.poll() is None:
+            parent.kill()
+            parent.wait()
 
 
 def test_seccomp_filter_program_is_well_formed():

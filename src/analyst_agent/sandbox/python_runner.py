@@ -164,6 +164,7 @@ def _child_env(work_dir: str, rlimits: dict[str, int] | None = None) -> dict[str
         "read_roots": read_roots,
         "allowed_imports": list(ALLOWED_IMPORTS),
         "rlimits": rlimits or {},
+        "parent_pid": os.getpid(),  # the child dies with this process (PR_SET_PDEATHSIG)
         "profile": _PROFILE is not None,
     }
     return {
