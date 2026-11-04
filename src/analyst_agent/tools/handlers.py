@@ -8,7 +8,6 @@ import re
 from typing import Any
 
 from analyst_agent import sandbox
-from analyst_agent.sandbox import SqlResult
 from analyst_agent.tools.base import Tool, ToolContext, ToolResult
 from analyst_agent.tools.formatting import rows_to_markdown
 
@@ -98,26 +97,21 @@ INSPECT_SCHEMA = Tool(
 # --------------------------------------------------------------------------- run_sql
 
 
-def _format_sql_result(res: SqlResult) -> str:
-    head = f"{res.total_rows:,} row(s)"
-    if res.truncated:
-        head += f" (showing first {len(res.rows)})"
-    return f"{head}\n{res.preview_markdown or rows_to_markdown(res.columns, res.rows)}"
-
-
 def run_sql(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Model sees ``markdown_preview`` on success, ``error`` on failure."""
     query = args["query"]
     res = sandbox.run_sql(query)
     if not res.ok:
         return ToolResult(f"SQL error: {res.error}", is_error=True, data={"query": query})
     return ToolResult(
-        _format_sql_result(res),
+        res.markdown_preview,
         data={
             "query": query,
             "columns": res.columns,
             "rows": res.rows[:50],
-            "total_rows": res.total_rows,
+            "row_count": res.row_count,
             "truncated": res.truncated,
+            "duration_ms": res.duration_ms,
         },
     )
 
@@ -140,15 +134,25 @@ RUN_SQL = Tool(
 # --------------------------------------------------------------------------- run_python
 
 
+def _format_python_output(stdout: str, artifacts: list[str]) -> str:
+    body = f"stdout:\n{stdout or '(empty)'}"
+    if artifacts:
+        body += "\nartifacts:\n" + "\n".join(f"- {a}" for a in artifacts)
+    return body
+
+
 def run_python(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Model sees stdout + artifact paths on success; ``error`` (then any stdout) on failure."""
     code = args["code"]
     res = sandbox.run_python(code)
-    body = f"stdout:\n{res.stdout or '(empty)'}"
-    if res.stderr:
-        body += f"\nstderr:\n{res.stderr[-2000:]}"
+    data = {"code": code, "artifacts": list(res.artifacts), "duration_ms": res.duration_ms}
     if not res.ok:
-        return ToolResult(f"Python error: {res.error}\n{body}", is_error=True, data={"code": code})
-    return ToolResult(body, data={"code": code, "stdout": res.stdout[:5000]})
+        content = f"Python error: {res.error}"
+        if res.stdout:
+            content += "\n" + _format_python_output(res.stdout, res.artifacts)
+        return ToolResult(content, is_error=True, data=data)
+    data["stdout"] = res.stdout[:5000]
+    return ToolResult(_format_python_output(res.stdout, res.artifacts), data=data)
 
 
 RUN_PYTHON = Tool(
@@ -156,7 +160,8 @@ RUN_PYTHON = Tool(
     description=(
         "Run a Python snippet in a sandbox with pandas and numpy. Tables are preloaded as "
         "`tables[name]` (DataFrames); `df` is the table when there is exactly one. Print what you "
-        "need to see; only stdout/stderr are returned. No network or file access."
+        "need to see: stdout is returned, plus the paths of any files the code writes to its "
+        "working directory (e.g. plt.savefig('fig.png')). No network access."
     ),
     input_schema={
         "type": "object",

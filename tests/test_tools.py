@@ -33,7 +33,45 @@ def test_run_sql(ctx):
     )
     assert not res.is_error
     assert res.data["rows"] == [{"region": "north", "rev": 150}, {"region": "south", "rev": 200}]
-    assert "2 row(s)" in res.content
+    assert res.content == res.content.strip() and res.content.startswith("2 row(s)")
+    assert "| north | 150 |" in res.content
+
+
+def test_run_sql_returns_markdown_preview_or_error(monkeypatch, ctx):
+    from analyst_agent.sandbox import SqlResult
+
+    reg = build_default_registry()
+    monkeypatch.setattr(
+        "analyst_agent.sandbox.run_sql",
+        lambda query: SqlResult(ok=True, row_count=1, markdown_preview="PREVIEW"),
+    )
+    assert reg.execute("run_sql", {"query": "SELECT 1"}, ctx).content == "PREVIEW"
+    monkeypatch.setattr(
+        "analyst_agent.sandbox.run_sql",
+        lambda query: SqlResult(ok=False, markdown_preview="ignored", error="boom"),
+    )
+    res = reg.execute("run_sql", {"query": "SELECT 1"}, ctx)
+    assert res.is_error and res.content == "SQL error: boom"
+
+
+def test_run_python_returns_stdout_artifacts_or_error(monkeypatch, ctx):
+    from analyst_agent.sandbox import PyResult
+
+    reg = build_default_registry()
+    monkeypatch.setattr(
+        "analyst_agent.sandbox.run_python",
+        lambda code: PyResult(ok=True, stdout="42\n", stderr="noise", artifacts=["a/fig.png"]),
+    )
+    res = reg.execute("run_python", {"code": "x"}, ctx)
+    assert not res.is_error
+    assert "42" in res.content and "a/fig.png" in res.content and "noise" not in res.content
+    assert res.data["artifacts"] == ["a/fig.png"]
+    monkeypatch.setattr(
+        "analyst_agent.sandbox.run_python",
+        lambda code: PyResult(ok=False, stderr="Traceback...", error="ValueError: bad"),
+    )
+    res = reg.execute("run_python", {"code": "x"}, ctx)
+    assert res.is_error and res.content == "Python error: ValueError: bad"
 
 
 def test_run_sql_rejects_multiple_statements(ctx):

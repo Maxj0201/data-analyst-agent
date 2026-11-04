@@ -228,6 +228,7 @@ class AgentLoop:
                 )
                 if res.data.get("path") and not res.is_error:
                     state.artifacts.append(res.data["path"])
+                state.artifacts.extend(res.data.get("artifacts", []))
 
                 if name == TERMINAL_TOOL and res.terminate and not res.is_error:
                     submitted = (tu, res.data)

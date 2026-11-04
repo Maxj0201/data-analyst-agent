@@ -111,7 +111,7 @@ def sales_csv(tmp_path: Path) -> Path:
 @pytest.fixture
 def ctx(sales_csv: Path, tmp_path: Path) -> ToolContext:
     return ToolContext(
-        tables=sandbox.load_data({"sales": sales_csv}),
+        tables=sandbox.load_data({"sales": sales_csv}, artifacts_dir=tmp_path / "artifacts"),
         artifacts_dir=tmp_path / "artifacts",
     )
 

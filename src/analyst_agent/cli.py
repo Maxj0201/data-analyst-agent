@@ -57,7 +57,7 @@ def ask(
             raise typer.BadParameter(f"two files map to the same table name {name!r}")
         datasets[name] = p
 
-    tables = sandbox.load_data(datasets)
+    tables = sandbox.load_data(datasets, artifacts_dir=settings.artifacts_dir)
     ctx = ToolContext(
         tables=tables,
         artifacts_dir=settings.artifacts_dir,

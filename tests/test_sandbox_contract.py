@@ -15,15 +15,20 @@ def test_interface_shape():
     assert dataclasses.is_dataclass(SqlResult) and dataclasses.is_dataclass(PyResult)
     assert list(inspect.signature(sandbox.run_sql).parameters) == ["query"]
     assert list(inspect.signature(sandbox.run_python).parameters) == ["code"]
-    sql_fields = {f.name for f in dataclasses.fields(SqlResult)}
-    assert {"ok", "columns", "rows", "total_rows", "truncated", "error"} <= sql_fields
-    assert {"ok", "stdout", "stderr", "error"} <= {f.name for f in dataclasses.fields(PyResult)}
+    assert [f.name for f in dataclasses.fields(SqlResult)] == [
+        "ok", "rows", "columns", "row_count", "truncated", "markdown_preview", "error",
+        "duration_ms",
+    ]  # fmt: skip
+    assert [f.name for f in dataclasses.fields(PyResult)] == [
+        "ok", "stdout", "stderr", "artifacts", "error", "duration_ms",
+    ]  # fmt: skip
 
 
 def test_run_sql_and_python(sales_csv: Path):
     assert sandbox.load_data({"sales": sales_csv}) == ["sales"]
     res = sandbox.run_sql("SELECT COUNT(*) AS n FROM sales")
     assert isinstance(res, SqlResult) and res.ok and res.rows == [{"n": 4}]
+    assert res.row_count == 1 and "| n |" in res.markdown_preview and res.duration_ms >= 0
     py = sandbox.run_python("print(len(df))")
     assert isinstance(py, PyResult) and py.ok and py.stdout.strip() == "4"
 
@@ -43,4 +48,13 @@ def test_row_cap(tmp_path: Path):
     p.write_text("i\n" + "\n".join(str(i) for i in range(500)))
     sandbox.load_data({"big": p})
     res = sandbox.run_sql("SELECT * FROM big")
-    assert res.ok and len(res.rows) == 200 and res.total_rows == 500 and res.truncated
+    assert res.ok and len(res.rows) == 200 and res.row_count == 500 and res.truncated
+
+
+def test_python_artifacts(sales_csv: Path, tmp_path: Path):
+    art = tmp_path / "art"
+    sandbox.load_data({"sales": sales_csv}, artifacts_dir=art)
+    py = sandbox.run_python("open('out.txt', 'w').write('hi'); print('done')")
+    assert py.ok and py.stdout.strip() == "done"
+    assert len(py.artifacts) == 1 and Path(py.artifacts[0]).parent == art
+    assert Path(py.artifacts[0]).read_text() == "hi"
