@@ -14,7 +14,7 @@ back to `AGENT_MODEL`.
 
 ## Feature flags
 
-All three are **off by default**, independent of each other, and can be combined.
+These three agent features are **off by default**, independent of each other, and can be combined. The observability flags (`AGENT_LANGFUSE_ENABLED`, `AGENT_TRACE_STORE_ENABLED`, `AGENT_LOG_JSON_ENABLED`) are also off by default; see [observability.md](observability.md).
 
 | Flag | What it turns on | CLI override (`ask`) | Eval override (`eval run`) |
 |---|---|---|---|
@@ -69,8 +69,12 @@ How each surface answers an approval request when `AGENT_APPROVAL_ENABLED=true`:
 | `AGENT_JOB_MEMORY_LIMIT` | `500` | API | Finished jobs kept in memory (older ones are served from SQLite). |
 | `AGENT_MAX_CONCURRENT_JOBS` | `4` | API | Worker threads running agent jobs. |
 | `AGENT_MAX_UPLOAD_MB` | `50` | API | Max dataset upload size. |
-| `AGENT_LANGFUSE_ENABLED` | `false` | API | Send traces to Langfuse (keys from `LANGFUSE_*`, see [observability.md](observability.md)). |
 | `AGENT_CORS_ORIGINS` | `[]` | API | Allowed CORS origins, as a JSON list. |
+| `AGENT_LANGFUSE_ENABLED` | `false` | Observability | **Feature flag.** Send each run's span tree (API jobs, CLI `ask`, eval tasks) to Langfuse and push eval scores onto the traces (keys from `LANGFUSE_*`, see [observability.md](observability.md)). |
+| `AGENT_TRACE_STORE_ENABLED` | `false` | Observability | **Feature flag.** Save each run's span tree as `<AGENT_TRACES_DIR>/<id>.json` (eval: `<run_dir>/traces/`) for `analyst-agent trace show`. |
+| `AGENT_TRACES_DIR` | `traces` | Observability | Where saved traces go (CLI and API). |
+| `AGENT_LOG_JSON_ENABLED` | `false` | Observability | **Feature flag.** One JSON object per log line on stderr, with `run_id` / `job_id` / `task_id` correlation fields. Text logs carry the same fields otherwise. |
+| `AGENT_LOG_LEVEL` | `INFO` | Observability | Root log level for the CLI, API and eval harness. |
 | `AGENT_JUDGE_MODEL` | *(unset)* | Eval | LLM judge model for L3/ADV rubric tasks; unset = `AGENT_MODEL`. |
 | `AGENT_JUDGE_EFFORT` | `low` | Eval | Effort for the judge. |
 | `AGENT_EVAL_CONCURRENCY` | `4` | Eval | Default `eval run --concurrency`. |
