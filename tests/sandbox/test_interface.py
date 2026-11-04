@@ -43,9 +43,7 @@ def test_create_sandbox_sql_and_python(data_files):
         assert isinstance(cols.duration_ms, int)
 
         py = sb.run_python(
-            "t = tables['orders']\n"
-            "assert df is t and orders is t\n"
-            "print(round(t.amount.sum(), 2))"
+            "t = tables['orders']\nassert df is t and orders is t\nprint(round(t.amount.sum(), 2))"
         )
         assert py.ok, py.error + py.stderr
         assert py.stdout.strip() == "140.74"
@@ -101,3 +99,30 @@ def test_errors_never_raise(data_files):
     with create_sandbox(data_files) as sb:
         assert kind_of(sb.run_sql("DROP TABLE orders").error) == "StatementNotAllowed"
         assert kind_of(sb.run_python("raise ValueError('boom')").error) == "ValueError"
+
+
+def test_load_data_artifacts_dir_argument(data_files, tmp_path):
+    """agent-core calls ``sandbox.load_data(datasets, artifacts_dir=settings.artifacts_dir)``."""
+    target = tmp_path / "run42" / "artifacts"
+    sandbox.reset()
+    try:
+        assert sandbox.load_data(data_files, artifacts_dir=target) == ["orders"]
+        assert sandbox.loaded_tables() == ["orders"]
+        res = sandbox.run_python("df.amount.plot()\ndf.to_csv('out.csv', index=False)")
+        assert res.ok, res.error
+        assert len(res.artifacts) == 2
+        assert all(Path(p).parent == target and Path(p).is_file() for p in res.artifacts)
+        # positional form, and switching the directory on reload
+        other = tmp_path / "other"
+        sandbox.load_data(data_files, str(other))
+        res = sandbox.run_python("open('note.txt', 'w').write('hi')")
+        assert [Path(p).parent for p in res.artifacts] == [other]
+    finally:
+        sandbox.reset()
+    assert sandbox.loaded_tables() == []
+
+
+def test_create_sandbox_artifacts_dir(data_files, tmp_path):
+    with create_sandbox(data_files, artifacts_dir=tmp_path / "a") as sb:
+        res = sb.run_python("plt.plot([1, 2])")
+    assert res.ok and [Path(p).parent for p in res.artifacts] == [tmp_path / "a"]

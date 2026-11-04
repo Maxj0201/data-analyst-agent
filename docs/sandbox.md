@@ -15,8 +15,9 @@ sb = sandbox.create_sandbox({"orders": Path("orders.csv")})   # CSV / Parquet / 
 sb.run_sql("SELECT ...")      # -> SqlResult
 sb.run_python("print(df.head())")  # -> PyResult
 
-# or module-level, as CLAUDE.md specifies:
-sandbox.load_data({"orders": "orders.csv"})
+# or module-level, as CLAUDE.md specifies (this is what agent-core uses):
+sandbox.load_data({"orders": "orders.csv"}, artifacts_dir="artifacts")
+sandbox.loaded_tables()            # -> ["orders"]
 sandbox.run_sql(query) -> SqlResult
 sandbox.run_python(code) -> PyResult
 ```
@@ -50,8 +51,9 @@ name. The only raising path is the trusted one: `load_data`/`create_sandbox` rai
 Inside `run_python`: `pd`, `np`, `plt` (Agg backend) and `scipy` are pre-imported. Every
 table is in `tables[name]` and is also a variable of that name. When there is exactly one
 table it is also `df`. Figures left open, plus `.png/.jpg/.csv/.json/.txt/.md` files written
-to the cwd, are copied to `$AGENT_ARTIFACTS_DIR` (default `artifacts/`) and listed in
-`artifacts`.
+to the cwd, are copied to the `artifacts_dir` given to `load_data`/`create_sandbox` and
+listed in `artifacts`. If none was given, they go to `$AGENT_ARTIFACTS_DIR`, or `artifacts/`
+when that is unset.
 
 ## Threat model
 
@@ -150,4 +152,4 @@ Be honest about this before exposing the agent to untrusted users:
 |---|---|---|
 | SQL timeout / row cap / memory | `DuckDBRunner(timeout_s=, row_limit=, memory_limit=)` | 30 s / 200 / 2GB |
 | Python timeout / memory | `python_runner.run_python(timeout_s=, memory_limit_mb=)` | 60 s / 1024 MiB |
-| Artifact directory | `AGENT_ARTIFACTS_DIR` env var or `artifacts_dir=` | `artifacts/` |
+| Artifact directory | `load_data(..., artifacts_dir=)`, `create_sandbox(..., artifacts_dir=)`, else `AGENT_ARTIFACTS_DIR` | `artifacts/` |

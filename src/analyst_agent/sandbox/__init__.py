@@ -70,6 +70,7 @@ __all__ = [
     "create_sandbox",
     "current_tables",
     "load_data",
+    "loaded_tables",
     "reset",
     "run_python",
     "run_sql",
@@ -80,7 +81,14 @@ __all__ = [
 class Sandbox:
     """A dataset bound to a read-only DuckDB database and the Python subprocess runner."""
 
-    def __init__(self, datasets: DataSources | None = None, **sql_options: object) -> None:
+    def __init__(
+        self,
+        datasets: DataSources | None = None,
+        artifacts_dir: str | Path | None = None,
+        **sql_options: object,
+    ) -> None:
+        # None -> $AGENT_ARTIFACTS_DIR or "artifacts", resolved at each run_python call
+        self.artifacts_dir = Path(artifacts_dir) if artifacts_dir is not None else None
         self._sql = DuckDBRunner(datasets, **sql_options)  # type: ignore[arg-type]
 
     @property
@@ -98,7 +106,7 @@ class Sandbox:
         return self._sql.run_sql(query)
 
     def run_python(self, code: str) -> PyResult:
-        return _run_python_subprocess(code, self._sql.sources)
+        return _run_python_subprocess(code, self._sql.sources, artifacts_dir=self.artifacts_dir)
 
     def close(self) -> None:
         self._sql.close()
@@ -110,38 +118,55 @@ class Sandbox:
         self.close()
 
 
-def create_sandbox(datasets: dict[str, Path]) -> Sandbox:
-    """Factory used by ``analyst_agent.tools.sandbox_iface.create_sandbox``.
+def create_sandbox(datasets: dict[str, Path], artifacts_dir: str | Path | None = None) -> Sandbox:
+    """Build an independent sandbox (e.g. one per API job).
 
     ``datasets`` maps table name -> CSV / Parquet / SQLite path (a SQLite file contributes
     one table per SQLite table, named after that table).
     """
-    return Sandbox(datasets)
+    return Sandbox(datasets, artifacts_dir)
 
 
 _lock = threading.Lock()
 _default: Sandbox | None = None
 
 
-def load_data(sources: DataSources, *, replace: bool = True) -> list[str]:
+def load_data(
+    datasets: DataSources,
+    artifacts_dir: str | Path | None = "artifacts",
+    *,
+    replace: bool = True,
+) -> list[str]:
     """Register data files for the module-level ``run_sql`` / ``run_python``.
 
-    Returns the table names. Raises :class:`DataLoadError` for missing/unsupported files
-    (a trusted-caller error, not an untrusted-input error).
+    ``datasets`` maps table name -> CSV / Parquet / SQLite path (or is a path / list of
+    paths). Files produced by ``run_python`` are copied into ``artifacts_dir`` and listed in
+    ``PyResult.artifacts``; ``None`` means ``$AGENT_ARTIFACTS_DIR`` or ``artifacts/``.
+    ``replace=False`` adds tables to the current set (and keeps the existing artifacts dir
+    unless a new one is given). Returns the table names.
+
+    Raises :class:`DataLoadError` for missing/unsupported files (a trusted-caller error, not
+    an untrusted-input error).
     """
     global _default
     with _lock:
         if _default is None or replace:
             if _default is not None:
                 _default.close()
-            _default = Sandbox(sources)
+            _default = Sandbox(datasets, artifacts_dir)
         else:
-            _default.add_data(sources)
+            _default.add_data(datasets)
+            if artifacts_dir is not None:
+                _default.artifacts_dir = Path(artifacts_dir)
         return _default.tables
 
 
-def current_tables() -> list[str]:
+def loaded_tables() -> list[str]:
+    """Names of the tables currently available to ``run_sql`` / ``run_python``."""
     return _default.tables if _default is not None else []
+
+
+current_tables = loaded_tables
 
 
 def reset() -> None:
