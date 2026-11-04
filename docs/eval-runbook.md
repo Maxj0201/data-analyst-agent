@@ -22,32 +22,226 @@ uv sync --locked --all-extras
 ```
 
 ```bash
-scripts/run_experiments.sh --agent dry-run --yes
+scripts/preflight.sh
 ```
 
 ```bash
-scripts/run_experiments.sh --limit 8 --only baseline --yes
+scripts/run_experiments.sh --limit 8 --only baseline --batch --yes --out runs/experiments/smoke
 ```
 
 ```bash
-scripts/run_experiments.sh
+scripts/run_experiments.sh --only baseline --batch --out runs/experiments/baseline
+```
+
+```bash
+scripts/run_experiments.sh --only critic --only semantic --only routing --only structured --batch --control "$(ls -d runs/experiments/baseline/sonnet/2*/ | tail -n 1)" --out runs/experiments/rest
 ```
 
 1. Install everything, including the `embeddings` extra the embedding/hybrid arms need.
-2. Free end-to-end check: the scripted offline LLM, no API calls, ~3 minutes. It writes
-   `runs/summary.md` with every table filled (all numbers are meaningless).
-3. Real smoke test: 8 stratified tasks × 2 arms, about $2.40 estimated, to check the key, the judge
-   and the caps.
-4. The full plan: about **$143** expected; the caps stop it at about **$214** (plus at most
-   `--concurrency` in-flight tasks per arm; see [Cost estimates](#cost-estimates)). It asks before spending; `--yes` skips the prompt.
+2. Pre-flight: key, models, extras, benchmark, metrics, output dirs, cost per experiment. A few
+   1-token API calls (well under $0.01); exits 1 on any failure.
+3. Smoke test: 8 stratified tasks × 2 arms, about $2.31 estimated (cap $3.47).
+4. Baseline on all 80 tasks: about $21.81 (cap $32.71). Its Sonnet arm is the control of the rest.
+5. The other four experiments, reusing that control: about $118.47 (cap $177.70).
 
-Then paste `runs/summary.md` into the README (see [Results template](#results-template)).
+Total about **$140** expected with `--batch` ($143 without); the caps stop it at about
+**$210** (plus at most `--concurrency` in-flight tasks per arm; see
+[Cost estimates](#cost-estimates)). Each step asks before spending; `--yes` skips the prompt.
+[Tomorrow's run](#tomorrows-run-step-by-step) has what to check after each step, and
+[Results template](#results-template) how the numbers get into the README.
+
+## Tomorrow's run, step by step
+
+Run everything from the repo root, in one shell, in this order. Do not start a step until the
+previous one's checks pass. Every `run_experiments.sh` invocation below writes to a fixed
+`--out` directory, so a step that is interrupted can be continued with `--resume` (see
+[Interrupted runs](#interrupted-runs-resume)).
+
+### 0. Setup (free)
+
+```bash
+uv sync --locked --all-extras
+```
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+```bash
+git status --short && git log -1 --oneline
+```
+
+```bash
+uv run python -m analyst_agent.semantic eval --backend bm25 --backend embedding --backend hybrid
+```
+
+The key must be **exported**: `.env` only feeds `AGENT_*` settings, not the SDK. Commit or
+stash local changes so every run's `git_sha` describes the code. The last command downloads
+and warms the embedding model and prints retrieval quality per backend (no API calls).
+
+### 1. Pre-flight (< $0.01)
+
+```bash
+scripts/preflight.sh
+```
+
+```bash
+scripts/preflight.sh --limit 8 --batch --skip-regenerate
+```
+
+Check:
+
+- The last line says `pre-flight passed` and the exit status is 0. A `WARN` is fine (an
+  unclean git tree, or *Message Batches API* unavailable, in which case `--batch` falls back to
+  direct judge calls at full price).
+- `API key valid` and one `model …` line per model (`claude-haiku-5-5`, `claude-sonnet-5-5`)
+  are `ok`, and `judge structured output` is `ok`: the calls went through `core/llm.py` with the
+  same effort parameter and refusal-fallback beta as the real run.
+- The cost table matches [Cost estimates](#cost-estimates) (the second command prints the
+  smoke-run numbers with the batch-priced judge).
+
+Rehearse without a key or network with `scripts/preflight.sh --dry-run` (the API checks go to
+the scripted FakeLLM).
+
+### 2. Smoke test: 8 tasks, baseline only (~$2.31, cap $3.47)
+
+```bash
+scripts/run_experiments.sh --limit 8 --only baseline --batch --yes --out runs/experiments/smoke
+```
+
+It takes a few minutes for the agents plus the time the judge batch takes (usually minutes;
+`eval run` polls every `AGENT_JUDGE_BATCH_POLL_S` seconds and prints the results once the
+verdicts are in). Check:
+
+- Exit status 0 and no `incomplete arms` list.
+- Each arm's numbers (also in `runs/experiments/smoke/<arm>/<run>/report.md`):
+
+  ```bash
+  grep -hE '^\| (Accuracy \(scored\)|Skipped|Not started|Errors / timeouts|Total cost|Mean cost / task) ' runs/experiments/smoke/*/2*/report.md
+  ```
+
+  *Errors / timeouts* 0, *Not started* 0, *Skipped* 0 (a skipped L3 task means the judge did
+  not grade it), and Sonnet's accuracy clearly above 0.
+- The judge was batched and every verdict came back:
+
+  ```bash
+  uv run python -c 'import json,glob; [print(p, json.load(open(p)).get("judge_batch"), json.load(open(p))["spend_usd"]) for p in sorted(glob.glob("runs/experiments/smoke/*/2*/meta.json"))]'
+  ```
+
+  `batches` 1, `fallback` null (a non-null fallback is not an error, the judge then ran at full
+  price). `spend_usd` should be within about 2× of the estimate; much higher means the token
+  profiles are off: raise `--cap-factor` for the next steps.
+- Read one L3 verdict to see the judge is grading sensibly:
+  `uv run python -m analyst_agent.eval report "$(ls -d runs/experiments/smoke/sonnet/2*/ | tail -n 1)"`.
+
+The smoke numbers are 8 tasks: never put them in the README.
+
+### 3. Baseline on all 80 tasks (~$21.81, cap $32.71)
+
+```bash
+scripts/run_experiments.sh --only baseline --batch --out runs/experiments/baseline
+```
+
+Check:
+
+- Exit status 0, no `incomplete arms`; in both `report.md`s *Not started* 0 and *Errors /
+  timeouts* at most one or two (many L3 timeouts: re-run the arm with `--timeout 900`).
+- **Cost calibration.** Compare each arm's `spend_usd` (command above, with `baseline` for
+  `smoke`) with its estimate ($1.30 Haiku, $20.51 Sonnet with the batched judge). If Sonnet
+  spent more than about 1.3× its estimate, run step 4 with `--cap-factor 2` (or higher: the cap
+  must exceed the estimate × the observed ratio), otherwise arms will stop at their caps.
+- Remember the control run for step 4:
+
+  ```bash
+  CONTROL=$(ls -d runs/experiments/baseline/sonnet/2*/ | tail -n 1); echo "$CONTROL"
+  ```
+
+### 4. The other four experiments (~$118.47, cap $177.70)
+
+```bash
+scripts/run_experiments.sh --only critic --only semantic --only routing --only structured --batch --control "$CONTROL" --out runs/experiments/rest
+```
+
+This is six runs of 80 tasks (critic-off, three semantic arms, routing-on, structured-on) and
+takes the longest. Check after it, per experiment (see [Reading the results](#reading-the-results)):
+
+- Exit status 0 and no `incomplete arms`; *Notes* in `runs/summary.md` empty for every row.
+- **critic**: critic-off has *Critic rounds* 0.00.
+- **semantic**: *Layer on* 100% and *Retrieval errors* 0% in all three arms (errors in
+  embedding/hybrid mean the `embeddings` extra or the model download is missing: re-run those
+  arms after fixing it).
+- **routing**: *Routed tiers* roughly follows the labelled difficulty; cost ratio below 1.00×.
+- **structured**: *Numeric text-fallback* lower than the control's.
+
+### 5. One summary over both invocations, then the README
+
+```bash
+uv run python -m analyst_agent.eval.experiments summary runs/experiments/baseline/manifest.tsv runs/experiments/rest/manifest.tsv --out runs/summary.md
+```
+
+Then paste into the README as described in [Results template](#results-template): replace the
+*Not yet measured with a live model* paragraph under `## Results` with the summary's header
+line, the *Overview* table and the experiment tables, write the *Findings* bullets by hand,
+tick *Publish the Results table* in the roadmap, and commit. `runs/` is git-ignored: keep a
+copy (`tar czf runs-$(date +%F).tgz runs/experiments runs/summary.md`) since the README now
+quotes it.
+
+## Interrupted runs (`--resume`)
+
+A run interrupted by its `--budget-usd` cap, a crash, a lost connection or Ctrl-C can be
+continued without paying again for what already finished:
+
+```bash
+scripts/run_experiments.sh --only critic --only semantic --only routing --only structured --batch --control "$CONTROL" --out runs/experiments/rest --resume runs/experiments/rest --cap-factor 2
+```
+
+Same options as the interrupted invocation, plus `--resume <its --out>`. Each arm that already
+has a run there is continued with `eval run --resume <run_dir>`; arms that never started run
+normally. Raise `--cap-factor` (or `--budget-usd`) when an arm stopped at its cap: the cap
+covers the whole run, including what was spent before the interruption.
+
+By hand, with the arm's environment exported (`run_experiments.sh --print-commands` prints it):
+
+```bash
+uv run python -m analyst_agent.eval run --resume runs/experiments/rest/critic-off/<run> --budget-usd 40 --batch
+```
+
+What a resume does with each task of the run (task list, agent, judge model, timeout and flags
+come from the run's `meta.json`; task filters are refused):
+
+| Row in `results.jsonl` | Resume |
+|---|---|
+| scored (`ok`, with a verdict for L3/ADV) | skipped |
+| missing (crash) or `over_budget` | run |
+| `ok` but no verdict: `pending_judge` (`--batch` interrupted before the batch returned), judge unavailable or failed | re-graded from the saved answer, **without** re-running the agent |
+| `error` / `timeout` | kept as the measured outcome; `--retry-errors` re-runs them |
+
+It refuses to start if any `AGENT_*` setting that changes the measurement (models, flags,
+limits, judge) differs from the one recorded in `meta.json`. New rows are appended;
+`results.jsonl` readers keep the last row per task, and `meta.json` gets a `resumes` entry.
+
+## Batched judge (`--batch`)
+
+`eval run --batch` (or `AGENT_JUDGE_BATCH_ENABLED=true`) queues every judge call of the run
+and sends them as one [Message Batch](https://docs.anthropic.com/en/docs/build-with-claude/batch-processing)
+once every remaining task is waiting on its verdict, at half the list price. The judge is
+independent per task, so nothing else changes; the agent loops are multi-turn and are not
+batched. While the batch is pending, L3/ADV rows are written with a `pending_judge` score (so a
+crash keeps the paid-for answers for `--resume`), followed by the verdict. `meta.json` records
+`judge_batch: {batches, batched_requests, direct_requests, fallback}`.
+
+It falls back to direct calls, silently apart from `fallback` in `meta.json`, when the SDK has
+no `messages.batches`, the batch cannot be created, or it has not ended after 6 hours
+(cancelled); a single request that errors inside the batch is retried directly. Judge spend
+is known only when the batch returns, so `--budget-usd` sees it late (the judge is under 3% of
+a run's estimate).
 
 ## Before you start
 
-- **API key.** Set `ANTHROPIC_API_KEY` in the shell or in `.env`. Without it `eval run` turns the
-  judge off with only a warning on stderr, **skips every L3 task** and scores ADV by rules only; `run_experiments.sh --agent core` refuses to
-  start instead.
+- **API key.** Export `ANTHROPIC_API_KEY` in the shell (`.env` is read for `AGENT_*` settings
+  only). Without it `eval run` turns the judge off with only a warning on stderr, **skips every
+  L3 task** and scores ADV by rules only; `run_experiments.sh --agent core` refuses to start
+  instead, and `scripts/preflight.sh` fails.
 - **Clean tree.** Every run records `git_sha` in `meta.json`. Commit first so the summary points
   at the code that produced it.
 - **No local flags leak in.** Every arm pins all feature flags explicitly (`AGENT_MEMORY_ENABLED`
@@ -103,11 +297,19 @@ task.
 ## Cost estimates
 
 Estimated with `core/llm.py`'s price table (USD per 1M tokens, input/output: Haiku 5.5 0.10/0.50,
-Sonnet 5.5 2.00/10.00). Regenerate after a price or plan change:
+Sonnet 5.5 2.00/10.00). The tables below price the judge directly; with `--batch` it costs half
+(Message Batches price), which takes $2.30 off the plan. Regenerate after a price or plan change:
 
 ```bash
 uv run python -m analyst_agent.eval.experiments plan
 ```
+
+```bash
+scripts/preflight.sh --skip-api --skip-regenerate --batch
+```
+
+The second prints the per-experiment totals with the batched judge (add `--limit 8` for the
+smoke run).
 
 | Experiment | Arm | Agent model | Critic | Judge | Agent $ | Critic $ | Router $ | Judge $ | **Est. total** | Cap (×1.5) |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -163,6 +365,8 @@ scripts/run_experiments.sh --help
 | `scripts/run_experiments.sh --only routing --control runs/experiments/<stamp>/sonnet/<run>` | one experiment, reusing an existing Sonnet control |
 | `scripts/run_experiments.sh --only semantic --only critic --cap-factor 2` | several experiments, more headroom |
 | `scripts/run_experiments.sh --agent dry-run --yes` | the free end-to-end check |
+| `scripts/run_experiments.sh ... --batch` | judge calls of each arm as one Message Batch (half price) |
+| `scripts/run_experiments.sh ... --out DIR --resume DIR` | continue an interrupted invocation ([Interrupted runs](#interrupted-runs-resume)) |
 
 Layout of one invocation:
 
@@ -177,11 +381,12 @@ runs/experiments/<stamp>/
 The script continues past a failed arm, records it, and exits 1 at the end with the list of
 incomplete arms (failed, hit its cap, or not started because of `--max-total-usd`).
 
-To rebuild the summary from the latest invocation's manifest (for example after re-running one
-arm and editing its `run_dir` in the manifest):
+To rebuild the summary from one or more manifests (for example after re-running one arm and
+editing its `run_dir` in the manifest; with several, a later row replaces an earlier one for the
+same experiment and arm):
 
 ```bash
-uv run python -m analyst_agent.eval.experiments summary "$(ls -d runs/experiments/2*/ | tail -n 1)manifest.tsv" --out runs/summary.md
+uv run python -m analyst_agent.eval.experiments summary runs/experiments/baseline/manifest.tsv runs/experiments/rest/manifest.tsv --out runs/summary.md
 ```
 
 ## Running by hand
@@ -284,8 +489,20 @@ All runs at once: write a manifest (tab-separated, header
 
 ## Results template
 
-`runs/summary.md` has this shape (all numbers below are placeholders). Paste the *Overview*
-table and the experiment tables you want into the README, and fill in the findings by hand.
+`runs/summary.md` has this shape (all numbers below are placeholders). To put it in the README:
+
+1. Build it from the full runs only (step 5 above): the baseline and rest manifests, never the
+   smoke run. Every row's *Notes* cell should be empty; a row with a note is not comparable
+   and should be re-run (`--resume`) or left out with the reason stated.
+2. In `README.md`, under `## Results`, replace the paragraph starting **Not yet measured with a
+   live model** with the summary's header line (tasks, judge, commit, date), the *Overview*
+   table and the experiment tables you want. Keep the paragraph about the plan and the commands
+   below it.
+3. Write the *Findings* bullets by hand from the tables (template below). Use *Δ acc* and the
+   noise rule in [Reading the results](#reading-the-results): a difference of one or two tasks
+   is not a finding.
+4. Tick `Publish the Results table` in the README roadmap, commit README + this runbook if the
+   estimates changed, and archive `runs/` (it is git-ignored).
 
 ```markdown
 ## Benchmark results
@@ -330,7 +547,11 @@ text-fallback / Critic rounds)
 | Symptom | Cause / fix |
 |---|---|
 | *Notes* says "no judge: L3 skipped" | `ANTHROPIC_API_KEY` was not visible to `eval run`; L3 was not graded. Re-run the arm. |
-| *Notes* says "N not started (budget)" | The arm hit its `--budget-usd`. Re-run that arm alone with `--budget-usd` raised (or `--cap-factor 2`), then point the manifest row at the new run. |
+| *Notes* says "N not started (budget)" | The arm hit its `--budget-usd`. Continue it with the same command plus `--resume <its --out> --cap-factor 2` (only the unstarted tasks run; see [Interrupted runs](#interrupted-runs-resume)). |
+| Run crashed / Ctrl-C / connection lost | Same: `--resume <its --out>`. Finished tasks are not re-run; answers still waiting for a verdict are re-graded without re-running the agent. |
+| `cannot resume: AGENT_* settings differ` | The shell does not have the arm's environment. Export it from `run_experiments.sh --print-commands`, or resume through the script. |
+| `meta.json` shows `judge_batch.fallback` | Batching was not used (SDK without `messages.batches`, batch rejected, or > 6 h); the judge ran directly at full price. The scores are valid. |
+| `scripts/preflight.sh` fails `extra [embeddings]` | `uv sync --locked --all-extras` (pulls torch). |
 | *Retrieval errors* > 0% in embedding/hybrid | `sentence-transformers` missing or the model download failed. `uv sync --extra embeddings`, warm with `python -m analyst_agent.semantic eval -b embedding`. |
 | Many timeouts on L3 | Raise `--timeout`, or lower `--concurrency` if 429 retries are stretching tasks. |
 | Script exits 1 but `runs/summary.md` exists | Some arm is incomplete; the summary marks it in *Notes*. See the list the script prints and `<arm>.log`. |

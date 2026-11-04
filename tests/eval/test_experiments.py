@@ -367,3 +367,68 @@ def test_module_entry_point_prints_help() -> None:
         timeout=60,
     )
     assert out.returncode == 0 and "estimate" in out.stdout and "summary" in out.stdout
+
+
+def test_batch_judge_halves_the_judge_estimate() -> None:
+    s = settings_for({})
+    direct, batched = estimate_run(s, COUNTS), estimate_run(s, COUNTS, batch_judge=True)
+    assert batched.judge_usd == pytest.approx(direct.judge_usd / 2)
+    assert batched.agent_usd == direct.agent_usd
+    res = CliRunner().invoke(app, ["estimate", "--format", "usd", "--batch"])
+    assert res.exit_code == 0 and float(res.output) > 0
+
+
+def test_summary_merges_manifests(tmp_path: Path) -> None:
+    control = _write_run(tmp_path / "control", [_row("a", "L1", True, 0.1)])
+    haiku = _write_run(tmp_path / "haiku", [_row("a", "L1", False, 0.01)])
+    off = _write_run(tmp_path / "off", [_row("a", "L1", True, 0.05, critic_rounds=0)])
+    first = tmp_path / "m1.tsv"
+    first.write_text(
+        "experiment\tarm\trole\trun_dir\tconfig\n"
+        f"baseline\thaiku\ttreatment\t{haiku}\tHaiku\n"
+        f"baseline\tsonnet\tcontrol\t{control}\tSonnet\n"
+    )
+    second = tmp_path / "m2.tsv"
+    second.write_text(
+        "experiment\tarm\trole\trun_dir\tconfig\n"
+        f"critic\tcritic-off\ttreatment\t{off}\tno critic\n"
+        f"critic\tsonnet\tcontrol\t{control}\tSonnet\n"
+    )
+    out = tmp_path / "summary.md"
+    res = CliRunner().invoke(app, ["summary", str(first), str(second), "--out", str(out)])
+    assert res.exit_code == 0, res.output
+    md = out.read_text()
+    overview = md.split("## Overview")[1].split("###")[0]
+    assert "| haiku |" in overview and "| critic-off |" in overview
+    assert overview.count("| sonnet |") == 1
+
+
+def test_script_batch_and_resume_commands(tmp_path: Path) -> None:
+    env = {**os.environ, "PYTHON": sys.executable}
+    out_dir = tmp_path / "inv"
+    prev = out_dir / "critic-off" / "20260101T000000Z"
+    prev.mkdir(parents=True)
+    (prev / "meta.json").write_text("{}")
+    out = subprocess.run(
+        ["bash", str(SCRIPT), "--agent", "dry-run", "--print-commands", "--batch"]
+        + ["--only", "critic", "--resume", str(out_dir)],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=True,
+        cwd=REPO,
+    )
+    cmds = [ln for ln in out.stdout.splitlines() if "analyst_agent.eval run" in ln]
+    by_arm = {("critic-off" if "--resume" in c else "sonnet"): c for c in cmds}
+    assert f"--resume {prev}" in by_arm["critic-off"] and "--batch" in by_arm["critic-off"]
+    assert "--limit" not in by_arm["critic-off"] and "--runs-dir" not in by_arm["critic-off"]
+    assert f"--runs-dir {out_dir}/sonnet" in by_arm["sonnet"] and "--batch" in by_arm["sonnet"]
+    assert f"(resume {prev})" in out.stdout
+    bad = subprocess.run(
+        ["bash", str(SCRIPT), "--agent", "dry-run", "--resume", str(tmp_path / "missing")],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=REPO,
+    )
+    assert bad.returncode == 2 and "no such directory" in bad.stderr

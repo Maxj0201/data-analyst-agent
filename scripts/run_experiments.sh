@@ -33,6 +33,13 @@ Options:
   --timeout S            per-task timeout, seconds [600]
   --limit N              stratified sample of N tasks (smoke test) [all 80]
   --out DIR              run directories + manifest [runs/experiments/<UTC stamp>]
+  --resume DIR           continue an interrupted invocation in DIR (an earlier --out): each
+                         arm with a run there is resumed with `eval run --resume` (scored
+                         tasks skipped, nothing paid twice), the others start fresh. Use the
+                         same --only / --limit / --haiku / --sonnet / --judge-model as before;
+                         raise --cap-factor or --budget-usd if an arm stopped at its cap
+  --batch                send each run's judge calls as one Message Batch (half price; falls
+                         back to direct calls when unsupported); estimates price it the same
   --summary PATH         comparison tables [runs/summary.md]
   --print-commands       print the eval commands for each arm and exit (runs nothing)
   -y, --yes              do not ask for confirmation before spending money
@@ -58,6 +65,8 @@ OUT=""
 SUMMARY=runs/summary.md
 PRINT_ONLY=0
 YES=0
+RESUME=0
+BATCH_ARGS=()
 
 die() { echo "error: $*" >&2; exit 2; }
 need() { [[ $# -ge 2 && -n "$2" ]] || die "$1 needs a value"; }
@@ -77,6 +86,8 @@ while [[ $# -gt 0 ]]; do
     --timeout) need "$@"; TIMEOUT=$2; shift 2 ;;
     --limit) need "$@"; LIMIT=$2; shift 2 ;;
     --out) need "$@"; OUT=$2; shift 2 ;;
+    --resume) need "$@"; OUT=$2; RESUME=1; shift 2 ;;
+    --batch) BATCH_ARGS=(--batch); shift ;;
     --summary) need "$@"; SUMMARY=$2; shift 2 ;;
     --print-commands) PRINT_ONLY=1; shift ;;
     -y|--yes) YES=1; shift ;;
@@ -94,6 +105,9 @@ done
 selected() { [[ " ${ONLY[*]} " == *" $1 "* ]]; }
 if [[ -n $CONTROL_DIR ]]; then
   [[ -f $CONTROL_DIR/results.jsonl ]] || die "--control $CONTROL_DIR has no results.jsonl"
+fi
+if [[ $RESUME == 1 ]]; then
+  [[ -d $OUT ]] || die "--resume $OUT: no such directory"
 fi
 
 read -r -a PY <<< "${PYTHON:-uv run python}"
@@ -173,15 +187,30 @@ estimate_cap() {  # $1 = overrides
   local env_lines
   mapfile -t env_lines < <(arm_env "$1")
   env "${env_lines[@]}" "${PY[@]}" -m analyst_agent.eval.experiments estimate \
-    --format usd --factor "$CAP_FACTOR" "${LIMIT_ARGS[@]}"
+    --format usd --factor "$CAP_FACTOR" "${LIMIT_ARGS[@]}" "${BATCH_ARGS[@]}"
+}
+
+latest_run() { ls -1d "$1"/*/ 2>/dev/null | sort | tail -n 1 | sed 's:/$::'; }
+resumable_run() {  # $1 = arm -> the arm's latest run in $OUT when --resume and it has meta.json
+  local run
+  [[ $RESUME == 1 ]] || return 0
+  run=$(latest_run "$OUT/$1")
+  [[ -n $run && -f $run/meta.json ]] && echo "$run"
+  return 0
 }
 
 eval_cmd() {  # $1 = exp-arm, $2 = overrides, $3 = cap -> prints the command, one arg per line
-  local flags
+  local flags prev
+  prev=$(resumable_run "$1")
+  if [[ -n $prev ]]; then  # task list, agent, judge, flags and timeout come from its meta.json
+    printf '%s\n' "${PY[@]}" -m analyst_agent.eval run --resume "$prev" \
+      --concurrency "$CONCURRENCY" --budget-usd "$3" "${BATCH_ARGS[@]}"
+    return
+  fi
   mapfile -t flags < <(flag_for "$2")
   printf '%s\n' "${PY[@]}" -m analyst_agent.eval run --agent "$AGENT" \
     --judge-model "$JUDGE" --concurrency "$CONCURRENCY" --timeout "$TIMEOUT" \
-    --budget-usd "$3" "${flags[@]}" "${LIMIT_ARGS[@]}" --runs-dir "$OUT/$1"
+    --budget-usd "$3" "${flags[@]}" "${LIMIT_ARGS[@]}" "${BATCH_ARGS[@]}" --runs-dir "$OUT/$1"
 }
 
 # ---- pre-flight
@@ -196,7 +225,7 @@ elif selected semantic && ! "${PY[@]}" -c "import sentence_transformers" 2>/dev/
     "arms record a retrieval error and continue without definitions" >&2
 fi
 
-echo "Plan ($AGENT agent, ${LIMIT:-all} tasks, judge $JUDGE, out $OUT):"
+echo "Plan ($AGENT agent, ${LIMIT:-all} tasks, judge $JUDGE${BATCH_ARGS:+ batched}, out $OUT):"
 CAPS=()
 TOTAL_CAP=0
 for spec in "${ARMS[@]}"; do
@@ -204,7 +233,9 @@ for spec in "${ARMS[@]}"; do
   cap=$(estimate_cap "$overrides")
   CAPS+=("$cap")
   TOTAL_CAP=$(awk -v a="$TOTAL_CAP" -v b="$cap" 'BEGIN { printf "%.2f", a + b }')
-  printf '  %-11s %-19s %-9s cap $%-8s %s\n' "$exp" "$arm" "$role" "$cap" "$label"
+  prev=$(resumable_run "$arm")
+  printf '  %-11s %-19s %-9s cap $%-8s %s%s\n' "$exp" "$arm" "$role" "$cap" "$label" \
+    "${prev:+ (resume $prev)}"
 done
 [[ -n $CONTROL_DIR ]] && echo "  control: reusing $CONTROL_DIR"
 MAX_TOTAL=${MAX_TOTAL:-$TOTAL_CAP}
@@ -235,7 +266,6 @@ SPENT=0
 FAILED=()
 CONTROL_RUN=$CONTROL_DIR
 
-latest_run() { ls -1d "$1"/*/ 2>/dev/null | sort | tail -n 1 | sed 's:/$::'; }
 run_spend() {
   "${PY[@]}" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("spend_usd", 0))' \
     "$1/meta.json"
@@ -259,7 +289,10 @@ for i in "${!ARMS[@]}"; do
   mapfile -t cmd < <(eval_cmd "$arm" "$overrides" "${CAPS[$i]}")
   mkdir -p "$OUT/$arm"
   rc=0
-  env "${env_lines[@]}" "${cmd[@]}" > "$OUT/$arm.log" 2>&1 || rc=$?
+  prev=$(resumable_run "$arm")
+  before=0
+  [[ -n $prev ]] && before=$(run_spend "$prev")
+  env "${env_lines[@]}" "${cmd[@]}" >> "$OUT/$arm.log" 2>&1 || rc=$?
   [[ $rc == 0 ]] || FAILED+=("$exp/$arm (exit $rc; see $OUT/$arm.log)")
   grep -E '^\| (Accuracy \(scored\)|Not started|Errors / timeouts|Total cost) ' "$OUT/$arm.log" \
     | sed 's/^/   /' || true
@@ -268,7 +301,7 @@ for i in "${!ARMS[@]}"; do
     FAILED+=("$exp/$arm (no results)")
     continue
   fi
-  spend=$(run_spend "$run")
+  spend=$(awk -v a="$(run_spend "$run")" -v b="$before" 'BEGIN { printf "%.4f", a - b }')
   SPENT=$(awk -v a="$SPENT" -v b="$spend" 'BEGIN { printf "%.4f", a + b }')
   echo "   -> $run (spent \$$spend, total \$$SPENT)"
   skipped=$(not_started "$run")
