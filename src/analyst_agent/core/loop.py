@@ -33,6 +33,7 @@ from analyst_agent.core.approval import (
 from analyst_agent.core.config import Settings, get_settings
 from analyst_agent.core.critic import Critic, CriticVerdict
 from analyst_agent.core.llm import LLM, CostTracker
+from analyst_agent.core.logs import log_context
 from analyst_agent.core.prompts import (
     REPORT_WRITER_SYSTEM,
     planner_system,
@@ -48,6 +49,7 @@ from analyst_agent.core.router import (
     next_tier,
     schema_summary,
 )
+from analyst_agent.core.tracing import new_run_id
 from analyst_agent.tools.base import ToolContext, ToolResult
 from analyst_agent.tools.registry import TERMINAL_TOOL, ToolRegistry, wrap_untrusted
 
@@ -89,6 +91,7 @@ class ToolCallRecord:
 class AgentState:
     question: str
     tables: list[str]
+    run_id: str = ""
     messages: list[dict[str, Any]] = field(default_factory=list)
     tool_results: list[ToolCallRecord] = field(default_factory=list)
     plan: list[str] = field(default_factory=list)  # every <plan> the agent wrote, in order
@@ -156,6 +159,7 @@ class AgentResult:
     def to_dict(self) -> dict[str, Any]:
         s = self.state
         return {
+            "run_id": s.run_id,
             "status": self.status.value,
             "detail": s.detail,
             "report": self.report,
@@ -211,15 +215,46 @@ class AgentLoop:
 
     # ------------------------------------------------------------------ public
 
-    def run(self, question: str) -> AgentResult:
-        state = AgentState(question=question, tables=list(self.ctx.tables))
-        try:
-            self._run(state)
-        except Exception as exc:  # noqa: BLE001 - the loop must never raise
-            log.exception("agent loop failed")
-            state.status = RunStatus.ERROR
-            state.detail = f"{type(exc).__name__}: {exc}"
-        return self._result(state)
+    def run(self, question: str, run_id: str | None = None) -> AgentResult:
+        """Answer ``question``. ``run_id`` correlates logs and traces; generated when omitted."""
+        state = AgentState(
+            question=question, tables=list(self.ctx.tables), run_id=run_id or new_run_id()
+        )
+        with log_context(run_id=state.run_id):
+            s = self.settings
+            log.info("run started", extra={"tables": state.tables, "model": s.model})
+            self._emit(
+                "run_start",
+                run_id=state.run_id,
+                question=question,
+                tables=state.tables,
+                model=s.model,
+                max_turns=s.max_turns,
+                token_budget=s.token_budget,
+                flags={
+                    "routing": s.routing_enabled,
+                    "semantic_layer": s.semantic_layer_enabled,
+                    "approval": s.approval_enabled,
+                },
+                prompts=prompt_versions(),
+            )
+            try:
+                self._run(state)
+            except Exception as exc:  # noqa: BLE001 - the loop must never raise
+                log.exception("agent loop failed")
+                state.status = RunStatus.ERROR
+                state.detail = f"{type(exc).__name__}: {exc}"
+            result = self._result(state)
+            log.info(
+                "run finished",
+                extra={
+                    "status": result.status.value,
+                    "turns": state.turns,
+                    "cost_usd": round(state.cost.usd, 6),
+                    "total_tokens": state.cost.total_tokens,
+                },
+            )
+            return result
 
     # ------------------------------------------------------------------ internals
 
@@ -234,6 +269,8 @@ class AgentLoop:
         return state.cost.total_tokens >= self.settings.token_budget
 
     def _stop(self, state: AgentState, status: RunStatus, detail: str) -> None:
+        if status not in (RunStatus.COMPLETED, RunStatus.COMPLETED_WITH_ISSUES):
+            log.warning("run stopping early", extra={"status": status.value, "detail": detail})
         state.status = status
         state.detail = detail
         self._emit("stop", status=status.value, detail=detail)
@@ -356,6 +393,12 @@ class AgentLoop:
 
             state.turns += 1
             state.turn_models.append(state.model)
+            self._emit(
+                "turn",
+                turn=state.turns,
+                model=state.model or s.model,
+                tier=state.tier.value if state.tier else None,
+            )
             resp = self.llm.create(
                 system=system,
                 messages=state.messages,
@@ -384,6 +427,7 @@ class AgentLoop:
             turn_records: list[ToolCallRecord] = []
             for tu in tool_uses:
                 name, args = tu.get("name", ""), tu.get("input") or {}
+                log.info("tool call", extra={"tool": name, "turn": state.turns})
                 self._emit("tool_call", name=name, input=args, turn=state.turns)
                 denied = self._gate(state, name, args)
                 res = denied or self.registry.execute(name, args, self.ctx)

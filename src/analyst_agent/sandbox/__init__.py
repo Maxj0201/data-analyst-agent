@@ -53,6 +53,7 @@ class PyResult:
 
 
 # The runners import the dataclasses above from this package, so they are imported after them.
+import logging  # noqa: E402
 import threading  # noqa: E402
 from pathlib import Path  # noqa: E402
 
@@ -60,6 +61,9 @@ from ._errors import NO_DATA, fmt  # noqa: E402
 from ._loaders import DataLoadError, DataSources  # noqa: E402
 from .duckdb_runner import DuckDBRunner, validate_query  # noqa: E402
 from .python_runner import run_python as _run_python_subprocess  # noqa: E402
+
+# Log records carry the caller's run_id / job_id (core/logs.py): tools run in the loop's thread.
+log = logging.getLogger(__name__)
 
 __all__ = [
     "DataLoadError",
@@ -103,10 +107,32 @@ class Sandbox:
         return self._sql.load(datasets)
 
     def run_sql(self, query: str) -> SqlResult:
-        return self._sql.run_sql(query)
+        res = self._sql.run_sql(query)
+        log.info(
+            "sandbox sql",
+            extra={
+                "sandbox": "sql",
+                "ok": res.ok,
+                "row_count": res.row_count,
+                "duration_ms": res.duration_ms,
+                "error": (res.error or "")[:200] or None,
+            },
+        )
+        return res
 
     def run_python(self, code: str) -> PyResult:
-        return _run_python_subprocess(code, self._sql.sources, artifacts_dir=self.artifacts_dir)
+        res = _run_python_subprocess(code, self._sql.sources, artifacts_dir=self.artifacts_dir)
+        log.info(
+            "sandbox python",
+            extra={
+                "sandbox": "python",
+                "ok": res.ok,
+                "artifacts": len(res.artifacts),
+                "duration_ms": res.duration_ms,
+                "error": (res.error or "")[:200] or None,
+            },
+        )
+        return res
 
     def close(self) -> None:
         self._sql.close()
