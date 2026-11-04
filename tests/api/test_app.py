@@ -400,3 +400,43 @@ async def test_sqlite_failure_mid_job_does_not_strand_it(settings, fake_agent):
         job = await wait_for_job(c, job_id)
     app.state.jobs.shutdown()
     assert job["status"] == "succeeded"
+
+
+async def test_upload_limit_rejects_declared_oversize_before_reading(client, settings):
+    """Review M3: the size check ran only after Starlette had spooled the whole body."""
+    big = b"a,b\n" + b"1,2\n" * (600 * 1024)  # ~2.4 MB, limit is 1 MB
+    resp = await client.post("/datasets", files={"file": ("big.csv", big, "text/csv")})
+    assert resp.status_code == 413
+    assert "1 MB" in resp.json()["detail"]
+    assert list(settings.uploads_dir.iterdir()) == []
+
+
+async def test_upload_limit_stops_reading_a_streamed_body(client, settings):
+    boundary = "xBOUNDARYx"
+    head = (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="big.csv"\r\n'
+        "Content-Type: text/csv\r\n\r\na,b\n"
+    ).encode()
+    chunk = b"1,2\n" * 16 * 1024  # 64 KiB
+    sent = 0
+
+    async def body():
+        nonlocal sent
+        yield head
+        for _ in range(160):  # 10 MiB if fully consumed
+            sent += len(chunk)
+            yield chunk
+        yield f"\r\n--{boundary}--\r\n".encode()
+
+    resp = await client.post(
+        "/datasets",
+        content=body(),
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+    assert resp.status_code == 413
+    assert sent < 2 * 1024 * 1024, f"read {sent} bytes before rejecting"
+    assert list(settings.uploads_dir.iterdir()) == []
+
+
+async def test_small_uploads_still_accepted(client):
+    assert (await upload(client)).startswith("ds_")
