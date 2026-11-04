@@ -136,3 +136,34 @@ def test_parse_verdict():
     )
     bad = parse_verdict('{"verdict": "maybe"}')
     assert bad.verdict == "pass" and bad.parse_error
+
+
+def test_cost_tracker_breaks_down_by_model():
+    t = CostTracker()
+    t.add("claude-haiku-5-5", Usage(input_tokens=1_000_000), role="router")
+    t.add("claude-sonnet-5-5", Usage(output_tokens=1_000_000), role="agent")
+    t.add("claude-sonnet-5-5", Usage(input_tokens=1_000_000), role="agent")
+    d = t.to_dict()["by_model"]
+    assert set(d) == {"claude-haiku-5-5", "claude-sonnet-5-5"}
+    assert d["claude-haiku-5-5"]["calls"] == 1
+    assert d["claude-haiku-5-5"]["usd"] == pytest.approx(0.10)
+    assert d["claude-sonnet-5-5"]["calls"] == 2
+    assert d["claude-sonnet-5-5"]["input_tokens"] == 1_000_000
+    assert d["claude-sonnet-5-5"]["output_tokens"] == 1_000_000
+    assert d["claude-sonnet-5-5"]["usd"] == pytest.approx(12.0)
+    assert sum(m["usd"] for m in d.values()) == pytest.approx(t.usd)
+
+
+def test_per_call_overrides_and_fallback_only_for_supported_models():
+    client, msgs, _ = make_client([_raw(), _raw()])
+    client.create(system="S", messages=[], model="claude-haiku-5-5", effort="low", max_tokens=256)
+    haiku = msgs.calls[0]
+    assert haiku["model"] == "claude-haiku-5-5"
+    assert haiku["output_config"]["effort"] == "low" and haiku["max_tokens"] == 256
+    assert "fallbacks" not in haiku and "betas" not in haiku  # Haiku has no server fallback
+
+    client.create(system="S", messages=[])
+    opus = msgs.calls[1]
+    assert opus["fallbacks"] == "default" and opus["betas"] == [FALLBACK_BETA]
+    assert opus["output_config"]["effort"] == client.settings.effort
+    assert opus["max_tokens"] == client.settings.max_tokens
