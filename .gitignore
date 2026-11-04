@@ -21,3 +21,6 @@ artifacts/
 
 # Override global gitignore: CLAUDE.md is shared project guidance
 !CLAUDE.md
+
+# UI e2e (scripts/ui-e2e): playwright installed by CI
+node_modules/
