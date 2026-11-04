@@ -1,0 +1,139 @@
+version: 1
+domain: ecommerce
+description: >-
+  Governed metric definitions for the ecommerce benchmark dataset
+  (tables: orders, customers, products).
+metrics:
+  - name: net_revenue
+    label: Net revenue
+    definition: >-
+      Revenue after line-item discounts from completed orders only:
+      sum of quantity * unit_price * (1 - discount_pct) where status = 'completed'.
+    tables: [orders]
+    synonyms: [revenue, sales, total sales, turnover, net sales, income, gmv after discount]
+    sql_fragment: |
+      SELECT SUM(quantity * unit_price * (1 - discount_pct)) AS net_revenue
+      FROM orders
+      WHERE status = 'completed'
+    caveats:
+      - Cancelled and returned orders are excluded from revenue.
+      - discount_pct is a fraction (0.15 = 15%), not a percentage.
+      - unit_price is the price charged on the order, which can differ from products.list_price.
+
+  - name: average_order_value
+    label: Average order value (AOV)
+    definition: >-
+      Mean net revenue per completed order: net revenue divided by the number of completed
+      orders. Each orders row is one order.
+    tables: [orders]
+    synonyms: [aov, avg order value, basket size, average basket, average ticket, order size]
+    sql_fragment: |
+      SELECT AVG(quantity * unit_price * (1 - discount_pct)) AS average_order_value
+      FROM orders
+      WHERE status = 'completed'
+    caveats:
+      - Only completed orders count, in both numerator and denominator.
+      - For AOV by segment or category, join customers / products before averaging; the join
+        is 1:1 per order so it does not fan out.
+
+  - name: return_rate
+    label: Return rate
+    definition: >-
+      Share of orders whose status is 'returned', with all orders (completed, returned,
+      cancelled) in the denominator. Reported on a 0-100 scale.
+    tables: [orders]
+    synonyms: [returns, returned orders, refund rate, product returns, return percentage]
+    sql_fragment: |
+      SELECT 100.0 * AVG(CASE WHEN status = 'returned' THEN 1 ELSE 0 END) AS return_rate_pct
+      FROM orders
+    caveats:
+      - Order-count based, not revenue- or unit-weighted.
+      - The denominator includes cancelled orders; say so if the question implies otherwise.
+
+  - name: cancellation_rate
+    label: Cancellation rate
+    definition: >-
+      Share of orders whose status is 'cancelled', with all orders in the denominator,
+      on a 0-100 scale.
+    tables: [orders]
+    synonyms: [cancelled orders, cancellations, cancel rate, order cancellation]
+    sql_fragment: |
+      SELECT 100.0 * AVG(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END)
+        AS cancellation_rate_pct
+      FROM orders
+    caveats:
+      - Order-count based; cancelled orders carry no revenue.
+
+  - name: repeat_purchase_rate
+    label: Repeat purchase rate
+    definition: >-
+      Share of purchasing customers (at least one completed order) who placed two or more
+      completed orders, on a 0-100 scale.
+    tables: [orders]
+    synonyms: [repeat customers, repeat buyers, returning customers, customer loyalty,
+               repurchase rate, retention]
+    sql_fragment: |
+      WITH per_customer AS (
+        SELECT customer_id, COUNT(*) AS completed_orders
+        FROM orders
+        WHERE status = 'completed'
+        GROUP BY customer_id
+      )
+      SELECT 100.0 * AVG(CASE WHEN completed_orders >= 2 THEN 1 ELSE 0 END)
+        AS repeat_purchase_rate_pct
+      FROM per_customer
+    caveats:
+      - Customers with no completed orders are excluded from the denominator.
+      - All-time unless a date filter on order_date is added; restrict both counts to the same
+        window for a period-specific rate.
+
+  - name: gross_margin
+    label: Gross margin
+    definition: >-
+      (Net revenue - cost of goods sold) / net revenue for completed orders, where COGS is
+      quantity * products.unit_cost. Reported on a 0-100 scale.
+    tables: [orders, products]
+    synonyms: [margin, profit margin, gross profit, profitability, cogs, markup]
+    sql_fragment: |
+      SELECT
+        100.0 * (SUM(o.quantity * o.unit_price * (1 - o.discount_pct))
+                 - SUM(o.quantity * p.unit_cost))
+              / SUM(o.quantity * o.unit_price * (1 - o.discount_pct)) AS gross_margin_pct
+      FROM orders o
+      JOIN products p USING (product_id)
+      WHERE o.status = 'completed'
+    caveats:
+      - unit_cost is the current product cost; historical cost changes are not captured.
+      - Shipping, payment fees and returns processing costs are not in the data.
+
+  - name: average_discount_rate
+    label: Average discount rate
+    definition: >-
+      Discount dollars as a share of pre-discount revenue on completed orders:
+      sum(quantity * unit_price * discount_pct) / sum(quantity * unit_price), 0-100 scale.
+    tables: [orders]
+    synonyms: [discount, discounting, promo depth, markdown rate, average discount]
+    sql_fragment: |
+      SELECT 100.0 * SUM(quantity * unit_price * discount_pct) / SUM(quantity * unit_price)
+        AS average_discount_rate_pct
+      FROM orders
+      WHERE status = 'completed'
+    caveats:
+      - Revenue-weighted; the simple mean of discount_pct across orders will differ.
+
+  - name: revenue_per_customer
+    label: Revenue per customer
+    definition: >-
+      Net revenue from completed orders divided by the number of distinct customers with at
+      least one completed order.
+    tables: [orders]
+    synonyms: [arpc, average revenue per customer, customer value, spend per customer,
+               customer lifetime revenue]
+    sql_fragment: |
+      SELECT SUM(quantity * unit_price * (1 - discount_pct)) / COUNT(DISTINCT customer_id)
+        AS revenue_per_customer
+      FROM orders
+      WHERE status = 'completed'
+    caveats:
+      - Denominator is purchasing customers, not all rows in customers.
+      - This is historical revenue, not a predictive lifetime value.

@@ -1,0 +1,134 @@
+version: 1
+domain: hr
+description: >-
+  Governed metric definitions for the HR benchmark dataset (tables: employees, payroll).
+  payroll covers 2025 only, one row per employee per month (pay_period 'YYYY-MM').
+metrics:
+  - name: attrition_rate
+    label: Attrition rate (period)
+    definition: >-
+      Terminations during a period divided by headcount at the start of the period
+      (hired on or before the start and not terminated before it), on a 0-100 scale.
+      Example below is calendar year 2025.
+    tables: [employees]
+    synonyms: [employee turnover, turnover rate, employee churn, separation rate,
+               terminations, leavers, staff turnover]
+    sql_fragment: |
+      WITH start_headcount AS (
+        SELECT COUNT(*) AS n
+        FROM employees
+        WHERE hire_date <= DATE '2025-01-01'
+          AND (termination_date IS NULL OR termination_date >= DATE '2025-01-01')
+      ),
+      terminations AS (
+        SELECT COUNT(*) AS n
+        FROM employees
+        WHERE termination_date BETWEEN DATE '2025-01-01' AND DATE '2025-12-31'
+      )
+      SELECT 100.0 * t.n / h.n AS attrition_rate_pct
+      FROM terminations t, start_headcount h
+    caveats:
+      - Numerator includes people hired during the period who also left in it; the
+        denominator does not. Average headcount is an alternative denominator - state which.
+      - The data does not distinguish voluntary from involuntary terminations.
+
+  - name: headcount
+    label: Headcount
+    definition: Number of current employees (employment_status = 'active').
+    tables: [employees]
+    synonyms: [employees, staff count, workforce size, fte, number of employees, team size]
+    sql_fragment: |
+      SELECT COUNT(*) AS headcount
+      FROM employees
+      WHERE employment_status = 'active'
+    caveats:
+      - Point-in-time at the data snapshot; headcount at a past date must be derived from
+        hire_date / termination_date.
+
+  - name: median_base_salary
+    label: Median base salary
+    definition: Median annual base_salary of current (active) employees.
+    tables: [employees]
+    synonyms: [salary, pay, compensation, typical salary, base pay, wage]
+    sql_fragment: |
+      SELECT MEDIAN(base_salary) AS median_base_salary
+      FROM employees
+      WHERE employment_status = 'active'
+    caveats:
+      - Excludes bonus and overtime (see payroll).
+      - Prefer median over mean - there are extreme salary outliers.
+
+  - name: pay_band_premium
+    label: Pay band premium
+    definition: >-
+      Level-adjusted pay premium of a group (department or location): for each current
+      employee, base_salary divided by the company median for their job_level; the group's
+      premium is the median of that ratio minus 1, on a 0-100 scale. Positive means the group
+      pays above band for the same level.
+    tables: [employees]
+    synonyms: [pay premium, salary premium, compa ratio, pay gap, level adjusted pay,
+               band position, pay equity, salary vs band]
+    sql_fragment: |
+      WITH active AS (
+        SELECT * FROM employees WHERE employment_status = 'active'
+      ),
+      band AS (
+        SELECT job_level, MEDIAN(base_salary) AS band_median
+        FROM active
+        GROUP BY job_level
+      )
+      SELECT a.department,
+             COUNT(*) AS employees,
+             100.0 * (MEDIAN(a.base_salary / b.band_median) - 1) AS pay_band_premium_pct
+      FROM active a
+      JOIN band b USING (job_level)
+      GROUP BY a.department
+      ORDER BY pay_band_premium_pct DESC
+    caveats:
+      - Controls for job level mix, unlike a raw salary comparison between departments.
+      - Swap department for location to compare locations. Small groups are noisy.
+
+  - name: overtime_share
+    label: Overtime share of gross pay
+    definition: Sum of overtime_pay divided by sum of gross_pay in payroll, on a 0-100 scale.
+    tables: [payroll]
+    synonyms: [overtime, overtime cost, overtime ratio, overtime pay, extra hours]
+    sql_fragment: |
+      SELECT 100.0 * SUM(overtime_pay) / SUM(gross_pay) AS overtime_share_pct
+      FROM payroll
+    caveats:
+      - Payroll covers 2025 only.
+      - For overtime hours, sum overtime_hours instead of pay.
+
+  - name: average_tenure
+    label: Average tenure of current employees
+    definition: >-
+      Mean years between hire_date and the snapshot date (2025-12-31) for active employees.
+    tables: [employees]
+    synonyms: [tenure, years of service, length of service, seniority, time at company]
+    sql_fragment: |
+      SELECT AVG(DATE_DIFF('day', hire_date, DATE '2025-12-31')) / 365.25 AS avg_tenure_years
+      FROM employees
+      WHERE employment_status = 'active'
+    caveats:
+      - The snapshot date is 2025-12-31 (end of the data), not today.
+
+  - name: termination_rate_by_group
+    label: Termination rate (all-time, by group)
+    definition: >-
+      Share of everyone ever employed in a group (department, level, rating...) who has a
+      termination_date, on a 0-100 scale.
+    tables: [employees]
+    synonyms: [attrition by department, who leaves, termination share, departure rate,
+               attrition drivers]
+    sql_fragment: |
+      SELECT department,
+             COUNT(*) AS ever_employed,
+             100.0 * AVG(CASE WHEN termination_date IS NOT NULL THEN 1 ELSE 0 END)
+               AS termination_rate_pct
+      FROM employees
+      GROUP BY department
+      ORDER BY termination_rate_pct DESC
+    caveats:
+      - All-time and not period-normalised; groups with longer history look worse.
+        Use attrition_rate for a period rate.

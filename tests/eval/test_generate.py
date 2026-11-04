@@ -20,10 +20,14 @@ def _load_generator():
     return mod
 
 
+GENERATED_DIRS = ("data", "tasks")  # metrics/ is hand-written, not generated
+
+
 def _files(root: Path) -> set[Path]:
     return {
         p.relative_to(root)
-        for p in root.rglob("*")
+        for d in GENERATED_DIRS
+        for p in (root / d).rglob("*")
         if p.is_file() and p.suffix in {".csv", ".yaml"}
     }
 
