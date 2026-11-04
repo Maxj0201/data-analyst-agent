@@ -35,7 +35,7 @@ jobs:
         with:
           node-version: "22"
       - name: Install Python dependencies
-        run: uv sync --locked --all-extras
+        run: uv sync --locked --all-extras --no-extra embeddings
       - name: Install Playwright + Chromium
         working-directory: scripts/ui-e2e
         run: |

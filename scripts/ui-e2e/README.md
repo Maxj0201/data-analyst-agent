@@ -11,7 +11,7 @@ scripts/ui-e2e/run.sh /tmp/ui-e2e
 ```
 
 `run.sh` starts the dry-run API on `:8100` and Streamlit on `:8601` (override with `API_PORT` /
-`UI_PORT`), waits for both, runs `ui_e2e.js` and stops them. It needs `uv sync --all-extras` and
+`UI_PORT`), waits for both, runs `ui_e2e.js` and stops them. It needs `uv sync --all-extras --no-extra embeddings` and
 Node with `playwright` resolvable (CI installs it into this directory).
 
 Two runs, each check printed as `ok - …`, first failure exits non-zero:

@@ -59,15 +59,21 @@ jobs:
           uv run python -m analyst_agent.eval run --agent dry-run --no-score --limit 3
           --timeout 120 --fail-on-error --runs-dir ${{ runner.temp }}/runs/dry-run
       - name: Core agent dry run with every feature flag on
-        # Routing + semantic layer + human-in-the-loop. Every SELECT is gated (threshold 0) and
-        # the eval runner auto-approves (no human in CI); the run must still complete.
+        # Routing + semantic layer + structured reports + insight memory + human-in-the-loop +
+        # trace store + JSON logs. Every SELECT is gated (threshold 0) and the eval runner
+        # auto-approves (no human in CI); the run must still complete.
         env:
           AGENT_ROUTING_ENABLED: "true"
           AGENT_SEMANTIC_LAYER_ENABLED: "true"
+          AGENT_STRUCTURED_REPORT_ENABLED: "true"
+          AGENT_MEMORY_ENABLED: "true"
+          AGENT_MEMORY_DB_PATH: ${{ runner.temp }}/memory.sqlite3
           AGENT_APPROVAL_ENABLED: "true"
           AGENT_APPROVAL_ROW_THRESHOLD: "0"
+          AGENT_TRACE_STORE_ENABLED: "true"
+          AGENT_LOG_JSON_ENABLED: "true"
         run: >-
-          uv run python -m analyst_agent.eval run --agent dry-run --no-score --limit 3
+          uv run python -m analyst_agent.eval run --agent dry-run --no-score --limit 5
           --timeout 120 --fail-on-error --runs-dir ${{ runner.temp }}/runs/dry-run-flags
       - name: Upload eval runs
         if: always()

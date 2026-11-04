@@ -156,7 +156,8 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 ```bash
 git clone https://github.com/maxj0201/data-analyst-agent.git
 cd data-analyst-agent
-uv sync --all-extras   # core + api, frontend and mcp extras + dev tools
+uv sync --all-extras --no-extra embeddings   # core + api, frontend, mcp extras + dev tools
+# add `--extra embeddings` for AGENT_SEMANTIC_BACKEND=embedding|hybrid (pulls in torch)
 ```
 
 ```bash
