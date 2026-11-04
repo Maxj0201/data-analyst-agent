@@ -164,6 +164,22 @@ def test_critic_rounds_capped(ctx, settings):
     assert result.report.endswith("answer")
 
 
+def test_zero_critic_rounds_skips_the_critic(ctx, settings):
+    # The eval critic ablation: AGENT_MAX_CRITIC_ROUNDS=0 accepts the first draft, no review.
+    settings.max_critic_rounds = 0
+    llm = FakeLLM(
+        agent=[resp(tool_use("final_report", markdown="answer", key_numbers={"x": 1}))],
+        critic=[critic_json("revise", ["never asked"])],
+    )
+    result = make_loop(llm, ctx, settings).run("q")
+    assert result.status is RunStatus.COMPLETED_WITH_ISSUES
+    assert result.state.critic_rounds == 0
+    assert result.state.critic_reviews == []
+    assert len(llm.queues["critic"]) == 1  # the critic was never called
+    assert result.report.endswith("answer")
+    assert result.key_numbers == {"x": 1}
+
+
 def test_unparseable_critic_does_not_wedge_loop(ctx, settings):
     llm = FakeLLM(
         agent=[resp(tool_use("final_report", markdown="answer", key_numbers={}))],

@@ -72,6 +72,10 @@ class RunConfig:
     # None = AGENT_LANGFUSE_ENABLED / AGENT_TRACE_STORE_ENABLED
     langfuse_enabled: bool | None = None
     save_traces: bool | None = None
+    # Stop starting new tasks once agent + judge spend for this run reaches this many USD
+    # (estimated with core.llm's price table). Tasks already running finish, so a run can
+    # overshoot by up to ``concurrency`` tasks. None = no cap.
+    budget_usd: float | None = None
 
 
 @dataclass
@@ -80,7 +84,7 @@ class TaskResult:
     difficulty: str
     tags: list[str]
     question: str
-    status: str  # ok | error | timeout
+    status: str  # ok | error | timeout | over_budget (not started: --budget-usd reached)
     passed: bool
     score: float
     score_details: dict[str, Any]
@@ -131,6 +135,8 @@ def _git_sha() -> str | None:
 
 
 def _progress_mark(res: TaskResult) -> str:
+    if res.status == "over_budget":
+        return "BUDGET"
     if res.status != "ok":
         return res.status.upper()
     if res.passed:
@@ -138,6 +144,39 @@ def _progress_mark(res: TaskResult) -> str:
     if res.score_details.get("method") == "unscored":
         return "DONE"
     return "SKIP" if res.score_details.get("skipped") else "FAIL"
+
+
+def _judge_spend(judge: Judge | None) -> float:
+    """USD the judge has spent so far (0 when it does not track cost)."""
+    cost = getattr(judge, "cost", None)
+    usd = getattr(cost, "usd", cost)
+    return float(usd) if isinstance(usd, int | float) else 0.0
+
+
+def over_budget_result(task: Task, budget_usd: float) -> TaskResult:
+    """Placeholder row for a task never started because the run hit ``--budget-usd``."""
+    return TaskResult(
+        task_id=task.id,
+        difficulty=task.difficulty,
+        tags=task.tags,
+        question=task.question,
+        status="over_budget",
+        passed=False,
+        score=0.0,
+        score_details={"method": "not_run", "reason": "over_budget", "skipped": True},
+        answer="",
+        key_numbers={},
+        trace=[],
+        cost_usd=0.0,
+        input_tokens=0,
+        output_tokens=0,
+        latency_s=0.0,
+        tool_calls=0,
+        critic_rounds=0,
+        critic_revisions=0,
+        error=f"run budget of ${budget_usd:.2f} reached before this task started",
+        started_at=_now(),
+    )
 
 
 def new_run_dir(base: Path = Path("runs")) -> Path:
@@ -305,24 +344,34 @@ async def run_tasks(
     sem = asyncio.Semaphore(max(1, config.concurrency))
     lock = asyncio.Lock()
     done = 0
+    agent_spend = 0.0
+    budget = config.budget_usd
+
+    def spent() -> float:
+        return agent_spend + _judge_spend(judge)
 
     async def one(task: Task) -> TaskResult:
-        nonlocal done
+        nonlocal done, agent_spend
         trace_id = new_trace_id() if langfuse is not None else None
         with log_context(task_id=task.id):
             async with sem:
-                res = await run_task(
-                    task,
-                    agent,
-                    judge,
-                    config.timeout_s,
-                    config.score,
-                    config.isolation,
-                    trace_id=trace_id,
-                    trace_metadata={"eval_run": run_dir.name, "difficulty": task.difficulty},
-                )
-            _publish_trace(res, task, run_dir, langfuse, save_traces)
+                if budget is not None and spent() >= budget:
+                    res = over_budget_result(task, budget)
+                else:
+                    res = await run_task(
+                        task,
+                        agent,
+                        judge,
+                        config.timeout_s,
+                        config.score,
+                        config.isolation,
+                        trace_id=trace_id,
+                        trace_metadata={"eval_run": run_dir.name, "difficulty": task.difficulty},
+                    )
+            if res.status != "over_budget":
+                _publish_trace(res, task, run_dir, langfuse, save_traces)
         async with lock:
+            agent_spend += res.cost_usd
             with open(results_path, "a") as f:
                 f.write(json.dumps(res.to_dict(), default=str) + "\n")
             done += 1
@@ -345,6 +394,10 @@ async def run_tasks(
     judge_cost = getattr(judge, "cost_summary", None)
     if callable(judge_cost):
         meta["judge_cost"] = judge_cost()
+    meta["spend_usd"] = round(spent(), 6)
+    if budget is not None:
+        skipped = sum(r.status == "over_budget" for r in results)
+        meta["budget"] = {"usd": budget, "exhausted": skipped > 0, "tasks_not_started": skipped}
     (run_dir / "meta.json").write_text(json.dumps(meta, indent=2))
     return run_dir, list(results)
 

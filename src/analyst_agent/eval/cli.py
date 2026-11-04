@@ -146,6 +146,15 @@ def run(
             "(eval has no human; --no-auto-approve leaves no approver, so gated steps are denied)",
         ),
     ] = True,
+    budget_usd: Annotated[
+        float | None,
+        typer.Option(
+            min=0,
+            help="stop starting new tasks once agent + judge spend (USD, from core.llm's price "
+            "table) reaches this; unstarted tasks are recorded as over_budget and not scored. "
+            "Running tasks finish, so the run can overshoot by up to --concurrency tasks",
+        ),
+    ] = None,
     benchmarks: Path = DEFAULT_BENCHMARK_ROOT,
     runs_dir: Path = SETTINGS.eval_runs_dir,
 ) -> None:
@@ -192,6 +201,7 @@ def run(
         routing_enabled=routing,
         semantic_layer_enabled=semantic_layer,
         auto_approve=auto_approve,
+        budget_usd=budget_usd,
         filters={
             "difficulty": difficulty,
             "tag": tag,
