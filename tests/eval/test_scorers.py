@@ -40,14 +40,37 @@ def test_numbers_match_tolerances() -> None:
 # ---------------------------------------------------------------- value
 
 
-def test_value_from_key_numbers_and_text() -> None:
+def test_value_prefers_key_numbers_then_text_fallback() -> None:
     ex = make_task("L1", expected_value=435064.123, tolerance=0.005).expected
-    assert (
-        score_value(ex, out(key_numbers={"net_revenue": 435000})).details["source"] == "key_numbers"
-    )
+    s = score_value(ex, out(key_numbers={"net_revenue": 435000}))
+    assert s.passed and s.details["path"] == "key_numbers"
     s = score_value(ex, out("Total net revenue: **$435,064.12**."))
-    assert s.passed and s.details["source"] == "answer"
-    assert not score_value(ex, out("Total net revenue: $400,000.")).passed
+    assert s.passed and s.details["path"] == "text_fallback"
+    s = score_value(ex, out("Total net revenue: $400,000."))
+    assert not s.passed and s.details["path"] == "text_fallback"
+
+
+def test_report_full_of_unrelated_numbers_no_longer_passes_by_accident() -> None:
+    # The expected count (12) appears incidentally in the prose, but the agent's declared
+    # answer in key_numbers is wrong. Previously any number in the text could match.
+    ex = make_task("L1", expected_value=12, tolerance=0).expected
+    report = (
+        "Across 12 months of 2025 we saw 4,000 orders from 600 customers in 7 countries. "
+        "Electronics led with 14 products; the top 5 customers spent $14,499.98. "
+        "Germany has **37** customers (3 more than France)."
+    )
+    s = score_value(ex, out(report, key_numbers={"germany_customers": 37}))
+    assert not s.passed
+    assert s.details["path"] == "key_numbers" and s.details["nearest"] == 37
+    # same report with the correct declared number passes
+    assert score_value(ex, out(report, key_numbers={"germany_customers": 12})).passed
+
+
+def test_key_numbers_any_value_within_tolerance_counts() -> None:
+    ex = make_task("L1", expected_value=17.25, tolerance=0.01).expected
+    kn = {"base": 1012, "churned": 175, "churn_rate_pct": "17.3%"}
+    s = score_value(ex, out("irrelevant 999", key_numbers=kn))
+    assert s.passed and s.details["path"] == "key_numbers"
 
 
 def test_value_percent_both_scales() -> None:

@@ -6,6 +6,8 @@ Metric definitions:
 - latency p50/p95: linear-interpolated percentiles of per-task wall-clock seconds.
 - critic intervention rate: share of tasks where the critic asked for at least one revision.
 - critic correction rate: among those tasks, the share that ended up passing.
+- numeric text-fallback rate: among single-number answers (L1/L2/ADV ``expected_value``), the
+  share scored from report text because the agent returned empty ``key_numbers``.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from typing import Any
 
 from analyst_agent.eval.runner import load_results
 from analyst_agent.eval.schema import DIFFICULTIES
+from analyst_agent.eval.scorers import TEXT_FALLBACK_PATH, numeric_path
 
 
 def percentile(values: list[float], q: float) -> float:
@@ -50,6 +53,8 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
     lat = [r["latency_s"] for r in results]
     costs = [r["cost_usd"] for r in results]
     intervened = [r for r in results if r.get("critic_revisions", 0) > 0]
+    paths = [numeric_path(r.get("score_details") or {}) for r in results]
+    numeric = [p for p in paths if p is not None]
     adv = by_diff.get("ADV")
     return {
         "n": n,
@@ -67,6 +72,8 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
         "mean_critic_rounds": sum(r["critic_rounds"] for r in results) / n if n else None,
         "critic_intervention_rate": _rate(len(intervened), n),
         "critic_correction_rate": _rate(sum(r["passed"] for r in intervened), len(intervened)),
+        "numeric_tasks": len(numeric),
+        "text_fallback_rate": _rate(sum(p == TEXT_FALLBACK_PATH for p in numeric), len(numeric)),
     }
 
 
@@ -95,6 +102,7 @@ HEADLINE = [
     ("Mean critic rounds", "mean_critic_rounds", _num),
     ("Critic intervention rate", "critic_intervention_rate", _pct),
     ("Critic correction rate", "critic_correction_rate", _pct),
+    ("Numeric text-fallback rate", "text_fallback_rate", _pct),
 ]
 
 
@@ -177,6 +185,7 @@ def render_compare(
         "adversarial_pass_rate",
         "critic_intervention_rate",
         "critic_correction_rate",
+        "text_fallback_rate",
     }
     for label, k, f in HEADLINE:
         if k is None:

@@ -56,6 +56,28 @@ def test_summarize_metrics() -> None:
     assert "L3" not in s["by_difficulty"]
 
 
+def test_text_fallback_rate() -> None:
+    rows = [
+        r("a", "L1", True, score_details={"method": "numeric", "path": "key_numbers"}),
+        r("b", "L1", True, score_details={"method": "numeric", "path": "text_fallback"}),
+        r("c", "L2", True, score_details={"method": "rows"}),
+        r(
+            "d",
+            "ADV",
+            True,
+            score_details={
+                "method": "adversarial",
+                "answer": {"method": "numeric", "details": {"path": "text_fallback"}},
+            },
+        ),
+    ]
+    s = summarize(rows)
+    assert s["numeric_tasks"] == 3
+    assert math.isclose(s["text_fallback_rate"], 2 / 3)
+    assert "| Numeric text-fallback rate | 66.7% |" in render_report(rows)
+    assert summarize(RUN_A)["text_fallback_rate"] is None
+
+
 def test_render_report_markdown() -> None:
     md = render_report(RUN_A, {"config": {"agent": "x"}, "git_sha": "abc"})
     assert "| Accuracy (all) | 60.0% |" in md

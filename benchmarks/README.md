@@ -52,6 +52,10 @@ tags: [ecommerce, revenue, join, top-n]
 - **L1/L2**: either `expected_value: <number>` or `expected_rows: [ {col: val, ...}, ... ]`.
   - `tolerance` (relative, default 0.01) and `abs_tolerance` (default 0).
   - `order_matters` (rows only, default false).
+  - Single numbers are scored against the agent's `key_numbers` (from `final_report`):
+    any value within tolerance passes. Only when `key_numbers` is empty does the scorer
+    fall back to numbers in the report text. `score_details.path` records which path
+    was used (`key_numbers` or `text_fallback`), and the run report shows the fallback rate.
   - Row matching ignores column names. Each expected row must match one row in a table the
     agent produced (in `key_numbers`, or a Markdown table in the report), with strings
     compared case/whitespace-insensitively and numbers compared within tolerance. Row counts

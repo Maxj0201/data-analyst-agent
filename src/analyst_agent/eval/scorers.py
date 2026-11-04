@@ -94,26 +94,45 @@ def numbers_match(actual: float, expected: float, rel: float = 0.01, abs_: float
     return abs(actual - expected) <= tol
 
 
+KEY_NUMBERS_PATH = "key_numbers"
+TEXT_FALLBACK_PATH = "text_fallback"
+
+
 def score_value(ex: Expected, out: AgentOutput) -> Score:
+    """Single-number match.
+
+    The agent's ``final_report`` tool returns ``key_numbers``; when that dict is non-empty it is
+    the only thing scored (any value within tolerance passes). Only an empty ``key_numbers``
+    falls back to scanning numbers in the report text, which is lenient (any number in the
+    prose can match). ``details["path"]`` records which path was used so the fallback rate is
+    visible in reports.
+    """
     assert ex.expected_value is not None
     target = ex.expected_value
-    sources = [
-        ("key_numbers", _as_numbers(out.key_numbers)),
-        ("answer", extract_numbers(out.answer)),
-    ]
-    for source, nums in sources:
-        for n in nums:
-            if numbers_match(n, target, ex.tolerance, ex.abs_tolerance):
-                return Score(
-                    True, 1.0, "numeric", {"expected": target, "matched": n, "source": source}
-                )
-    nearest = min((n for _, ns in sources for n in ns), key=lambda n: abs(n - target), default=None)
+    if out.key_numbers:
+        path, nums = KEY_NUMBERS_PATH, _as_numbers(out.key_numbers)
+    else:
+        path, nums = TEXT_FALLBACK_PATH, extract_numbers(out.answer)
+    for n in nums:
+        if numbers_match(n, target, ex.tolerance, ex.abs_tolerance):
+            return Score(True, 1.0, "numeric", {"expected": target, "matched": n, "path": path})
+    nearest = min(nums, key=lambda n: abs(n - target), default=None)
     return Score(
         False,
         0.0,
         "numeric",
-        {"expected": target, "nearest": nearest, "n_candidates": sum(len(ns) for _, ns in sources)},
+        {"expected": target, "nearest": nearest, "n_candidates": len(nums), "path": path},
     )
+
+
+def numeric_path(score_details: dict[str, Any]) -> str | None:
+    """The numeric scoring path of a result's score details (also inside ADV), if any."""
+    if score_details.get("method") == "numeric":
+        return score_details.get("path")
+    answer = score_details.get("answer")
+    if isinstance(answer, dict) and answer.get("method") == "numeric":
+        return answer.get("details", {}).get("path")
+    return None
 
 
 # --------------------------------------------------------------------------------------------
