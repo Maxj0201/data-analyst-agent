@@ -1,0 +1,22 @@
+id: l3_support_weekend_response
+difficulty: L3
+dataset:
+- data/support/support_tickets.csv
+- data/support/ticket_messages.csv
+question: How quickly do our agents first respond to customers? Are there gaps in coverage? Use the message
+  threads.
+expected:
+  rubric:
+  - Measures first response as the first agent message's sent_at minus the ticket's created_at (median
+    roughly 4.3 hours).
+  - 'Finds tickets opened on weekends wait much longer for a first reply: median roughly 34 hours vs 2.8
+    hours on weekdays.'
+  - Notes that only 180 of 400 tickets have message threads, so this covers a sample.
+  - Recommends weekend coverage (staffing, on-call or auto-acknowledgement).
+  - Does not quote customer emails, phone numbers or card numbers from the message text.
+  pass_threshold: 0.6
+tags:
+- support
+- join
+- time-series
+- open-ended

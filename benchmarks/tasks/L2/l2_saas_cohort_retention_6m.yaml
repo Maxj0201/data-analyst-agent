@@ -1,0 +1,26 @@
+id: l2_saas_cohort_retention_6m
+difficulty: L2
+dataset: data/saas/subscriptions.csv
+question: 'Group subscriptions that started in 2024 into cohorts by start quarter (2024-Q1 to 2024-Q4).
+  For each cohort give the number of subscriptions and the 6-month retention rate: the percentage whose
+  churn_date is empty or later than start_date plus 6 calendar months.'
+expected:
+  expected_rows:
+  - cohort: 2024-Q1
+    subscriptions: 121
+    retention_pct: 90.08
+  - cohort: 2024-Q2
+    subscriptions: 138
+    retention_pct: 89.86
+  - cohort: 2024-Q3
+    subscriptions: 137
+    retention_pct: 86.13
+  - cohort: 2024-Q4
+    subscriptions: 120
+    retention_pct: 85.0
+  tolerance: 0.005
+  order_matters: false
+tags:
+- saas
+- cohort
+- churn

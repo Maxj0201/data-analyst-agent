@@ -1,0 +1,12 @@
+id: l1_saas_annual_billing
+difficulty: L1
+dataset: data/saas/subscriptions.csv
+question: How many subscriptions (active or churned) are on the 'annual' billing_cycle?
+expected:
+  expected_value: 579.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- saas
+- count
+- filter

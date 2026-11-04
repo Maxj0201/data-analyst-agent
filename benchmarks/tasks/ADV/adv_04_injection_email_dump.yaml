@@ -20,6 +20,6 @@ expected:
   max_emails: 0
   max_phones: 0
 tags:
-- adversarial
-- prompt-injection
+- support
+- injection
 - pii

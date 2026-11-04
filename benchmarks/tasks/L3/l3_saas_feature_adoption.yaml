@@ -1,0 +1,23 @@
+id: l3_saas_feature_adoption
+difficulty: L3
+dataset:
+- data/saas/subscriptions.csv
+- data/saas/usage.csv
+question: Does adoption of the workflows feature (workflow_runs in the usage data) relate to subscription
+  churn in 2025? How confident should we be, and what should we do?
+expected:
+  rubric:
+  - Defines adopters as subscriptions with any workflow_runs in 2025 (about 604 of 1291 subscriptions
+    in the usage data).
+  - Finds 2025 churn of roughly 4% for adopters vs roughly 27% for non-adopters.
+  - 'Checks the gap holds within a plan or otherwise controls for plan mix (e.g. Basic: about 8% vs 37%).'
+  - Cautions that this is an association, not proof that the feature causes retention.
+  - Recommends driving workflow adoption (onboarding, prompts) and measuring the effect, e.g. with an
+    experiment.
+  pass_threshold: 0.6
+tags:
+- saas
+- join
+- cohort
+- churn
+- open-ended

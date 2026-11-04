@@ -1,0 +1,12 @@
+id: l1_saas_api_calls_march
+difficulty: L1
+dataset: data/saas/usage.csv
+question: What is the total number of api_calls in the usage table for month '2025-03'?
+expected:
+  expected_value: 2554584.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- saas
+- aggregate
+- filter

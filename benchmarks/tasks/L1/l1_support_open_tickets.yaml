@@ -1,0 +1,12 @@
+id: l1_support_open_tickets
+difficulty: L1
+dataset: data/support/support_tickets.csv
+question: How many support tickets have status 'Open'?
+expected:
+  expected_value: 54.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- support
+- count
+- filter

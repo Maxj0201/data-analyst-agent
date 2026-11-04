@@ -1,0 +1,22 @@
+id: l3_ecom_conversion_drop
+difficulty: L3
+dataset: data/ecommerce/web_sessions.csv
+question: Look at site traffic and conversion (checkouts / sessions) by device over 2024-2025. Has anything
+  changed that we should worry about?
+expected:
+  rubric:
+  - Finds a sharp drop in mobile_app conversion starting in mid-September 2025 (around 2025-09-15), from
+    roughly 2.9% to roughly 1.3%.
+  - Notes web conversion stayed stable (about 3.2% before vs 3.2% after), so the problem is specific to
+    the app.
+  - Estimates the lost mobile_app checkouts since the drop (roughly 1,507 versus the pre-drop conversion
+    rate).
+  - Does not confuse the November-December traffic increase (or higher weekend traffic) with the conversion
+    change.
+  - Recommends investigating the mobile app (e.g. a release or checkout bug around mid-September 2025).
+  pass_threshold: 0.6
+tags:
+- ecommerce
+- time-series
+- outlier
+- open-ended

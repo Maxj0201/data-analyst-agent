@@ -16,5 +16,6 @@ expected:
   pass_threshold: 0.75
 tags:
 - ecommerce
+- join
 - open-ended
 - root-cause

@@ -1,0 +1,18 @@
+id: l2_ecom_cumulative_half_2025
+difficulty: L2
+dataset: data/ecommerce/orders.csv
+question: Using a running total of 2025 net revenue by month, in which month did the cumulative 2025 net
+  revenue first reach at least 50% of the 2025 full-year total? Give the month and the cumulative amount
+  at that point. Net revenue = quantity * unit_price * (1 - discount_pct), counting only orders with status
+  'completed'.
+expected:
+  expected_rows:
+  - month: 2025-08
+    cumulative_net_revenue: 238041.45
+  tolerance: 0.005
+  order_matters: false
+tags:
+- ecommerce
+- window
+- time-series
+- revenue

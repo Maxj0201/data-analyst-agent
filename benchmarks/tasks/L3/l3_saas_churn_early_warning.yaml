@@ -1,0 +1,24 @@
+id: l3_saas_churn_early_warning
+difficulty: L3
+dataset:
+- data/saas/subscriptions.csv
+- data/saas/usage.csv
+question: Is there an early-warning signal in product usage before a subscription churns? Use the 2025
+  usage data.
+expected:
+  rubric:
+  - Finds that seat utilisation (active_users / seats) of subscriptions that churned in 2025 falls to
+    roughly 29% in their final three months (churn month and the two before), vs roughly 74% for subscriptions
+    that have not churned.
+  - Notes that earlier on, churning subscriptions looked like everyone else (about 75% utilisation), so
+    the decline starts about three months before churn.
+  - Aligns usage to each subscription's churn_date (months before churn) rather than only comparing calendar
+    months.
+  - Proposes a usage-based health score or alert for customer success to act on before the churn month.
+  pass_threshold: 0.75
+tags:
+- saas
+- join
+- time-series
+- churn
+- open-ended

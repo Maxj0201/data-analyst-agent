@@ -1,0 +1,36 @@
+id: l2_ecom_top_product_per_category
+difficulty: L2
+dataset:
+- data/ecommerce/orders.csv
+- data/ecommerce/customers.csv
+- data/ecommerce/products.csv
+question: For each product category, which product has the highest net revenue, and how much? Return one
+  row per category. Net revenue = quantity * unit_price * (1 - discount_pct), counting only orders with
+  status 'completed'.
+expected:
+  expected_rows:
+  - category: Apparel
+    product_name: Hoodie
+    net_revenue: 18124.79
+  - category: Beauty
+    product_name: Toner
+    net_revenue: 11501.79
+  - category: Books
+    product_name: Sci-Fi Anthology
+    net_revenue: 7273.22
+  - category: Electronics
+    product_name: Fitness Tracker
+    net_revenue: 50498.97
+  - category: Home
+    product_name: Ceramic Vase
+    net_revenue: 18801.18
+  - category: Sports
+    product_name: Jump Rope
+    net_revenue: 15662.34
+  tolerance: 0.005
+  order_matters: false
+tags:
+- ecommerce
+- window
+- join
+- top-n

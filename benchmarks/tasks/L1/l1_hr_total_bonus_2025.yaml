@@ -1,0 +1,11 @@
+id: l1_hr_total_bonus_2025
+difficulty: L1
+dataset: data/hr/payroll.csv
+question: What is the total bonus paid in the 2025 payroll table? Round to 2 decimals.
+expected:
+  expected_value: 1543645.4
+  tolerance: 0.001
+  abs_tolerance: 0.0
+tags:
+- hr
+- aggregate

@@ -1,0 +1,12 @@
+id: l1_ecom_missing_signup_channel
+difficulty: L1
+dataset: data/ecommerce/customers.csv
+question: How many customers have no signup_channel recorded (empty / null)?
+expected:
+  expected_value: 59.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- ecommerce
+- count
+- missing-data

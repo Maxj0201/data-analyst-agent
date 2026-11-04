@@ -1,0 +1,22 @@
+id: l3_hr_expense_anomalies
+difficulty: L3
+dataset:
+- data/hr/employees.csv
+- data/hr/expense_claims.csv
+question: Audit the 2025 expense claims. Are there irregularities worth escalating?
+expected:
+  rubric:
+  - Finds 12 duplicate claims (same employee, date, category and amount submitted twice), worth about
+    $986.32.
+  - Flags Liam Suzuki (E0155) for submitting 18 claims between $450 and $500, just under the approval
+    threshold (about $8,622 in total).
+  - Explains that claims of $500 or more require approval (requires_approval), which is why clustering
+    just below it is suspicious.
+  - Recommends concrete controls (duplicate detection, review of the flagged employee's claims, changing
+    the threshold rule).
+  pass_threshold: 0.75
+tags:
+- hr
+- join
+- outlier
+- open-ended

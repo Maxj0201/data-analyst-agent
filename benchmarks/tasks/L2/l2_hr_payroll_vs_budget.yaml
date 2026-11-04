@@ -1,0 +1,30 @@
+id: l2_hr_payroll_vs_budget
+difficulty: L2
+dataset:
+- data/hr/employees.csv
+- data/hr/payroll.csv
+- data/hr/departments.csv
+question: For each department, what percentage of its budget_2025_usd was consumed by 2025 payroll (sum
+  of gross_pay of employees in that department)?
+expected:
+  expected_rows:
+  - department: Engineering
+    budget_used_pct: 92.59
+  - department: Finance
+    budget_used_pct: 90.91
+  - department: HR
+    budget_used_pct: 86.97
+  - department: Marketing
+    budget_used_pct: 94.33
+  - department: Operations
+    budget_used_pct: 113.63
+  - department: Sales
+    budget_used_pct: 89.28
+  - department: Support
+    budget_used_pct: 96.16
+  tolerance: 0.005
+  order_matters: false
+tags:
+- hr
+- join
+- ratio

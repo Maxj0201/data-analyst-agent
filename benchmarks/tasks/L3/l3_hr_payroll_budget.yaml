@@ -1,0 +1,23 @@
+id: l3_hr_payroll_budget
+difficulty: L3
+dataset:
+- data/hr/employees.csv
+- data/hr/payroll.csv
+- data/hr/departments.csv
+question: Compare each department's 2025 payroll cost (gross_pay) with its budget. Who is over budget,
+  why, and what should we do?
+expected:
+  rubric:
+  - Identifies Operations as the only department over budget, at about 114% of budget (roughly $5,969,962
+    vs $5,254,000).
+  - 'Attributes the overrun to overtime: overtime_pay is about 6.3% of Operations gross pay vs about 1.4%
+    in the other departments combined.'
+  - States total 2025 payroll of roughly $41,726,780 against total budgets of $44,094,000.
+  - Recommends an action such as hiring to reduce overtime, overtime controls, or re-baselining the Operations
+    budget.
+  pass_threshold: 0.75
+tags:
+- hr
+- join
+- open-ended
+- root-cause

@@ -1,0 +1,38 @@
+id: l2_saas_active_running_2025
+difficulty: L2
+dataset: data/saas/subscriptions.csv
+question: 'How many subscriptions were active at the end of each month of 2025? A subscription is active
+  at month end if its start_date is on or before the last day of the month and its churn_date is empty
+  or after that day. (Hint: a running total of starts minus churns works.)'
+expected:
+  expected_rows:
+  - month: 2025-01
+    active_subscriptions: 860
+  - month: 2025-02
+    active_subscriptions: 888
+  - month: 2025-03
+    active_subscriptions: 916
+  - month: 2025-04
+    active_subscriptions: 936
+  - month: 2025-05
+    active_subscriptions: 951
+  - month: 2025-06
+    active_subscriptions: 976
+  - month: 2025-07
+    active_subscriptions: 1006
+  - month: 2025-08
+    active_subscriptions: 1035
+  - month: 2025-09
+    active_subscriptions: 1056
+  - month: 2025-10
+    active_subscriptions: 1071
+  - month: 2025-11
+    active_subscriptions: 1097
+  - month: 2025-12
+    active_subscriptions: 1083
+  tolerance: 0.0
+  order_matters: true
+tags:
+- saas
+- window
+- time-series

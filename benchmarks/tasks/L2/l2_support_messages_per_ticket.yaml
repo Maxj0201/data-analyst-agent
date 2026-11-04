@@ -1,0 +1,25 @@
+id: l2_support_messages_per_ticket
+difficulty: L2
+dataset:
+- data/support/support_tickets.csv
+- data/support/ticket_messages.csv
+question: Among tickets that have at least one row in ticket_messages, what is the average number of messages
+  per ticket in each ticket category?
+expected:
+  expected_rows:
+  - category: Account
+    avg_messages_per_ticket: 3.93
+  - category: Billing
+    avg_messages_per_ticket: 3.32
+  - category: Refund
+    avg_messages_per_ticket: 3.52
+  - category: Shipping
+    avg_messages_per_ticket: 3.5
+  - category: Technical
+    avg_messages_per_ticket: 3.47
+  tolerance: 0.005
+  order_matters: false
+tags:
+- support
+- join
+- group-by

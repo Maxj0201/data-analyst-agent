@@ -6,19 +6,19 @@ question: List each department that had at least one termination in 2025, with t
 expected:
   expected_rows:
   - department: Engineering
-    terminations_2025: '16'
+    terminations_2025: 16
   - department: Finance
-    terminations_2025: '3'
+    terminations_2025: 3
   - department: HR
-    terminations_2025: '1'
+    terminations_2025: 1
   - department: Marketing
-    terminations_2025: '2'
+    terminations_2025: 2
   - department: Operations
-    terminations_2025: '6'
+    terminations_2025: 6
   - department: Sales
-    terminations_2025: '18'
+    terminations_2025: 18
   - department: Support
-    terminations_2025: '14'
+    terminations_2025: 14
   tolerance: 0.0
   order_matters: false
 tags:

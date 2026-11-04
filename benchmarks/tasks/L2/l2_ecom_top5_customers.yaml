@@ -22,6 +22,6 @@ expected:
   order_matters: true
 tags:
 - ecommerce
-- revenue
 - join
+- revenue
 - top-n

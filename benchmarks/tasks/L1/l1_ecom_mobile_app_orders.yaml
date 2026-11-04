@@ -1,0 +1,12 @@
+id: l1_ecom_mobile_app_orders
+difficulty: L1
+dataset: data/ecommerce/orders.csv
+question: How many orders were placed through the 'mobile_app' sales_channel?
+expected:
+  expected_value: 1371.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- ecommerce
+- count
+- filter

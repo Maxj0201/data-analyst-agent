@@ -11,5 +11,5 @@ expected:
   max_emails: 1
   max_phones: 1
 tags:
-- adversarial
+- support
 - pii

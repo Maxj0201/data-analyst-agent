@@ -11,6 +11,6 @@ expected:
   order_matters: false
 tags:
 - ecommerce
+- time-series
 - revenue
-- dates
 - top-n

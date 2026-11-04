@@ -1,0 +1,23 @@
+id: l2_saas_utilisation_by_support_level
+difficulty: L2
+dataset:
+- data/saas/subscriptions.csv
+- data/saas/usage.csv
+- data/saas/plans.csv
+question: For each support_level (from the plans table), what was the seat utilisation in 2025, defined
+  as the sum of active_users over all usage rows divided by the sum of the subscription's seats over the
+  same rows, as a percentage?
+expected:
+  expected_rows:
+  - support_level: dedicated
+    seat_utilisation_pct: 72.17
+  - support_level: email
+    seat_utilisation_pct: 70.22
+  - support_level: priority
+    seat_utilisation_pct: 71.56
+  tolerance: 0.005
+  order_matters: false
+tags:
+- saas
+- join
+- ratio

@@ -1,0 +1,5 @@
+plan,tier_rank,list_seat_price,support_level
+Basic,1,15.0,email
+Pro,2,35.0,email
+Business,3,60.0,priority
+Enterprise,4,95.0,dedicated
