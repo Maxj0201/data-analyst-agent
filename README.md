@@ -173,6 +173,18 @@ Or with Docker: `cp .env.example .env` (add `ANTHROPIC_API_KEY`), then `docker c
 
 Deployment: [deploy/cloudrun.md](deploy/cloudrun.md). Tracing: [docs/observability.md](docs/observability.md).
 
+## MCP server
+
+Use the data tools (`inspect_schema`, `run_sql`, `run_python`, `make_chart`) from Claude Desktop,
+Claude Code or any MCP client — same handlers and sandbox, no API key needed:
+
+```bash
+uv sync --extra mcp
+claude mcp add analyst -- uv --directory "$PWD" run --extra mcp analyst-agent-mcp --data "$PWD/orders.csv"
+```
+
+Setup for Claude Desktop and a worked example: [docs/mcp.md](docs/mcp.md).
+
 ## Benchmark & eval
 
 The benchmark lives in `benchmarks/` as one YAML file per task, over seeded synthetic datasets
