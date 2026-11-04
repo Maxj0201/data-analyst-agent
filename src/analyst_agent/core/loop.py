@@ -17,11 +17,18 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from analyst_agent.core.approval import (
+    ApprovalDecision,
+    ApprovalPolicy,
+    ApprovalRecord,
+    Approver,
+    denial_message,
+)
 from analyst_agent.core.config import Settings, get_settings
 from analyst_agent.core.critic import Critic, CriticVerdict
 from analyst_agent.core.llm import LLM, CostTracker
 from analyst_agent.core.prompts import PLANNER_SYSTEM, REPORT_WRITER_SYSTEM
-from analyst_agent.tools.base import ToolContext
+from analyst_agent.tools.base import ToolContext, ToolResult
 from analyst_agent.tools.registry import TERMINAL_TOOL, ToolRegistry, wrap_untrusted
 
 log = logging.getLogger(__name__)
@@ -68,6 +75,8 @@ class AgentState:
     draft_report: str | None = None
     key_numbers: dict[str, Any] = field(default_factory=dict)
     artifacts: list[str] = field(default_factory=list)
+    approvals: list[ApprovalRecord] = field(default_factory=list)
+    budget_approved: bool = False  # the budget-fraction gate was approved once this run
     status: RunStatus | None = None
     detail: str = ""
 
@@ -104,6 +113,7 @@ class AgentResult:
             "critic_reviews": s.critic_reviews,
             "tool_calls": [asdict(r) for r in s.tool_results],
             "artifacts": s.artifacts,
+            "approvals": [asdict(a) for a in s.approvals],
             "cost": s.cost.to_dict(),
         }
 
@@ -120,6 +130,8 @@ class AgentLoop:
         settings: Settings | None = None,
         critic: Critic | None = None,
         on_event: EventHook | None = None,
+        approver: Approver | None = None,
+        policy: ApprovalPolicy | None = None,
     ) -> None:
         self.llm = llm
         self.registry = registry
@@ -127,6 +139,8 @@ class AgentLoop:
         self.settings = settings or get_settings()
         self.critic = critic or Critic(llm, model=self.settings.resolved_critic_model)
         self._on_event = on_event
+        self.approver = approver
+        self.policy = policy or ApprovalPolicy.from_settings(self.settings)
 
     # ------------------------------------------------------------------ public
 
@@ -211,7 +225,8 @@ class AgentLoop:
             for tu in tool_uses:
                 name, args = tu.get("name", ""), tu.get("input") or {}
                 self._emit("tool_call", name=name, input=args, turn=state.turns)
-                res = self.registry.execute(name, args, self.ctx)
+                denied = self._gate(state, name, args)
+                res = denied or self.registry.execute(name, args, self.ctx)
                 state.tool_results.append(
                     ToolCallRecord(
                         id=tu["id"],
@@ -261,6 +276,48 @@ class AgentLoop:
                 continue  # Revise: the agent re-plans with the critic's feedback
 
             state.messages.append({"role": "user", "content": result_blocks})
+
+    def _gate(self, state: AgentState, name: str, args: Any) -> ToolResult | None:
+        """Human-in-the-loop check. Returns an error result if the step was denied."""
+        action = self.policy.evaluate(
+            name,
+            args,
+            self.ctx,
+            tokens_used=state.cost.total_tokens,
+            token_budget=self.settings.token_budget,
+            budget_approved=state.budget_approved,
+            turn=state.turns,
+        )
+        if action is None:
+            return None
+        self._emit("approval_required", **action.to_dict())
+        if self.approver is None:
+            decision = ApprovalDecision(approved=False, decided_by="unavailable")
+        else:
+            try:
+                decision = self.approver.request(action)
+            except Exception as exc:  # noqa: BLE001 - a broken approver denies, never crashes
+                log.exception("approver failed")
+                decision = ApprovalDecision(
+                    approved=False, decided_by="unavailable", note=f"approver error: {exc}"
+                )
+        state.approvals.append(ApprovalRecord(action=action.to_dict(), decision=decision.to_dict()))
+        self._emit(
+            "approval_decision",
+            action_id=action.id,
+            tool=name,
+            turn=state.turns,
+            **decision.to_dict(),
+        )
+        if decision.approved:
+            if "budget" in action.triggers:
+                state.budget_approved = True
+            return None
+        return ToolResult(
+            denial_message(action, decision),
+            is_error=True,
+            data={"approval": {"action_id": action.id, **decision.to_dict()}},
+        )
 
     def _verify(self, state: AgentState) -> tuple[bool, str]:
         """Run the critic on the current draft. Returns (done, tool_result text for the agent)."""

@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     artifacts_dir: Path = Path("artifacts")
     max_tool_output_chars: int = 20_000
 
+    # Human-in-the-loop approval (see core/approval.py). Off unless approval_enabled is set.
+    approval_enabled: bool = False
+    approval_row_threshold: int | None = 1_000_000  # EXPLAIN row estimate; None = never
+    approval_python: bool = True  # every run_python call
+    approval_budget_fraction: float | None = 0.8  # of token_budget; None = never
+    approval_timeout_s: float = 300.0  # no decision within this = denied
+
     @property
     def resolved_critic_model(self) -> str:
         return self.critic_model or self.model
