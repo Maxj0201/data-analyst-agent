@@ -10,7 +10,10 @@ returning an :class:`AgentOutput` (sync or async). Built-in agents:
 Trace convention: ``AgentOutput.trace`` is a list of JSON-serialisable event dicts. The scorers
 look for tool calls as ``{"type": "tool_call", "name": "run_sql", "input": {"query": ...}}``
 (``run_python`` uses ``{"code": ...}``) and critic verdicts as
-``{"type": "critic", "verdict": "pass" | "revise", ...}``.
+``{"type": "critic", "verdict": "pass" | "revise", ...}``. With model routing enabled the core
+adapter also emits ``{"type": "route", "tier": ..., "model": ...}`` first and one
+``{"type": "escalation", "from_tier": ..., "to_tier": ..., "trigger": ...}`` per escalation, and
+tags each tool call with the ``model`` that issued it.
 """
 
 from __future__ import annotations
@@ -47,6 +50,10 @@ class AgentOutput:
     critic_revisions: int = 0
     status: str = "ok"
     error: str | None = None
+    # Model routing: ``AgentState.routing_summary()`` (None when routing is off) and the
+    # per-model token/cost breakdown from ``CostTracker.by_model``.
+    routing: dict[str, Any] | None = None
+    cost_by_model: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.tool_calls is None:
@@ -101,19 +108,27 @@ def output_from_core(result: Any) -> AgentOutput:
     in that order, using the event convention documented at the top of this module.
     """
     state = result.state
-    trace: list[dict[str, Any]] = [{"type": "plan", "text": p} for p in state.plan]
+    summary_fn = getattr(state, "routing_summary", None)
+    routing = _jsonable(summary_fn()) if callable(summary_fn) else None
+    trace: list[dict[str, Any]] = []
+    if routing:
+        trace.append({"type": "route", **routing["route"]})
+    trace += [{"type": "plan", "text": p} for p in state.plan]
     for rec in state.tool_results:
         output = str(rec.output)
-        trace.append(
-            {
-                "type": "tool_call",
-                "name": rec.name,
-                "input": _jsonable(rec.input),
-                "output": output[:MAX_TRACE_OUTPUT_CHARS],
-                "is_error": bool(rec.is_error),
-                "turn": rec.turn,
-            }
-        )
+        event = {
+            "type": "tool_call",
+            "name": rec.name,
+            "input": _jsonable(rec.input),
+            "output": output[:MAX_TRACE_OUTPUT_CHARS],
+            "is_error": bool(rec.is_error),
+            "turn": rec.turn,
+        }
+        if getattr(rec, "model", None):
+            event["model"] = rec.model
+        trace.append(event)
+    if routing:
+        trace += [{"type": "escalation", **e} for e in routing["escalations"]]
     reviews = [_jsonable(r) for r in state.critic_reviews]
     trace += [{"type": "critic", **r} for r in reviews]
     status = getattr(result.status, "value", str(result.status))
@@ -131,10 +146,14 @@ def output_from_core(result: Any) -> AgentOutput:
         critic_revisions=sum(1 for r in reviews if r.get("verdict") == "revise"),
         status=status,
         error=state.detail if status == "error" else None,
+        routing=routing,
+        cost_by_model={
+            str(m): _jsonable(u.to_dict()) for m, u in getattr(cost, "by_model", {}).items()
+        },
     )
 
 
-def _run_core(question: str, paths: list[Path]) -> Any:
+def _run_core(question: str, paths: list[Path], routing_enabled: bool | None = None) -> Any:
     try:
         from analyst_agent.core import AgentLoop, LLMClient, Settings
         from analyst_agent.tools import (
@@ -149,6 +168,8 @@ def _run_core(question: str, paths: list[Path]) -> Any:
             "--agent module:callable"
         ) from e
     settings = Settings()
+    if routing_enabled is not None:  # eval A/B override of AGENT_ROUTING_ENABLED
+        settings = settings.model_copy(update={"routing_enabled": routing_enabled})
     datasets: dict[str, Path] = {}
     for p in paths:
         name = table_name_for(p)
@@ -162,10 +183,26 @@ def _run_core(question: str, paths: list[Path]) -> Any:
         return loop.run(question)
 
 
-async def core_agent(inp: AgentInput) -> AgentOutput:
-    """Run the real agent (``AgentLoop``, sync) in a worker thread."""
-    result = await asyncio.to_thread(_run_core, inp.question, list(inp.dataset_paths))
+async def core_agent(inp: AgentInput, routing_enabled: bool | None = None) -> AgentOutput:
+    """Run the real agent (``AgentLoop``, sync) in a worker thread.
+
+    ``routing_enabled`` overrides ``AGENT_ROUTING_ENABLED`` for this run (eval A/B).
+    """
+    result = await asyncio.to_thread(
+        _run_core, inp.question, list(inp.dataset_paths), routing_enabled
+    )
     return output_from_core(result)
+
+
+def make_core_agent(routing_enabled: bool | None = None) -> AgentFn:
+    """``core_agent`` with model routing forced on/off (``None`` = from the environment)."""
+    if routing_enabled is None:
+        return core_agent
+
+    async def agent(inp: AgentInput) -> AgentOutput:
+        return await core_agent(inp, routing_enabled=routing_enabled)
+
+    return agent
 
 
 # --------------------------------------------------------------------------------------------
@@ -207,13 +244,16 @@ class OracleAgent:
         )
 
 
-def load_agent(spec: str, tasks: list[Task] | None = None) -> AgentFn:
+def load_agent(
+    spec: str, tasks: list[Task] | None = None, routing_enabled: bool | None = None
+) -> AgentFn:
     """Resolve ``core``, ``oracle`` or ``package.module:attr`` into an agent callable.
 
     If ``attr`` is a class or zero-arg factory returning a callable, it is instantiated.
+    ``routing_enabled`` only applies to ``core``.
     """
     if spec == "core":
-        return core_agent
+        return make_core_agent(routing_enabled)
     if spec == "oracle":
         return OracleAgent(tasks or [])
     if ":" not in spec:

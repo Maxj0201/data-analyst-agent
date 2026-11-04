@@ -57,6 +57,13 @@ def run(
         bool, typer.Option(help="skip LLM judge (L3 fail, ADV rules only)")
     ] = False,
     no_score: bool = False,
+    routing: Annotated[
+        bool | None,
+        typer.Option(
+            "--routing/--no-routing",
+            help="force model routing on/off for the core agent (default: AGENT_ROUTING_ENABLED)",
+        ),
+    ] = None,
     benchmarks: Path = DEFAULT_BENCHMARK_ROOT,
     runs_dir: Path = SETTINGS.eval_runs_dir,
 ) -> None:
@@ -64,7 +71,7 @@ def run(
     tasks = load_tasks(benchmarks, difficulty, tag, task, limit)
     if not tasks:
         raise typer.BadParameter("no tasks match the filters")
-    agent_fn = load_agent(agent, tasks)
+    agent_fn = load_agent(agent, tasks, routing_enabled=routing)
     judge = (
         None
         if (no_judge or no_score)
@@ -76,6 +83,7 @@ def run(
         timeout_s=timeout,
         score=not no_score,
         judge_model=None if judge is None else (judge_model or "AGENT_MODEL"),
+        routing_enabled=routing,
         filters={"difficulty": difficulty, "tag": tag, "task": task, "limit": limit},
     )
     run_dir = new_run_dir(runs_dir)

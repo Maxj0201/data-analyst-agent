@@ -33,6 +33,7 @@ class RunConfig:
     timeout_s: float = 300.0
     score: bool = True
     judge_model: str | None = None
+    routing_enabled: bool | None = None  # None = whatever AGENT_ROUTING_ENABLED says
     filters: dict[str, Any] = field(default_factory=dict)
 
 
@@ -59,6 +60,8 @@ class TaskResult:
     agent_status: str | None = None
     error: str | None = None
     started_at: str = ""
+    routing: dict[str, Any] | None = None
+    cost_by_model: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -143,6 +146,8 @@ async def run_task(
         agent_status=out.status,
         error=error,
         started_at=started,
+        routing=out.routing,
+        cost_by_model=out.cost_by_model,
     )
 
 
