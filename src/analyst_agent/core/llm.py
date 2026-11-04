@@ -40,6 +40,8 @@ PRICING: dict[str, tuple[float, float]] = {
 DEFAULT_PRICE = PRICING["claude-opus-5-5"]
 CACHE_WRITE_MULT = 1.25
 CACHE_READ_MULT = 0.10
+# Message Batches API requests bill at half the list price (input, output and cache tokens).
+BATCH_DISCOUNT = 0.50
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 # Models that accept the server-side ``fallbacks: "default"`` parameter. Others (e.g. Haiku,
@@ -82,14 +84,15 @@ class Usage:
         )
 
 
-def estimate_cost_usd(model: str, usage: Usage) -> float:
+def estimate_cost_usd(model: str, usage: Usage, batch: bool = False) -> float:
     in_price, out_price = PRICING.get(model, DEFAULT_PRICE)
-    return (
+    usd = (
         usage.input_tokens * in_price
         + usage.cache_creation_input_tokens * in_price * CACHE_WRITE_MULT
         + usage.cache_read_input_tokens * in_price * CACHE_READ_MULT
         + usage.output_tokens * out_price
     ) / 1_000_000
+    return usd * BATCH_DISCOUNT if batch else usd
 
 
 @dataclass
@@ -145,8 +148,8 @@ class CostTracker:
     by_role: dict[str, float] = field(default_factory=dict)
     by_model: dict[str, ModelUsage] = field(default_factory=dict)
 
-    def add(self, model: str, usage: Usage, role: str = "agent") -> float:
-        cost = estimate_cost_usd(model, usage)
+    def add(self, model: str, usage: Usage, role: str = "agent", batch: bool = False) -> float:
+        cost = estimate_cost_usd(model, usage, batch=batch)
         self.input_tokens += usage.input_tokens
         self.output_tokens += usage.output_tokens
         self.cache_creation_input_tokens += usage.cache_creation_input_tokens
@@ -229,6 +232,14 @@ def _block_to_dict(block: Any) -> dict[str, Any]:
     if isinstance(block, dict):
         return block
     return block.model_dump(mode="json", exclude_none=True)
+
+
+class BatchUnsupported(RuntimeError):
+    """The client cannot send Message Batches (old SDK, or a fake without ``batches``)."""
+
+
+class BatchRequestError(RuntimeError):
+    """One request of a Message Batch did not succeed (errored, canceled or expired)."""
 
 
 def _is_retryable(exc: Exception) -> bool:
@@ -329,3 +340,95 @@ class LLMClient:
             usage=usage,
             model=served_model,
         )
+
+    # ---- Message Batches ------------------------------------------------------------------
+
+    @property
+    def supports_batches(self) -> bool:
+        """Whether the SDK client exposes ``messages.batches`` (create / retrieve / results)."""
+        batches = getattr(getattr(self.client, "messages", None), "batches", None)
+        return all(callable(getattr(batches, m, None)) for m in ("create", "retrieve", "results"))
+
+    def create_batch(
+        self,
+        requests: list[dict[str, Any]],
+        *,
+        role: str = "agent",
+        cost: CostTracker | None = None,
+        poll_interval_s: float = 10.0,
+        max_wait_s: float = 6 * 3600.0,
+    ) -> list[LLMResponse | Exception]:
+        """Send independent single-turn requests as one Message Batch and wait for it.
+
+        Each request takes the keyword arguments of :meth:`create` (``system``, ``messages``,
+        ``tools``, ``output_format``, ``model``, ``effort``, ``max_tokens``). Returns one entry
+        per request, in order: an :class:`LLMResponse`, or a :class:`BatchRequestError` for a
+        request that errored / was canceled / expired. Costs are recorded at the batch price
+        (:data:`BATCH_DISCOUNT`).
+
+        Raises :class:`BatchUnsupported` when the client has no batches API, ``TimeoutError``
+        (after cancelling the batch) when it has not ended within ``max_wait_s``, and the SDK's
+        exception when creating or polling the batch fails, so callers can fall back to
+        :meth:`create`. The refusal-fallback beta is not sent in batches.
+        """
+        if not requests:
+            return []
+        if not self.supports_batches:
+            raise BatchUnsupported("this anthropic SDK client has no messages.batches")
+        batches = self.client.messages.batches
+        payload = []
+        for i, req in enumerate(requests):
+            model = req.get("model") or self.settings.model
+            params = self._build_params(
+                req["system"],
+                req["messages"],
+                req.get("tools"),
+                req.get("output_format"),
+                model,
+                effort=req.get("effort"),
+                max_tokens=req.get("max_tokens"),
+            )
+            payload.append({"custom_id": f"req-{i}", "params": params})
+        batch = batches.create(requests=payload)
+        log.info("message batch %s: %d requests submitted", batch.id, len(payload))
+        waited = 0.0
+        while getattr(batch, "processing_status", "ended") != "ended":
+            if waited >= max_wait_s:
+                try:
+                    batches.cancel(batch.id)
+                except Exception:  # noqa: BLE001 - best effort
+                    log.warning("could not cancel message batch %s", batch.id)
+                raise TimeoutError(f"message batch {batch.id} did not end within {max_wait_s}s")
+            self._sleep(poll_interval_s)
+            waited += poll_interval_s
+            batch = batches.retrieve(batch.id)
+
+        out: list[LLMResponse | Exception] = [
+            BatchRequestError("no result returned for this request") for _ in requests
+        ]
+        for item in batches.results(batch.id):
+            try:
+                i = int(str(item.custom_id).removeprefix("req-"))
+            except ValueError:
+                continue
+            if not 0 <= i < len(requests):
+                continue
+            result = item.result
+            kind = getattr(result, "type", None)
+            if kind != "succeeded":
+                err = getattr(getattr(result, "error", None), "error", None)
+                msg = getattr(err, "message", None) or kind or "unknown result"
+                out[i] = BatchRequestError(f"batch request {kind}: {msg}")
+                continue
+            raw = result.message
+            usage = Usage.from_sdk(raw.usage)
+            served_model = getattr(raw, "model", None) or payload[i]["params"]["model"]
+            if cost is not None:
+                cost.add(served_model, usage, role=role, batch=True)
+            out[i] = LLMResponse(
+                content=[_block_to_dict(b) for b in raw.content],
+                stop_reason=raw.stop_reason,
+                usage=usage,
+                model=served_model,
+            )
+        return out

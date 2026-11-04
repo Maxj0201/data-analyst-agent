@@ -121,6 +121,9 @@ class Settings(BaseSettings):
     # Eval harness (eval/)
     judge_model: str | None = None  # LLM judge; None = ``model``
     judge_effort: str = "low"
+    # Send each run's judge calls as one Message Batch (half price); default of `eval run --batch`.
+    judge_batch_enabled: bool = False
+    judge_batch_poll_s: float = Field(default=15.0, gt=0)  # batch status poll interval
     eval_concurrency: int = 4
     eval_timeout_s: float = 300.0
     eval_runs_dir: Path = Path("runs")
