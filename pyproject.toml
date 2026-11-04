@@ -14,6 +14,7 @@ dependencies = [
     "matplotlib",
     "pyyaml",
     "typer",
+    "scipy>=1.17.1",
 ]
 
 [project.scripts]
