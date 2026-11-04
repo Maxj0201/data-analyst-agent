@@ -24,7 +24,8 @@ async def test_upload_csv_stores_file_under_uploads(client, settings):
     assert body["dataset_id"].startswith("ds_")
     assert body["columns"] == ["region", "revenue"]
     assert body["filename"] == "sales.csv"
-    stored = settings.uploads_dir / f"{body['dataset_id']}.csv"
+    assert body["stored_name"] == "sales.csv"
+    stored = settings.uploads_dir / body["dataset_id"] / "sales.csv"
     assert stored.read_bytes() == CSV_BYTES
 
     info = await client.get(f"/datasets/{body['dataset_id']}")
@@ -43,7 +44,7 @@ async def test_upload_csv_stores_file_under_uploads(client, settings):
 async def test_upload_rejects_bad_files(client, settings, name, content, status):
     resp = await client.post("/datasets", files={"file": (name, content, "text/csv")})
     assert resp.status_code == status, resp.text
-    assert list(settings.uploads_dir.glob("*.csv")) == []
+    assert list(settings.uploads_dir.iterdir()) == []
 
 
 async def test_upload_enforces_size_limit(client, settings):
@@ -51,6 +52,16 @@ async def test_upload_enforces_size_limit(client, settings):
     resp = await client.post("/datasets", files={"file": ("big.csv", big, "text/csv")})
     assert resp.status_code == 413
     assert list(settings.uploads_dir.iterdir()) == []
+
+
+async def test_upload_filename_is_sanitised(client, settings):
+    resp = await client.post(
+        "/datasets", files={"file": ("../../Q3 sales (final).csv", CSV_BYTES, "text/csv")}
+    )
+    body = resp.json()
+    assert body["filename"] == "Q3 sales (final).csv"
+    assert body["stored_name"] == "Q3_sales_final.csv"
+    assert (settings.uploads_dir / body["dataset_id"] / "Q3_sales_final.csv").is_file()
 
 
 async def test_unknown_dataset_is_404(client):
@@ -92,7 +103,7 @@ async def test_ask_runs_job_and_exposes_result(client, fake_agent, settings):
     result = job["result"]
     assert result["key_numbers"] == {"total_revenue": 350}
     assert result["artifacts"] == [{"path": "revenue.png", "url": "/artifacts/revenue.png"}]
-    assert fake_agent.calls[0]["dataset_path"] == settings.uploads_dir / f"{dataset_id}.csv"
+    assert fake_agent.calls[0]["dataset_path"] == settings.uploads_dir / dataset_id / "s.csv"
 
 
 async def test_report_is_markdown_with_artifact_links_rewritten(client):

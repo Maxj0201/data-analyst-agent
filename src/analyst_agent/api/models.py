@@ -99,6 +99,9 @@ class Job(BaseModel):
 class DatasetInfo(BaseModel):
     dataset_id: str
     filename: str
+    """Name as uploaded."""
+    stored_name: str
+    """Sanitised name on disk; its stem becomes the SQL table name the agent sees."""
     size_bytes: int
     columns: list[str]
     created_at: float
