@@ -188,3 +188,159 @@ def test_raw_syscall_and_prctl_errors(monkeypatch) -> None:
     with pytest.raises(OSError) as e2:
         L._no_new_privs()
     assert e1.value.errno == 1 and e2.value.errno == 1
+
+
+# --- the seccomp program, executed --------------------------------------------------------
+#
+# A tiny classic-BPF interpreter runs the program build_filter() emits against a synthetic
+# ``struct seccomp_data``, so every rule (including the ones added after the escape fuzzer,
+# tests/sandbox/test_fuzz_escape.py) is checked on both architectures without loading it.
+
+_ALLOW = "allow"
+_EPERM = "EPERM"
+_ENOSYS = "ENOSYS"
+_PID = 4242
+
+
+def _run_bpf(prog: bytes, *, arch: int, nr: int, args: tuple[int, ...] = ()) -> str:
+    args = tuple(args) + (0,) * (6 - len(args))
+    data = struct.pack("=iIQ6Q", nr, arch, 0, *(a & 0xFFFFFFFFFFFFFFFF for a in args))
+    insns = [struct.unpack("=HBBI", prog[i : i + 8]) for i in range(0, len(prog), 8)]
+    pc, acc = 0, 0
+    for _ in range(len(insns)):  # forward jumps only: at most one pass
+        code, jt, jf, k = insns[pc]
+        if code == L._BPF_LD_W_ABS:
+            (acc,) = struct.unpack_from("=I", data, k)
+            pc += 1
+        elif code in (L._BPF_JEQ, L._BPF_JGE, L._BPF_JSET):
+            hit = {L._BPF_JEQ: acc == k, L._BPF_JGE: acc >= k, L._BPF_JSET: bool(acc & k)}[code]
+            pc += 1 + (jt if hit else jf)
+        elif code == L._BPF_RET:
+            if k == L._RET_ALLOW:
+                return _ALLOW
+            assert k & 0xFFFF0000 == L._RET_ERRNO, hex(k)
+            return {1: _EPERM, 38: _ENOSYS}[k & 0xFFFF]
+        else:
+            raise AssertionError(f"unexpected BPF opcode {code:#x}")
+    raise AssertionError("program fell off the end")
+
+
+@pytest.fixture(params=["x86_64", "aarch64"])
+def bpf(request: pytest.FixtureRequest) -> Any:
+    machine = request.param
+    audit_arch, nrs = L._ARCH[machine]
+    prog = L.build_filter(machine, pid=_PID)
+
+    def run(name_or_nr: str | int, *args: int, arch: int = audit_arch) -> str:
+        nr = nrs[name_or_nr] if isinstance(name_or_nr, str) else name_or_nr
+        return _run_bpf(prog, arch=arch, nr=nr, args=args)
+
+    run.machine, run.nrs, run.prog = machine, nrs, prog  # type: ignore[attr-defined]
+    return run
+
+
+def test_filter_size_matches_docs() -> None:
+    # docs/sandbox.md and docs/sandbox-performance.md cite the x86_64 size.
+    assert len(L.build_filter("x86_64", pid=1)) // 8 == 115
+    assert len(L.build_filter("aarch64", pid=1)) // 8 == 103
+
+
+def test_syscall_tables_are_consistent() -> None:
+    for machine in ("x86_64", "aarch64"):
+        nrs = L._ARCH[machine][1]
+        assert len(set(nrs.values())) == len(nrs), f"duplicate syscall number on {machine}"
+        assert all(n < L._FIRST_UNREVIEWED_NR for n in nrs.values())
+        for name in (*L._SELF_ONLY, "clone", "clone3", "ioctl", "seccomp"):
+            assert name in nrs
+    # aarch64 only lacks the legacy syscalls that the generic table replaced with *at variants
+    missing = {n for n in L._DENIED if n not in L._ARCH["aarch64"][1]}
+    assert missing == {
+        "fork", "vfork", "chmod", "chown", "lchown", "mknod",
+        "utime", "utimes", "futimesat", "iopl", "ioperm",
+    }  # fmt: skip
+    assert set(L._DENIED) <= set(L._ARCH["x86_64"][1])
+
+
+def test_every_denied_syscall_is_eperm(bpf: Any) -> None:
+    denied = [n for n in L._DENIED if n in bpf.nrs]
+    assert denied and all(bpf(n) == _EPERM for n in denied), [n for n in denied if bpf(n) != _EPERM]
+
+
+@pytest.mark.parametrize("domain", [1, 2, 10, 16, 17])  # AF_UNIX, INET, INET6, NETLINK, PACKET
+def test_every_socket_domain_is_refused(bpf: Any, domain: int) -> None:
+    assert bpf("socket", domain, 1, 0) == _EPERM
+
+
+def test_clone_threads_only_and_clone3_enosys(bpf: Any) -> None:
+    thread_flags = 0x3D0F00  # glibc pthread_create: VM|FS|FILES|SIGHAND|THREAD|SYSVSEM|...
+    assert bpf("clone", thread_flags) == _ALLOW
+    assert bpf("clone", 0x11) == _EPERM  # fork(): SIGCHLD only
+    assert bpf("clone", 0x00010000 | (1 << 40)) == _ALLOW  # only the low 32 bits are read
+    assert bpf("clone3", 0) == _ENOSYS
+
+
+@pytest.mark.parametrize("name", list(L._SELF_ONLY))
+def test_signals_only_to_self(bpf: Any, name: str) -> None:
+    assert bpf(name, _PID, 0) == _ALLOW
+    assert bpf(name, _PID + 1, 0) == _EPERM
+    assert bpf(name, 1, 0) == _EPERM
+    assert bpf(name, 0, 0) == _EPERM  # kill(0, ...): the whole process group
+    assert bpf(name, -1, 0) == _EPERM  # kill(-1, ...): every process we may signal
+
+
+def test_ioctl_denylist(bpf: Any) -> None:
+    for request in L._IOCTL_DENIED:
+        assert bpf("ioctl", 3, request) == _EPERM, hex(request)
+        assert bpf("ioctl", 3, request | (1 << 32)) == _EPERM  # high bits ignored by the kernel
+    for request in (0x5401, 0x541B, 0x80086601):  # TCGETS, FIONREAD, FS_IOC_GETFLAGS
+        assert bpf("ioctl", 3, request) == _ALLOW, hex(request)
+
+
+def test_unreviewed_and_foreign_syscalls(bpf: Any) -> None:
+    for nr in (L._FIRST_UNREVIEWED_NR, 469, 1000, 0x3FFFFFFF):
+        assert bpf(nr) == _ENOSYS
+    assert bpf(L._FIRST_UNREVIEWED_NR - 1) == _ALLOW
+    assert bpf(0, arch=0x40000003) == _EPERM  # AUDIT_ARCH_I386
+    if bpf.machine == "x86_64":
+        assert bpf(L._X32_SYSCALL_BIT | 1) == _EPERM  # x32 ABI write()
+
+
+def test_ordinary_syscalls_are_allowed(bpf: Any) -> None:
+    # read, write, openat, mmap, futex, getpid, exit_group, rt_sigaction, landlock_*
+    common = {
+        "x86_64": (0, 1, 257, 9, 202, 39, 231, 13),
+        "aarch64": (63, 64, 56, 222, 98, 172, 94, 134),
+    }[bpf.machine]
+    for nr in (*common, L._SYS_LANDLOCK_CREATE_RULESET, L._SYS_LANDLOCK_RESTRICT_SELF):
+        assert bpf(nr) == _ALLOW, nr
+
+
+def test_apply_seccomp_passes_a_program_scoped_to_this_pid(monkeypatch) -> None:
+    seen: list[bytes] = []
+    nr_seccomp = L._ARCH["x86_64"][1]["seccomp"]
+
+    def fake_syscall(nr: int, *args: Any) -> int:
+        if nr == nr_seccomp:
+            fprog = args[2]._obj
+            seen.append(L.ctypes.string_at(fprog.filter, fprog.len * 8))
+        return 0
+
+    monkeypatch.setattr(L, "_syscall", fake_syscall)
+    monkeypatch.setattr(L, "_no_new_privs", lambda: None)
+    L.apply_seccomp("x86_64")
+    (prog,) = seen
+    assert prog == L.build_filter("x86_64", pid=L.os.getpid())
+    arch = L._ARCH["x86_64"][0]
+    kill = L._ARCH["x86_64"][1]["kill"]
+    assert _run_bpf(prog, arch=arch, nr=kill, args=(L.os.getpid(), 0)) == _ALLOW
+    assert _run_bpf(prog, arch=arch, nr=kill, args=(L.os.getppid(), 0)) == _EPERM
+
+
+def test_confine_records_phase_marks(monkeypatch) -> None:
+    monkeypatch.setattr(L.sys, "platform", "linux")
+    monkeypatch.setattr(L, "apply_landlock", lambda r, w: 6)
+    monkeypatch.setattr(L, "apply_seccomp", lambda: None)
+    marks: dict[str, float] = {}
+    assert L.confine(["/"], ["/tmp"], marks=marks) == []
+    assert set(marks) == {"landlock_done", "seccomp_done"}
+    assert marks["landlock_done"] <= marks["seccomp_done"]

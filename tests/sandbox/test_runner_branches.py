@@ -374,3 +374,42 @@ def test_run_python_artifact_export_failure(fake_child, monkeypatch) -> None:
 def test_run_python_bad_data_context(tmp_path: Path) -> None:
     res = python_runner.run_python("1", [tmp_path / "missing.csv"], artifacts_dir=tmp_path)
     assert not res.ok and T.kind_of(res.error) == T.DATA_LOAD_ERROR
+
+
+# --------------------------------------------------------------------------- phase profiling
+# python_runner._PROFILE is set only by scripts/bench_sandbox.py; with it off nothing is recorded.
+
+_PARENT_MARKS = {"parent_start", "spawn", "exited", "exported", "parent_end"}
+
+
+def test_run_python_profile_off_by_default(fake_child) -> None:
+    assert python_runner._PROFILE is None
+    assert fake_child({"code": 0, "result": json.dumps({"ok": True})}).ok
+
+
+def test_run_python_profile_merges_numeric_child_marks(fake_child, monkeypatch) -> None:
+    prof: dict[str, float] = {"stale": 1.0}
+    monkeypatch.setattr(python_runner, "_PROFILE", prof)
+    child = {"site_start": 1.5, "user_done": 2, "bad": "x", "nested": {"a": 1}}
+    res = fake_child({"code": 0, "result": json.dumps({"ok": True, "profile": child})})
+    assert res.ok
+    assert set(prof) == _PARENT_MARKS | {"site_start", "user_done"}  # stale cleared
+    assert prof["user_done"] == 2.0 and isinstance(prof["user_done"], float)
+    assert prof["parent_start"] <= prof["spawn"] <= prof["exited"] <= prof["exported"]
+    assert prof["exported"] <= prof["parent_end"]
+
+
+def test_run_python_profile_without_child_payload(fake_child, monkeypatch) -> None:
+    prof: dict[str, float] = {}
+    monkeypatch.setattr(python_runner, "_PROFILE", prof)
+    assert not fake_child({"code": 3}).ok  # crashed: no result.json
+    assert set(prof) == _PARENT_MARKS
+
+
+def test_run_python_profile_real_child_reports_confinement_phases(monkeypatch) -> None:
+    prof: dict[str, float] = {}
+    monkeypatch.setattr(python_runner, "_PROFILE", prof)
+    res = python_runner.run_python("print('hi')", timeout_s=60)
+    assert res.ok, res.error
+    assert {"site_start", "site_end", "boot_start", "seccomp_done"} <= set(prof)
+    assert prof["spawn"] < prof["site_start"] < prof["seccomp_done"] < prof["exited"]

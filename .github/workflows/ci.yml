@@ -28,6 +28,9 @@ jobs:
       - name: Ruff format
         run: uv run ruff format --check .
       - name: Unit tests (with branch coverage)
+        # pyproject's addopts deselect `slow` tests (the sandbox fuzzer, run by nightly.yml).
+        # The gate below measures this default run only: every line under src/ must be
+        # reachable from a fast test, so a slow-only code path shows up as missing here.
         run: uv run pytest -q --cov=analyst_agent --cov-report=term-missing:skip-covered
       - name: Coverage gate
         # Floors are the levels reached when the gate was added, minus 2 points
