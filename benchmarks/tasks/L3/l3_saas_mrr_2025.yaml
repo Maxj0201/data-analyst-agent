@@ -14,5 +14,6 @@ expected:
   pass_threshold: 0.8
 tags:
 - saas
+- time-series
 - open-ended
 - mrr

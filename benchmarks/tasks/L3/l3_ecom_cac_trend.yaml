@@ -1,0 +1,24 @@
+id: l3_ecom_cac_trend
+difficulty: L3
+dataset:
+- data/ecommerce/marketing_spend.csv
+- data/ecommerce/customers.csv
+question: Our marketing spend keeps growing. Is customer acquisition getting more or less efficient over
+  2024 to mid-2025, and does that differ by channel? What should we change?
+expected:
+  rubric:
+  - Defines CAC as channel spend divided by the number of new customers who signed up through that channel
+    in the same period.
+  - Finds paid_search CAC rising sharply, from roughly $56 in 2024-H1 to roughly $111 in 2025-H1 (or an
+    equivalent steady month-by-month increase).
+  - Identifies referral as the cheapest paid channel (CAC roughly $26 over 2024-01 to 2025-06).
+  - Notes that organic signups carry no spend in this table, or that customers with no signup_channel
+    cannot be attributed.
+  - Recommends shifting budget away from paid_search (or fixing its efficiency) toward cheaper channels
+    such as referral.
+  pass_threshold: 0.8
+tags:
+- ecommerce
+- join
+- time-series
+- open-ended

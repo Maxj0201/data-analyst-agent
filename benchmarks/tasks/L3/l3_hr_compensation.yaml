@@ -14,5 +14,5 @@ expected:
   pass_threshold: 0.6
 tags:
 - hr
+- outlier
 - open-ended
-- anomaly

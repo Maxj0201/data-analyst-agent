@@ -1,0 +1,24 @@
+id: l3_saas_api_anomaly
+difficulty: L3
+dataset:
+- data/saas/subscriptions.csv
+- data/saas/usage.csv
+question: Review monthly API usage (api_calls) in 2025 by region. Is there anything unusual we should
+  know about before using this data for capacity planning?
+expected:
+  rubric:
+  - 'Identifies an anomalous drop in APAC api_calls in August 2025 (about 64% below July: roughly 143,652
+    vs 396,526).'
+  - Notes APAC recovered in September (roughly 404,531 calls).
+  - Notes other regions show no comparable August drop, so it is specific to APAC rather than seasonality.
+  - Rules out a change in customer count (e.g. calls per active user or per subscription also drop) as
+    the explanation.
+  - Recommends confirming an incident or data-pipeline gap and excluding or adjusting August APAC usage
+    for planning.
+  pass_threshold: 0.6
+tags:
+- saas
+- join
+- time-series
+- outlier
+- open-ended

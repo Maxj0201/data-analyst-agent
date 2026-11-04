@@ -1,0 +1,31 @@
+id: l2_hr_first_year_retention
+difficulty: L2
+dataset: data/hr/employees.csv
+question: For hire-year cohorts 2019 through 2024, what share of each cohort was still employed one year
+  after being hired (termination_date empty or more than 365 days after hire_date)? Give the cohort size
+  and the percentage.
+expected:
+  expected_rows:
+  - hire_year: '2019'
+    hires: 45
+    retention_pct: 100.0
+  - hire_year: '2020'
+    hires: 45
+    retention_pct: 100.0
+  - hire_year: '2021'
+    hires: 53
+    retention_pct: 98.11
+  - hire_year: '2022'
+    hires: 45
+    retention_pct: 100.0
+  - hire_year: '2023'
+    hires: 39
+    retention_pct: 94.87
+  - hire_year: '2024'
+    hires: 40
+    retention_pct: 100.0
+  tolerance: 0.005
+  order_matters: true
+tags:
+- hr
+- cohort

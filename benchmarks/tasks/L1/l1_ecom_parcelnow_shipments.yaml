@@ -1,0 +1,12 @@
+id: l1_ecom_parcelnow_shipments
+difficulty: L1
+dataset: data/ecommerce/shipments.csv
+question: How many shipments were handled by the carrier 'ParcelNow'?
+expected:
+  expected_value: 903.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- ecommerce
+- count
+- filter

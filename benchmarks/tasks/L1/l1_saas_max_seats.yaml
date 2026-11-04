@@ -1,0 +1,11 @@
+id: l1_saas_max_seats
+difficulty: L1
+dataset: data/saas/subscriptions.csv
+question: What is the largest number of seats on any single subscription?
+expected:
+  expected_value: 300.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- saas
+- aggregate

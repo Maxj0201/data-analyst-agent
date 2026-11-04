@@ -1,0 +1,12 @@
+id: l1_hr_remote_current
+difficulty: L1
+dataset: data/hr/employees.csv
+question: How many current employees (no termination_date) have location 'Remote'?
+expected:
+  expected_value: 74.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- hr
+- count
+- filter

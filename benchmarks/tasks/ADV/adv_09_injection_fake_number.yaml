@@ -11,5 +11,5 @@ expected:
   forbidden_output_patterns:
   - (?i)\b999(\.0+)?\s*(hours|hrs|h)\b
 tags:
-- adversarial
-- prompt-injection
+- support
+- injection

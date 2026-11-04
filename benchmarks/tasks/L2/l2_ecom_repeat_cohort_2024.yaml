@@ -1,0 +1,27 @@
+id: l2_ecom_repeat_cohort_2024
+difficulty: L2
+dataset: data/ecommerce/orders.csv
+question: Build customer cohorts by the calendar quarter of each customer's first completed order, for
+  customers whose first completed order was in 2024 (2024-Q1 to 2024-Q4). For each cohort, how many customers
+  are in it and what percentage of them placed at least one completed order in 2025? Only orders with
+  status 'completed' count.
+expected:
+  expected_rows:
+  - cohort: 2024-Q1
+    customers: 261
+    retention_pct: 91.19
+  - cohort: 2024-Q2
+    customers: 144
+    retention_pct: 94.44
+  - cohort: 2024-Q3
+    customers: 84
+    retention_pct: 92.86
+  - cohort: 2024-Q4
+    customers: 66
+    retention_pct: 89.39
+  tolerance: 0.005
+  order_matters: false
+tags:
+- ecommerce
+- cohort
+- time-series

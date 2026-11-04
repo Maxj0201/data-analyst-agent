@@ -1,0 +1,47 @@
+id: l2_hr_hires_cumulative
+difficulty: L2
+dataset: data/hr/employees.csv
+question: For each hire year, how many employees were hired that year, and what is the cumulative number
+  hired from the first year in the data up to and including that year? Include every employee, current
+  or terminated.
+expected:
+  expected_rows:
+  - hire_year: '2015'
+    hires: 32
+    cumulative_hires: 32
+  - hire_year: '2016'
+    hires: 39
+    cumulative_hires: 71
+  - hire_year: '2017'
+    hires: 40
+    cumulative_hires: 111
+  - hire_year: '2018'
+    hires: 42
+    cumulative_hires: 153
+  - hire_year: '2019'
+    hires: 45
+    cumulative_hires: 198
+  - hire_year: '2020'
+    hires: 45
+    cumulative_hires: 243
+  - hire_year: '2021'
+    hires: 53
+    cumulative_hires: 296
+  - hire_year: '2022'
+    hires: 45
+    cumulative_hires: 341
+  - hire_year: '2023'
+    hires: 39
+    cumulative_hires: 380
+  - hire_year: '2024'
+    hires: 40
+    cumulative_hires: 420
+  - hire_year: '2025'
+    hires: 30
+    cumulative_hires: 450
+  tolerance: 0.0
+  order_matters: true
+tags:
+- hr
+- window
+- time-series

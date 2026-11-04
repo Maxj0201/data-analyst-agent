@@ -24,6 +24,6 @@ expected:
   order_matters: false
 tags:
 - ecommerce
-- revenue
 - join
+- revenue
 - group-by

@@ -1,0 +1,22 @@
+id: l3_ecom_carrier_performance
+difficulty: L3
+dataset:
+- data/ecommerce/shipments.csv
+- data/ecommerce/orders.csv
+question: How reliable are our delivery carriers? A shipment is on time if delivered_date is on or before
+  promised_delivery_date. Is performance changing over the year?
+expected:
+  rubric:
+  - Identifies ParcelNow as the least reliable carrier (on time roughly 80% vs about 95% for PostCo and
+    96% for SwiftShip).
+  - Finds ParcelNow's on-time rate collapses for November-December orders (about 52%, vs about 90% in
+    January-October) while the other carriers stay steady.
+  - Quantifies ParcelNow's share of late shipments (about 183 of 316 late shipments).
+  - Recommends an action such as moving peak-season volume away from ParcelNow or renegotiating its SLA.
+  pass_threshold: 0.75
+tags:
+- ecommerce
+- join
+- time-series
+- outlier
+- open-ended

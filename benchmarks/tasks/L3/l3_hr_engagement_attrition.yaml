@@ -1,0 +1,22 @@
+id: l3_hr_engagement_attrition
+difficulty: L3
+dataset:
+- data/hr/employees.csv
+- data/hr/engagement_survey.csv
+question: We ran an engagement survey in November 2024. Did it predict who left the company in 2025, and
+  how should we use it?
+expected:
+  rubric:
+  - Finds a 2025 termination rate of roughly 39% for employees with engagement_score 1-2 vs roughly 5%
+    for scores 4-5.
+  - Notes the average engagement_score was about 2.4 among people who left in 2025 vs 3.6 among those
+    who stayed.
+  - States the survey covers 377 employees (those employed on 2024-11-15).
+  - Recommends using low engagement as an early-warning signal (e.g. manager follow-ups), with a caveat
+    that it is correlational.
+  pass_threshold: 0.75
+tags:
+- hr
+- join
+- cohort
+- open-ended

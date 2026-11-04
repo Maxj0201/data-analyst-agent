@@ -1,0 +1,12 @@
+id: l1_ecom_marketing_spend_2025
+difficulty: L1
+dataset: data/ecommerce/marketing_spend.csv
+question: What is the total spend_usd in the marketing_spend table for months in 2025? Round to 2 decimals.
+expected:
+  expected_value: 2974.45
+  tolerance: 0.001
+  abs_tolerance: 0.0
+tags:
+- ecommerce
+- aggregate
+- filter

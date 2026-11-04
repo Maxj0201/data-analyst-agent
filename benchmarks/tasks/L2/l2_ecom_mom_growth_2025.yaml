@@ -1,0 +1,18 @@
+id: l2_ecom_mom_growth_2025
+difficulty: L2
+dataset: data/ecommerce/orders.csv
+question: Compute monthly net revenue and its month-over-month growth in percent (vs the previous calendar
+  month; January 2025 is compared with December 2024). Which month of 2025 had the largest MoM growth,
+  and what was it? Net revenue = quantity * unit_price * (1 - discount_pct), counting only orders with
+  status 'completed'.
+expected:
+  expected_rows:
+  - month: 2025-11
+    mom_growth_pct: 87.71
+  tolerance: 0.01
+  order_matters: false
+tags:
+- ecommerce
+- window
+- time-series
+- revenue

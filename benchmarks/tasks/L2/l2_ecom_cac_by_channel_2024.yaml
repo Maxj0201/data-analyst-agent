@@ -1,0 +1,22 @@
+id: l2_ecom_cac_by_channel_2024
+difficulty: L2
+dataset:
+- data/ecommerce/marketing_spend.csv
+- data/ecommerce/customers.csv
+question: For 2024, what was the customer acquisition cost (CAC) of each paid channel in marketing_spend?
+  Define CAC as total 2024 spend_usd for the channel divided by the number of customers whose signup_date
+  is in 2024 and whose signup_channel is that channel.
+expected:
+  expected_rows:
+  - channel: paid_search
+    cac: 71.59
+  - channel: social
+    cac: 80.33
+  - channel: referral
+    cac: 25.09
+  tolerance: 0.005
+  order_matters: false
+tags:
+- ecommerce
+- join
+- ratio

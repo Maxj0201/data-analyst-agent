@@ -1,0 +1,11 @@
+id: l1_hr_total_budget
+difficulty: L1
+dataset: data/hr/departments.csv
+question: What is the sum of budget_2025_usd across all departments?
+expected:
+  expected_value: 44094000.0
+  tolerance: 0.001
+  abs_tolerance: 0.0
+tags:
+- hr
+- aggregate

@@ -1,0 +1,12 @@
+id: l1_support_avg_order_value_high
+difficulty: L1
+dataset: data/support/support_tickets.csv
+question: What is the average order_value of tickets with priority 'High'? Round to 2 decimals.
+expected:
+  expected_value: 87.4134
+  tolerance: 0.005
+  abs_tolerance: 0.0
+tags:
+- support
+- aggregate
+- filter
