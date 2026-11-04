@@ -2692,8 +2692,9 @@ def build_v2_tasks(d: dict[str, pd.DataFrame]) -> list[TaskSpec]:
             ["hr", "join", "outlier", "open-ended"],
             {
                 "rubric": [
-                    f"Finds {p['n_dupes']} duplicate claims (same employee, date, category and "
-                    f"amount submitted twice), worth about ${p['dupe_amount']:,.2f}.",
+                    f"Finds {p['n_dupes']} duplicated claims, i.e. exact repeats of an earlier "
+                    "claim (same employee, submitted_date, category and amount_usd), worth about "
+                    f"${p['dupe_amount']:,.2f} in repeated amounts.",
                     f"Flags {p['gamer_name']} ({p['gamer_id']}) for submitting {p['gamer_n']} "
                     f"claims between $450 and ${APPROVAL_LIMIT:,.0f}, just under the approval "
                     f"threshold (about ${p['gamer_total']:,.0f} in total).",

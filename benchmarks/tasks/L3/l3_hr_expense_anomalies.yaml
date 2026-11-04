@@ -6,8 +6,8 @@ dataset:
 question: Audit the 2025 expense claims. Are there irregularities worth escalating?
 expected:
   rubric:
-  - Finds 12 duplicate claims (same employee, date, category and amount submitted twice), worth about
-    $986.32.
+  - Finds 12 duplicated claims, i.e. exact repeats of an earlier claim (same employee, submitted_date,
+    category and amount_usd), worth about $986.32 in repeated amounts.
   - Flags Liam Suzuki (E0155) for submitting 18 claims between $450 and $500, just under the approval
     threshold (about $8,622 in total).
   - Explains that claims of $500 or more require approval (requires_approval), which is why clustering
