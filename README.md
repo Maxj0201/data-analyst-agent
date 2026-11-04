@@ -13,7 +13,8 @@ and latency.
 - **Agent loop:** hand-written Plan → Execute → Verify → Revise loop on the Anthropic API, with
   turn and token budgets that degrade gracefully instead of failing.
 - **Tools:** `inspect_schema`, `run_sql`, `run_python`, `make_chart`, `final_report`.
-- **Sandbox:** read-only in-memory DuckDB for SQL; resource-limited, network-less subprocess for Python.
+- **Sandbox:** exposes `run_sql(query) -> SqlResult` and `run_python(code) -> PyResult`
+  (dataclasses); read-only in-memory DuckDB for SQL; resource-limited, network-less subprocess for Python.
 - **Critic:** an independent LLM call reviews the draft answer, the code that produced it and the
   result tables, and can send the agent back to revise (max 2 rounds).
 - **Serving:** FastAPI with background jobs and an SSE step stream; Streamlit frontend.
@@ -144,7 +145,8 @@ uv run ruff check .
 
 Once the API layer lands, the server and UI are started with Docker Compose (API + Streamlit
 frontend); see `deploy/` for Cloud Run instructions and `docs/observability.md` for Langfuse.
-Configuration uses `AGENT_*` environment variables (for example `AGENT_LANGFUSE_ENABLED`).
+Configuration uses `AGENT_*` environment variables, e.g. `AGENT_MODEL`, `AGENT_MAX_TURNS`,
+`AGENT_TOKEN_BUDGET`, `AGENT_LANGFUSE_ENABLED`.
 
 ## Benchmark & eval
 

@@ -98,7 +98,7 @@ flowchart TB
 ## Components
 
 ### Planner loop (`core/loop.py`)
-A single hand-written loop drives each run through **Plan → Execute → Verify → Revise**:
+A single hand-written loop (LangGraph may be used only for state management, per `CLAUDE.md`) drives each run through **Plan → Execute → Verify → Revise**:
 
 1. The model produces a short plan, then issues tool calls (`inspect_schema`, `run_sql`,
    `run_python`, `make_chart`).
@@ -132,10 +132,16 @@ JSON-schema definitions plus Python handlers registered in `tools/registry.py`.
 ### Sandbox (`sandbox/`)
 Two independent layers, detailed in `docs/sandbox.md` (written alongside the sandbox):
 
-- **DuckDB runner:** in-memory database loaded from CSV / SQLite / Parquet, read-only connection,
+- **DuckDB runner:** in-memory database loaded from CSV / SQLite / DuckDB (and Parquet) sources, read-only connection,
   statement allowlist, 30 s timeout, first 200 rows plus total count.
 - **Python runner:** separate interpreter per call, 60 s wall clock, `RLIMIT` memory cap, sockets
   blocked at import time via `sitecustomize`, temp-dir cwd, curated library set, structured errors.
+
+**Interface contract** (from `CLAUDE.md`): `sandbox/__init__.py` exposes
+`run_sql(query) -> SqlResult` and `run_python(code) -> PyResult`, both dataclasses. The tools layer
+depends only on these two functions, so the sandbox can be stubbed (same signatures) while it is
+under development, and its internals can change without touching the agent core. Errors are returned
+as fields on the result, not raised.
 
 ### Critic (`core/critic.py`)
 A second LLM call with its own system prompt. It receives the draft answer, the executed SQL / code,
@@ -154,6 +160,11 @@ and `GET /jobs/{id}/events`, a Server-Sent Events stream that emits each plan, t
 summary and critic verdict as it happens. Jobs run as background tasks against an in-memory store
 with a SQLite fallback. The loop emits step events through a callback, so the CLI, API and eval runner
 share one code path and differ only in the sink.
+
+### Configuration
+`pydantic-settings`, env vars prefixed `AGENT_` (e.g. `AGENT_MODEL`, `AGENT_MAX_TURNS`,
+`AGENT_TOKEN_BUDGET`). All LLM calls, including the critic and eval judge, go through
+`core/llm.py`.
 
 ### Observability (Langfuse)
 Behind `AGENT_LANGFUSE_ENABLED`. Every LLM call (including critic and judge calls) and every tool
