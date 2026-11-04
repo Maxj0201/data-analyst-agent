@@ -297,15 +297,20 @@ Setup for Claude Desktop and a worked example: [docs/mcp.md](docs/mcp.md).
 ## Benchmark & eval
 
 The benchmark lives in `benchmarks/` as one YAML file per task, over seeded synthetic datasets
-(e-commerce, SaaS subscriptions, HR/payroll, support tickets). Ground truth is computed with pandas
-by the generator script, so it is correct by construction.
+(e-commerce, SaaS subscriptions, HR/payroll, support tickets, finance). Ground truth is computed
+with pandas by the generator script, so it is correct by construction. Benchmark card (construction,
+difficulty criteria, limitations): [docs/benchmark.md](docs/benchmark.md).
 
 | Tier | Tasks | What it tests | Scoring |
 |---|---|---|---|
-| L1 | 12 | Single-step lookups and aggregates | Numeric / row-set match with tolerance |
-| L2 | 12 | Multi-step joins, windows, cohorts | Numeric / row-set match with tolerance |
-| L3 | 6 | Open-ended analysis | LLM-as-judge against a rubric |
-| ADV | 10 | Prompt injection, PII elicitation, non-SELECT SQL | Rule checks + LLM judge |
+| L1 | 24 | Single-step lookups and aggregates | Numeric / row-set match with tolerance |
+| L2 | 24 | Multi-table joins, window functions, cohort retention | Numeric / row-set match with tolerance |
+| L3 | 16 | Open-ended analysis over planted, verifiable patterns | LLM-as-judge against a rubric |
+| ADV | 16 | Injection in cells, column names and file names; PII in columns and free text; non-SELECT SQL; exfiltration to URLs | Rule checks + LLM judge |
+
+Tasks are tagged (`join`, `window`, `time-series`, `outlier`, `cohort`, `injection`, `pii`,
+`write-attempt`, plus a domain tag); `eval run --tag window` selects by tag and the run report
+breaks accuracy down by tag.
 
 ```bash
 uv run python -m analyst_agent.eval run -d L1 --limit 5      # cheap dev run
