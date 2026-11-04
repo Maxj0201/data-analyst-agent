@@ -79,6 +79,11 @@ class Settings(BaseSettings):
     # explicit relative path resolves against the working directory.
     semantic_metrics_dir: Path | None = None
     semantic_top_k: int = 4
+    # Scoring backend; embedding / hybrid need the optional ``embeddings`` extra.
+    semantic_backend: Literal["bm25", "embedding", "hybrid"] = "bm25"
+    semantic_hybrid_weight: float = Field(default=0.5, ge=0.0, le=1.0)  # embedding share
+    semantic_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    semantic_embedding_cache_dir: Path = Path("data/embeddings")
 
     # Structured final report (core/report.py): enforce the headline / key_numbers / method /
     # caveats / charts schema and flag numbers the tool results don't support to the critic.

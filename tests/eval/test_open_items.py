@@ -93,9 +93,11 @@ def test_default_metrics_dir_does_not_depend_on_cwd(tmp_path: Path, monkeypatch)
     assert s.semantic_metrics_dir is None
     resolved = s.resolved_semantic_metrics_dir
     assert resolved == default_metrics_dir() and resolved.is_absolute()
+    # retrieval_eval.yaml (#12) lives there too; the loader skips it (kind: retrieval_eval).
     assert sorted(p.name for p in resolved.glob("*.yaml")) == [
         "ecommerce.yaml",
         "hr.yaml",
+        "retrieval_eval.yaml",
         "saas.yaml",
     ]
 

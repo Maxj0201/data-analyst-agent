@@ -55,7 +55,7 @@ flowchart TB
 
     subgraph Core["Agent core (hand-written loop)"]
         ROUTER["Router (flag)<br/>L1/L2/L3 → working model<br/>escalation on failure"]
-        SEM["Semantic layer (flag)<br/>BM25 over metrics.yaml"]
+        SEM["Semantic layer (flag)<br/>BM25 / embeddings / hybrid<br/>over metrics.yaml"]
         LOOP["Planner loop<br/>Plan → Execute → Verify → Revise"]
         GATE{{"Approval gate (flag)<br/>EXPLAIN rows · run_python · budget"}}
         STATE["AgentState<br/>messages · tool results · route · approvals · cost"]
@@ -249,7 +249,10 @@ uv run streamlit run frontend/app.py                        # http://localhost:8
 Or with Docker: `cp .env.example .env` (add `ANTHROPIC_API_KEY`, set any feature flags), then
 `docker compose up --build`. Compose passes the three feature flags through from `.env` or the
 shell, e.g. `AGENT_SEMANTIC_LAYER_ENABLED=true docker compose up --build`. The API image ships
-the metric definitions at `/app/benchmarks/metrics` (but not the benchmark data or tasks).
+the metric definitions inside the installed package (but not the benchmark data or tasks).
+`INSTALL_EMBEDDINGS=true docker compose up --build` (or `docker build --build-arg
+INSTALL_EMBEDDINGS=true`) adds the optional `embeddings` extra for
+`AGENT_SEMANTIC_BACKEND=embedding|hybrid`; it is off by default because torch adds several GB.
 
 | Endpoint                   | Purpose                                                        |
 |----------------------------|----------------------------------------------------------------|

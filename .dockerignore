@@ -17,7 +17,7 @@ tests
 docs
 deploy
 # benchmarks/ is excluded (data, tasks, generator) except the semantic-layer metric
-# definitions, which the API image ships at /app/benchmarks/metrics.
+# definitions, which the wheel bundles as analyst_agent/semantic/metrics.
 benchmarks
 !benchmarks/metrics
 !benchmarks/metrics/*.yaml

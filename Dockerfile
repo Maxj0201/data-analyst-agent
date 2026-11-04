@@ -4,6 +4,11 @@
 #   docker build --target api      -t analyst-agent-api .
 #   docker build --target frontend -t analyst-agent-frontend .
 # The default (last) target is `api`.
+#
+# Opt-in build arg for the API image:
+#   --build-arg INSTALL_EMBEDDINGS=true   adds the `embeddings` extra (sentence-transformers,
+#                                         torch) so AGENT_SEMANTIC_BACKEND=embedding|hybrid
+#                                         works. Off by default: it adds several GB.
 
 ARG PYTHON_IMAGE=python:3.11-slim-bookworm
 ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.11.32
@@ -20,17 +25,20 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 
 FROM builder-base AS builder-api
+ARG INSTALL_EMBEDDINGS=false
 # Dependencies first (cached unless pyproject.toml / uv.lock change), then the project itself.
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-install-project --extra api
+    uv sync --frozen --no-dev --no-install-project --extra api \
+        $( [ "$INSTALL_EMBEDDINGS" = "true" ] && echo --extra embeddings )
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 # Built into the wheel as analyst_agent/semantic/metrics (pyproject force-include).
 COPY benchmarks/metrics ./benchmarks/metrics
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-editable --extra api
+    uv sync --frozen --no-dev --no-editable --extra api \
+        $( [ "$INSTALL_EMBEDDINGS" = "true" ] && echo --extra embeddings )
 
 FROM builder-base AS builder-frontend
 # The UI only talks HTTP to the API: install just streamlit + httpx (and their deps), pinned to
@@ -67,16 +75,17 @@ CMD ["sh", "-c", "exec streamlit run frontend/app.py --server.address=0.0.0.0 --
 
 FROM runtime AS api
 COPY --from=builder-api --chown=app:app /app/.venv /app/.venv
-# Semantic-layer metric definitions (read-only, a few KB). Only benchmarks/metrics is in the
-# build context (.dockerignore); the benchmark data and tasks stay out of the image.
-COPY --chown=app:app benchmarks/metrics ./benchmarks/metrics
+# Semantic-layer metric definitions ship inside the installed wheel
+# (analyst_agent/semantic/metrics), so AGENT_SEMANTIC_METRICS_DIR stays unset.
 RUN mkdir -p /app/data/uploads /app/artifacts && chown -R app:app /app/data /app/artifacts
 USER app
 # Cloud Run injects PORT=8080; locally and in compose it defaults to 8000.
 # Feature flags (AGENT_ROUTING_ENABLED, AGENT_SEMANTIC_LAYER_ENABLED, AGENT_APPROVAL_ENABLED)
 # stay off unless set at run time; see docs/configuration.md.
+# HF_HOME: where the embeddings backend (INSTALL_EMBEDDINGS=true) caches its model; on the
+# data volume so it survives restarts.
 ENV PORT=8000 \
-    AGENT_SEMANTIC_METRICS_DIR=/app/benchmarks/metrics
+    HF_HOME=/app/data/huggingface
 EXPOSE 8000
 VOLUME ["/app/data", "/app/artifacts"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

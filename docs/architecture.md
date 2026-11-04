@@ -183,7 +183,14 @@ escalation. Eval can force it on or off with `eval run --routing/--no-routing` f
 ### Semantic layer (`semantic/`)
 `schema.py` validates `metrics.yaml` files (read-only single-statement SQL, unique snake_case
 names, no unknown keys); `loader.py` loads files or directories; `retriever.py` ranks with a
-swappable `ScoringBackend` (BM25 by default; names and synonyms weighted 2×). The benchmark ships
+swappable `ScoringBackend` chosen by `AGENT_SEMANTIC_BACKEND`: BM25 (default; names and synonyms
+weighted 2×), `embedding` (sentence-transformers cosine, optional `embeddings` extra, model loaded
+lazily, document vectors cached on disk) or `hybrid` (max-normalised BM25 and embedding scores
+mixed by `AGENT_SEMANTIC_HYBRID_WEIGHT`), see `embeddings.py` / `backends.py`. Whatever the
+backend, a *mention rerank* boosts metrics the question names verbatim (name, label or a
+distinctive multi-word synonym) and keeps a named composite metric above a named component it is
+defined from (AOV over net revenue). `python -m analyst_agent.semantic eval` reports top-1 /
+top-3 hit rate and MRR per backend against `benchmarks/metrics/retrieval_eval.yaml`. The benchmark ships
 22 definitions in `benchmarks/metrics/`, each `sql_fragment` tested against the benchmark data.
 The Docker API image includes that directory (and only that part of `benchmarks/`).
 

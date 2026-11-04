@@ -78,8 +78,8 @@ AGENT_TOKEN_BUDGET=400000
 AGENT_MAX_CONCURRENT_JOBS=4
 AGENT_MAX_UPLOAD_MB=50
 AGENT_LANGFUSE_ENABLED=true
-# Feature flags (default false; see docs/configuration.md). The image ships the semantic-layer
-# metrics at /app/benchmarks/metrics. Approval needs someone to answer in the UI within
+# Feature flags (default false; see docs/configuration.md). The installed package ships the
+# semantic-layer metrics (AGENT_SEMANTIC_METRICS_DIR unset). Approval needs someone to answer in the UI within
 # AGENT_APPROVAL_TIMEOUT_S, otherwise the gated step is denied.
 AGENT_ROUTING_ENABLED=false
 AGENT_SEMANTIC_LAYER_ENABLED=false

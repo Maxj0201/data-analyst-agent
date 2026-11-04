@@ -36,6 +36,11 @@ frontend = [
 mcp = [
     "mcp>=2.3,<3",
 ]
+# Embedding / hybrid semantic-layer backends (AGENT_SEMANTIC_BACKEND=embedding|hybrid).
+# Pulls in torch; not needed for tests (the encoder is mocked).
+embeddings = [
+    "sentence-transformers>=3.0",
+]
 
 [dependency-groups]
 dev = [

@@ -121,3 +121,20 @@ def test_metric_is_immutable() -> None:
     m = Metric(name="m", domain="d", definition="x", sql_fragment="SELECT 1")
     with pytest.raises(Exception):  # noqa: B017 - pydantic ValidationError on frozen model
         m.name = "other"  # type: ignore[misc]
+
+
+def test_directory_scan_skips_other_kinds(tmp_path) -> None:
+    from analyst_agent.semantic import MetricsLoadError, load_metrics, load_metrics_file
+
+    (tmp_path / "m.yaml").write_text(
+        "domain: d\nmetrics:\n  - {name: x, definition: d, sql_fragment: SELECT 1}\n"
+    )
+    other = tmp_path / "retrieval_eval.yaml"
+    other.write_text("kind: retrieval_eval\ncases: []\n")
+    assert [m.name for m in load_metrics(tmp_path)] == ["x"]
+    import pytest
+
+    with pytest.raises(MetricsLoadError):
+        load_metrics([other])  # named explicitly: not silently skipped
+    with pytest.raises(MetricsLoadError):
+        load_metrics_file(other)
