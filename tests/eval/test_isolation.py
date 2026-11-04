@@ -103,3 +103,27 @@ async def test_dry_run_core_agent_on_three_tasks(
     assert [r.status for r in results] == ["ok"] * 3, [r.error for r in results]
     assert all(r.agent_status == "completed" for r in results)
     assert all(r.tool_calls >= 2 and r.cost_usd == 0 for r in results)
+
+
+@pytest.mark.asyncio
+async def test_dry_run_with_routing_forced_on_runs_in_child_processes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``--routing`` must give a picklable agent, or process isolation would reject it."""
+    import pickle
+
+    from analyst_agent.eval.agent import CoreAgent, load_agent
+
+    monkeypatch.setenv("AGENT_ARTIFACTS_DIR", str(tmp_path / "art"))
+    agent = load_agent("dry-run", routing_enabled=True)
+    assert agent == CoreAgent(dry_run=True, routing_enabled=True)
+    assert pickle.loads(pickle.dumps(agent)) == agent
+    _, results = await run_tasks(
+        load_tasks(limit=2),
+        agent,
+        config=RunConfig(score=False, timeout_s=120),
+        run_dir=tmp_path / "run",
+        progress=False,
+    )
+    assert [r.status for r in results] == ["ok"] * 2, [r.error for r in results]
+    assert all(r.routing and r.routing["route"]["source"] == "router" for r in results)

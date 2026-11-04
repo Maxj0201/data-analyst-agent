@@ -54,18 +54,24 @@ def critic_json(
 
 
 class FakeLLM:
-    """Scripted LLM: separate queues for the agent, the critic and the report writer."""
+    """Scripted LLM: separate queues for the agent, the critic, the report writer and the router.
+
+    ``calls`` records the requested ``model`` per call (``None`` = the configured default); the
+    cost tracker is billed under the scripted response's ``model``.
+    """
 
     def __init__(
         self,
         agent: list[LLMResponse | Exception],
         critic: list[LLMResponse | Exception] | None = None,
         writer: list[LLMResponse] | None = None,
+        router: list[LLMResponse | Exception] | None = None,
     ) -> None:
         self.queues: dict[str, list[LLMResponse | Exception]] = {
             "agent": list(agent),
             "critic": list(critic or []),
             "report_writer": list(writer or []),
+            "router": list(router or []),
         }
         self.calls: list[dict[str, Any]] = []
 
@@ -79,6 +85,8 @@ class FakeLLM:
         model: str | None = None,
         role: str = "agent",
         cost: CostTracker | None = None,
+        effort: str | None = None,
+        max_tokens: int | None = None,
     ) -> LLMResponse:
         self.calls.append(
             {
@@ -87,6 +95,9 @@ class FakeLLM:
                 "messages": copy.deepcopy(messages),
                 "tools": tools,
                 "output_format": output_format,
+                "model": model,
+                "effort": effort,
+                "max_tokens": max_tokens,
             }
         )
         q = self.queues[role]
@@ -145,7 +156,7 @@ def _pick_columns(cols: list[tuple[str, str]], question: str) -> tuple[str | Non
 
 def dry_run_llm(question: str, table: str, run_sql: SqlFn) -> FakeLLM:
     """Script a deterministic run over ``table``: inspect schema, aggregate with SQL, chart it,
-    report, critic passes.
+    report, critic passes (plus a router verdict, used only when routing is on).
 
     The query is chosen from the schema with a simple heuristic (a text column the question
     mentions to group by, a numeric column it mentions or that looks like revenue to sum) and
@@ -217,4 +228,9 @@ def dry_run_llm(question: str, table: str, run_sql: SqlFn) -> FakeLLM:
         f"{table_md}\n\nQuery:\n\n```sql\n{sql}\n```\n"
     )
     agent.append(resp(tool_use("final_report", markdown=markdown, key_numbers=key_numbers), **kw))
-    return FakeLLM(agent=agent, critic=[critic_json("pass", **kw)])
+    # Only consumed when AGENT_ROUTING_ENABLED is on: a grouped query is L2, a single aggregate L1.
+    tier = "L2" if group else "L1"
+    route = json.dumps({"tier": tier, "reason": "dry run: scripted from the planned query shape"})
+    return FakeLLM(
+        agent=agent, critic=[critic_json("pass", **kw)], router=[resp(text(route), **kw)]
+    )

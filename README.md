@@ -156,6 +156,11 @@ uv run ruff check .
 Configuration uses `AGENT_*` environment variables, e.g. `AGENT_MODEL`, `AGENT_MAX_TURNS`,
 `AGENT_TOKEN_BUDGET`, `AGENT_LANGFUSE_ENABLED`.
 
+Model routing (off by default): `AGENT_ROUTING_ENABLED=true` uses a cheap router call
+(`AGENT_ROUTER_MODEL`) to label each question L1/L2/L3 and runs it on `AGENT_MODEL_L1/L2/L3`.
+It escalates a tier on a second critic "revise" or a repeated tool error. See
+[docs/model-routing.md](docs/model-routing.md).
+
 ## Serving (API + UI)
 
 ```bash
@@ -194,6 +199,9 @@ by the generator script, so it is correct by construction.
 uv run python -m analyst_agent.eval run -d L1 --limit 5      # cheap dev run
 uv run python -m analyst_agent.eval report runs/<timestamp>
 uv run python -m analyst_agent.eval compare runs/<a> runs/<b>   # incl. prompt-version diffs
+# A/B model routing
+uv run python -m analyst_agent.eval run --no-routing   # baseline
+uv run python -m analyst_agent.eval run --routing      # routed; report adds a Routing section
 ```
 
 Each task runs in its own child process (`--isolation process`, the default), which is killed

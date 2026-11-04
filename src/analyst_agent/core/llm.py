@@ -4,7 +4,8 @@ Responsibilities:
 * model / effort / max_tokens from config
 * the system prompt is sent as a cached block (``cache_control: ephemeral``)
 * retries with exponential backoff + jitter on transient errors (429, 5xx, network)
-* a :class:`CostTracker` that accumulates tokens and estimated USD per run
+* a :class:`CostTracker` that accumulates tokens and estimated USD per run, broken down by role
+  and by model (routing sends different steps to different models)
 
 Responses are normalised into plain dicts (:class:`LLMResponse`) so the agent loop and the
 tests never touch SDK objects directly. Assistant content blocks (including thinking blocks)
@@ -41,6 +42,15 @@ CACHE_WRITE_MULT = 1.25
 CACHE_READ_MULT = 0.10
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+# Models that accept the server-side ``fallbacks: "default"`` parameter. Others (e.g. Haiku,
+# which a router or a cheap tier may use) are sent a plain request.
+FALLBACK_MODELS = frozenset(
+    {"claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"}
+)
+
+
+def supports_refusal_fallback(model: str) -> bool:
+    return model in FALLBACK_MODELS
 
 
 @dataclass
@@ -83,6 +93,46 @@ def estimate_cost_usd(model: str, usage: Usage) -> float:
 
 
 @dataclass
+class ModelUsage:
+    """Token and cost totals for one model within a run."""
+
+    calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    usd: float = 0.0
+
+    def add(self, usage: Usage, cost: float) -> None:
+        self.calls += 1
+        self.input_tokens += usage.input_tokens
+        self.output_tokens += usage.output_tokens
+        self.cache_creation_input_tokens += usage.cache_creation_input_tokens
+        self.cache_read_input_tokens += usage.cache_read_input_tokens
+        self.usd += cost
+
+    @property
+    def total_tokens(self) -> int:
+        return (
+            self.input_tokens
+            + self.output_tokens
+            + self.cache_creation_input_tokens
+            + self.cache_read_input_tokens
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "calls": self.calls,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "cache_creation_input_tokens": self.cache_creation_input_tokens,
+            "cache_read_input_tokens": self.cache_read_input_tokens,
+            "total_tokens": self.total_tokens,
+            "usd": round(self.usd, 6),
+        }
+
+
+@dataclass
 class CostTracker:
     """Accumulates token usage and estimated cost across every LLM call in a run."""
 
@@ -93,6 +143,7 @@ class CostTracker:
     usd: float = 0.0
     calls: int = 0
     by_role: dict[str, float] = field(default_factory=dict)
+    by_model: dict[str, ModelUsage] = field(default_factory=dict)
 
     def add(self, model: str, usage: Usage, role: str = "agent") -> float:
         cost = estimate_cost_usd(model, usage)
@@ -103,6 +154,7 @@ class CostTracker:
         self.usd += cost
         self.calls += 1
         self.by_role[role] = self.by_role.get(role, 0.0) + cost
+        self.by_model.setdefault(model, ModelUsage()).add(usage, cost)
         return cost
 
     @property
@@ -124,6 +176,7 @@ class CostTracker:
             "total_tokens": self.total_tokens,
             "usd": round(self.usd, 6),
             "usd_by_role": {k: round(v, 6) for k, v in self.by_role.items()},
+            "by_model": {k: v.to_dict() for k, v in self.by_model.items()},
         }
 
     def summary(self) -> str:
@@ -151,7 +204,11 @@ class LLMResponse:
 
 
 class LLM(Protocol):
-    """What the loop and critic depend on. Tests provide a scripted fake."""
+    """What the loop and critic depend on. Tests provide a scripted fake.
+
+    ``model`` / ``effort`` / ``max_tokens`` override the configured defaults for one call (the
+    router uses a small model at low effort; routing picks the working model per tier).
+    """
 
     def create(
         self,
@@ -163,6 +220,8 @@ class LLM(Protocol):
         model: str | None = None,
         role: str = "agent",
         cost: CostTracker | None = None,
+        effort: str | None = None,
+        max_tokens: int | None = None,
     ) -> LLMResponse: ...
 
 
@@ -201,13 +260,15 @@ class LLMClient:
         tools: list[dict[str, Any]] | None,
         output_format: dict[str, Any] | None,
         model: str,
+        effort: str | None = None,
+        max_tokens: int | None = None,
     ) -> dict[str, Any]:
-        output_config: dict[str, Any] = {"effort": self.settings.effort}
+        output_config: dict[str, Any] = {"effort": effort or self.settings.effort}
         if output_format is not None:
             output_config["format"] = output_format
         params: dict[str, Any] = {
             "model": model,
-            "max_tokens": self.settings.max_tokens,
+            "max_tokens": max_tokens or self.settings.max_tokens,
             # Stable system prompt as a cached block: render order is tools -> system -> messages,
             # so this breakpoint caches the (deterministic) tool list and the system prompt.
             "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
@@ -219,7 +280,7 @@ class LLMClient:
         return params
 
     def _send(self, params: dict[str, Any]) -> Any:
-        if self.settings.refusal_fallback:
+        if self.settings.refusal_fallback and supports_refusal_fallback(params["model"]):
             return self.client.beta.messages.create(
                 betas=[FALLBACK_BETA], fallbacks="default", **params
             )
@@ -235,9 +296,13 @@ class LLMClient:
         model: str | None = None,
         role: str = "agent",
         cost: CostTracker | None = None,
+        effort: str | None = None,
+        max_tokens: int | None = None,
     ) -> LLMResponse:
         model = model or self.settings.model
-        params = self._build_params(system, messages, tools, output_format, model)
+        params = self._build_params(
+            system, messages, tools, output_format, model, effort=effort, max_tokens=max_tokens
+        )
         attempt = 0
         while True:
             try:

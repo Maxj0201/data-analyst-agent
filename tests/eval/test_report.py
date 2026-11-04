@@ -188,3 +188,106 @@ def test_cli_gate_and_prompt_metadata(tmp_path: Path) -> None:
         + ["--agent", "tests.eval.agents:raising_agent"],
     )
     assert res.exit_code == 1 and "did not complete" in res.output
+
+
+# --------------------------------------------------------------------------- routing section
+
+
+def routing(tier: str, *triggers: str, source: str = "router") -> dict[str, Any]:
+    tiers = ["L1", "L2", "L3"]
+    escalations, cur = [], tier
+    for t in triggers:
+        nxt = tiers[tiers.index(cur) + 1]
+        escalations.append({"from_tier": cur, "to_tier": nxt, "trigger": t})
+        cur = nxt
+    return {
+        "enabled": True,
+        "routed_tier": tier,
+        "final_tier": cur,
+        "route": {"tier": tier, "source": source},
+        "escalations": escalations,
+    }
+
+
+def cbm(model: str, usd: float, calls: int = 1) -> dict[str, dict[str, Any]]:
+    return {
+        model: {
+            "calls": calls,
+            "input_tokens": 100,
+            "cache_read_input_tokens": 50,
+            "output_tokens": 10,
+            "usd": usd,
+        }
+    }
+
+
+ROUTED = [
+    r("a", "L1", True, cost_usd=0.01, routing=routing("L1"), cost_by_model=cbm("haiku", 0.01)),
+    r("b", "L1", False, cost_usd=0.03, routing=routing("L1", "tool_error")),
+    r("c", "L2", True, cost_usd=0.10, routing=routing("L2", "critic_revise")),
+    r(
+        "d",
+        "L2",
+        True,
+        cost_usd=0.20,
+        routing=routing("L1", "tool_error", "critic_revise"),
+        cost_by_model=cbm("opus", 0.20, calls=3),
+    ),
+    r("e", "L3", False, cost_usd=0.50, routing=routing("L3", source="fallback")),
+    r("f", "L3", False, cost_usd=0.0, status="timeout"),  # no routing info
+]
+
+
+def test_summarize_routing() -> None:
+    from analyst_agent.eval.report import summarize_routing
+
+    assert summarize_routing(RUN_A) is None  # routing off -> no section
+    rt = summarize_routing(ROUTED)
+    assert rt is not None
+    assert rt["routed"] == 5 and rt["unrouted"] == 1 and rt["router_fallbacks"] == 1
+    assert rt["escalation_rate"] == 0.6
+
+    l1 = rt["by_tier"]["L1"]
+    assert (l1["n"], l1["passed"], l1["escalated"]) == (3, 2, 2)
+    assert math.isclose(l1["accuracy"], 2 / 3)
+    assert math.isclose(l1["mean_cost_usd"], 0.08)
+    assert math.isclose(l1["total_cost_usd"], 0.24)
+    assert rt["by_tier"]["L2"]["n"] == 1 and rt["by_tier"]["L3"]["accuracy"] == 0.0
+
+    esc = rt["by_escalation"]
+    assert esc["not escalated"]["n"] == 2 and esc["not escalated"]["accuracy"] == 0.5
+    assert esc["escalated"]["n"] == 3
+    assert math.isclose(esc["escalated"]["accuracy"], 2 / 3)
+    assert math.isclose(esc["escalated"]["mean_cost_usd"], 0.33 / 3)
+    assert esc["trigger: tool_error"]["n"] == 2  # b and d (d also on critic_revise)
+    assert esc["trigger: critic_revise"]["n"] == 2  # c and d
+    assert rt["escalation_paths"] == {"L1→L2": 1, "L1→L2→L3": 1, "L2→L3": 1}
+
+    assert rt["vs_difficulty"] == {"L1": {"L1": 2}, "L2": {"L1": 1, "L2": 1}, "L3": {"L3": 1}}
+    assert rt["by_model"]["opus"] == {
+        "calls": 3,
+        "input_tokens": 150,
+        "output_tokens": 10,
+        "usd": 0.20,
+    }
+    assert list(rt["by_model"]) == ["opus", "haiku"]  # most expensive first
+
+
+def test_render_report_routing_section() -> None:
+    md = render_report(ROUTED)
+    assert "## Routing" in md
+    assert "| L1 | 3 | 2 | 66.7% | $0.0800 | $0.2400 | 2 |" in md
+    assert "| escalated | 3 | 2 | 66.7% | $0.1100 | $0.3300 | 3 |" in md
+    assert "| trigger: tool_error | 2 |" in md
+    assert "| L2 | 1 | 1 | 0 |" in md  # routed tier vs labelled difficulty
+    assert "| opus | 3 | 150 | 10 | $0.2000 |" in md
+    assert "router fallbacks: 1" in md
+    assert "## Routing" not in render_report(RUN_A)
+
+
+def test_render_compare_routing_rows() -> None:
+    md = render_compare(RUN_A, ROUTED, "base", "routed")
+    assert "| Routing | off | on | |" in md
+    assert "| Escalation rate | – | 60.0% | – |" in md
+    assert "| Accuracy routed L1 | – | 66.7% | – |" in md
+    assert "Escalation rate" not in render_compare(RUN_A, RUN_A)

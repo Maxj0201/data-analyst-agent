@@ -10,6 +10,16 @@ Metric definitions:
 - critic correction rate: among those tasks, the share that ended up passing.
 - numeric text-fallback rate: among single-number answers (L1/L2/ADV ``expected_value``), the
   share scored from report text because the agent returned empty ``key_numbers``.
+
+Routing section (only for runs with model routing on, i.e. results carrying ``routing``):
+- by routed tier: tasks, accuracy, mean / total cost and escalations, grouped by the tier the
+  router picked before the run (not the final tier after escalation).
+- by escalation: the same split by whether the run escalated, and by escalation trigger (a run
+  can escalate on both triggers, so trigger rows can overlap).
+- routed tier vs labelled difficulty: how the router's labels line up with the benchmark's.
+- by model: tokens and cost summed per model across all tasks (``CostTracker.by_model``).
+Tasks without routing info (errors / timeouts before the agent returned) are counted as
+``unrouted`` and left out of the tier and escalation tables.
 """
 
 from __future__ import annotations
@@ -102,6 +112,155 @@ def semantic_retrieval(result: dict[str, Any]) -> list[str] | None:
     return None
 
 
+ROUTED_TIERS = ("L1", "L2", "L3")
+ESCALATION_TRIGGERS = ("critic_revise", "tool_error")
+
+
+def _group(rs: list[dict[str, Any]]) -> dict[str, Any]:
+    n = len(rs)
+    costs = [r["cost_usd"] for r in rs]
+    return {
+        "n": n,
+        "passed": sum(r["passed"] for r in rs),
+        # same rule as summarize(): ungradable (skipped) tasks are not in the denominator
+        "accuracy": _rate(sum(r["passed"] for r in rs), sum(not is_skipped(r) for r in rs)),
+        "mean_cost_usd": sum(costs) / n if n else None,
+        "total_cost_usd": sum(costs),
+        "escalated": sum(bool(r["routing"].get("escalations")) for r in rs),
+    }
+
+
+def summarize_routing(results: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Accuracy and cost split by routed tier and by escalation; ``None`` if routing was off."""
+    routed = [r for r in results if r.get("routing")]
+    if not routed:
+        return None
+
+    def triggers(r: dict[str, Any]) -> set[str]:
+        return {e.get("trigger") for e in r["routing"].get("escalations") or []}
+
+    by_tier = {
+        t: _group(rs)
+        for t in ROUTED_TIERS
+        if (rs := [r for r in routed if r["routing"].get("routed_tier") == t])
+    }
+    escalated = [r for r in routed if r["routing"].get("escalations")]
+    by_escalation: dict[str, dict[str, Any]] = {}
+    groups = [
+        ("not escalated", [r for r in routed if not r["routing"].get("escalations")]),
+        ("escalated", escalated),
+    ]
+    groups += [
+        (f"trigger: {t}", [r for r in escalated if t in triggers(r)]) for t in ESCALATION_TRIGGERS
+    ]
+    for label, rs in groups:
+        if rs:
+            by_escalation[label] = _group(rs)
+    # escalation path, e.g. "L1→L2→L3"
+    paths: dict[str, int] = {}
+    for r in escalated:
+        rt = r["routing"]
+        path = "→".join([rt["routed_tier"], *(e["to_tier"] for e in rt["escalations"])])
+        paths[path] = paths.get(path, 0) + 1
+
+    vs_difficulty: dict[str, dict[str, int]] = {}
+    for r in routed:
+        row = vs_difficulty.setdefault(r["difficulty"], {})
+        tier = r["routing"].get("routed_tier") or "?"
+        row[tier] = row.get(tier, 0) + 1
+
+    by_model: dict[str, dict[str, float]] = {}
+    for r in results:
+        for model, u in (r.get("cost_by_model") or {}).items():
+            agg = by_model.setdefault(
+                model, {"calls": 0, "input_tokens": 0, "output_tokens": 0, "usd": 0.0}
+            )
+            agg["calls"] += u.get("calls", 0)
+            agg["input_tokens"] += (
+                u.get("input_tokens", 0)
+                + u.get("cache_creation_input_tokens", 0)
+                + u.get("cache_read_input_tokens", 0)
+            )
+            agg["output_tokens"] += u.get("output_tokens", 0)
+            agg["usd"] += u.get("usd", 0.0)
+
+    return {
+        "routed": len(routed),
+        "unrouted": len(results) - len(routed),
+        "router_fallbacks": sum(
+            (r["routing"].get("route") or {}).get("source") == "fallback" for r in routed
+        ),
+        "escalation_rate": _rate(len(escalated), len(routed)),
+        "by_tier": by_tier,
+        "by_escalation": by_escalation,
+        "escalation_paths": dict(sorted(paths.items())),
+        "vs_difficulty": vs_difficulty,
+        "by_model": dict(sorted(by_model.items(), key=lambda kv: -kv[1]["usd"])),
+    }
+
+
+def _routing_lines(rt: dict[str, Any]) -> list[str]:
+    def row(label: str, g: dict[str, Any]) -> str:
+        return (
+            f"| {label} | {g['n']} | {g['passed']} | {_pct(g['accuracy'])} | "
+            f"{_usd(g['mean_cost_usd'])} | {_usd(g['total_cost_usd'])} | {g['escalated']} |"
+        )
+
+    head = [
+        "| Group | Tasks | Passed | Accuracy | Mean cost | Total cost | Escalated |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    lines = [
+        "",
+        "## Routing",
+        "",
+        f"- routed tasks: {rt['routed']} (unrouted: {rt['unrouted']}; "
+        f"router fallbacks: {rt['router_fallbacks']})",
+        f"- escalation rate: {_pct(rt['escalation_rate'])}"
+        + (
+            " — paths: " + ", ".join(f"{p} ×{n}" for p, n in rt["escalation_paths"].items())
+            if rt["escalation_paths"]
+            else ""
+        ),
+        "",
+        "### By routed tier",
+        "",
+        *head,
+        *[row(t, g) for t, g in rt["by_tier"].items()],
+        "",
+        "### By escalation",
+        "",
+        *head,
+        *[row(k, g) for k, g in rt["by_escalation"].items()],
+        "",
+        "_Trigger rows can overlap: a run may escalate on both._",
+        "",
+        "### Routed tier vs labelled difficulty",
+        "",
+        "| Difficulty | " + " | ".join(ROUTED_TIERS) + " |",
+        "|---|" + "---|" * len(ROUTED_TIERS),
+    ]
+    for d in [*DIFFICULTIES, *sorted(set(rt["vs_difficulty"]) - set(DIFFICULTIES))]:
+        if d in rt["vs_difficulty"]:
+            counts = rt["vs_difficulty"][d]
+            cells = " | ".join(str(counts.get(t, 0)) for t in ROUTED_TIERS)
+            lines.append(f"| {d} | {cells} |")
+    if rt["by_model"]:
+        lines += [
+            "",
+            "### Tokens and cost by model",
+            "",
+            "| Model | Calls | Input tokens | Output tokens | Cost |",
+            "|---|---|---|---|---|",
+        ]
+        for m, u in rt["by_model"].items():
+            lines.append(
+                f"| {m} | {u['calls']} | {u['input_tokens']:,} | {u['output_tokens']:,} | "
+                f"{_usd(u['usd'])} |"
+            )
+    return lines
+
+
 def _pct(x: float | None) -> str:
     return "–" if x is None else f"{100 * x:.1f}%"
 
@@ -169,6 +328,9 @@ def render_report(
             f"| {d} | {b['n']} | {b['passed']} | {b['skipped']} | {_pct(b['accuracy'])} | "
             f"{_num(b['mean_score'])} | {b['errors']} | {b['timeouts']} |"
         )
+    rt = summarize_routing(results)
+    if rt is not None:
+        lines += _routing_lines(rt)
     lines += [
         "",
         "## Tasks",
@@ -284,6 +446,21 @@ def render_compare(
             lines.append(
                 f"| Accuracy {d} | {_pct(acc_a)} | {_pct(acc_b)} | {_delta(acc_a, acc_b, True)} |"
             )
+    rta, rtb = summarize_routing(a), summarize_routing(b)
+    if rta or rtb:
+        ea = rta["escalation_rate"] if rta else None
+        eb = rtb["escalation_rate"] if rtb else None
+        lines.append(f"| Routing | {'on' if rta else 'off'} | {'on' if rtb else 'off'} | |")
+        lines.append(f"| Escalation rate | {_pct(ea)} | {_pct(eb)} | {_delta(ea, eb, True)} |")
+        for t in ROUTED_TIERS:
+            ga = rta["by_tier"].get(t) if rta else None
+            gb = rtb["by_tier"].get(t) if rtb else None
+            if ga or gb:
+                xa = ga["accuracy"] if ga else None
+                xb = gb["accuracy"] if gb else None
+                lines.append(
+                    f"| Accuracy routed {t} | {_pct(xa)} | {_pct(xb)} | {_delta(xa, xb, True)} |"
+                )
 
     if meta_a is not None or meta_b is not None:
         lines += render_prompt_diff(
