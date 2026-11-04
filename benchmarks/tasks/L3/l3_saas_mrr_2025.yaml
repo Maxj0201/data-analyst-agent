@@ -1,0 +1,18 @@
+id: l3_saas_mrr_2025
+difficulty: L3
+dataset: data/saas/subscriptions.csv
+question: 'Summarize how MRR evolved during 2025: where did it start, how much was added by new subscriptions,
+  how much was lost to churn, and where did it end? Assume each subscription''s mrr is constant over its
+  life.'
+expected:
+  rubric:
+  - States starting MRR on 2025-01-01 of roughly $1,896,703.
+  - States new MRR from subscriptions started in 2025 of roughly $787,868.
+  - States MRR lost to 2025 churn of roughly $192,708.
+  - States ending MRR (active subscriptions) of roughly $2,492,292.
+  - Identifies North America as the region with the most active MRR.
+  pass_threshold: 0.8
+tags:
+- saas
+- open-ended
+- mrr

@@ -1,0 +1,19 @@
+id: l2_saas_active_mrr_by_region
+difficulty: L2
+dataset: data/saas/subscriptions.csv
+question: What is the total MRR of active subscriptions in each region?
+expected:
+  expected_rows:
+  - region: APAC
+    active_mrr: 357383.75
+  - region: EMEA
+    active_mrr: 715198.5
+  - region: LATAM
+    active_mrr: 318790.25
+  - region: North America
+    active_mrr: 1100919.5
+  tolerance: 0.001
+  order_matters: false
+tags:
+- saas
+- group-by

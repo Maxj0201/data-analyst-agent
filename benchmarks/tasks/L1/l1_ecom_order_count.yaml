@@ -1,0 +1,11 @@
+id: l1_ecom_order_count
+difficulty: L1
+dataset: data/ecommerce/orders.csv
+question: How many orders are in the orders table, across all statuses?
+expected:
+  expected_value: 4000.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- ecommerce
+- count

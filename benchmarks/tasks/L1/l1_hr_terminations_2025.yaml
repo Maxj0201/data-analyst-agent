@@ -1,0 +1,12 @@
+id: l1_hr_terminations_2025
+difficulty: L1
+dataset: data/hr/employees.csv
+question: How many employees have a termination_date in calendar year 2025?
+expected:
+  expected_value: 60.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- hr
+- count
+- dates

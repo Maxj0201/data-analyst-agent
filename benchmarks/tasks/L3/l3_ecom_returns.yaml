@@ -1,0 +1,20 @@
+id: l3_ecom_returns
+difficulty: L3
+dataset:
+- data/ecommerce/orders.csv
+- data/ecommerce/customers.csv
+- data/ecommerce/products.csv
+question: Investigate product returns. How big is the problem, where are returns concentrated, and what
+  appears to be driving them?
+expected:
+  rubric:
+  - States the overall return rate as roughly 7.3% of orders.
+  - Identifies Apparel as the category with the highest return rate.
+  - Finds that return rates rise with discount depth (about 4% at no discount vs about 13% at a 30% discount).
+  - Recommends an action tied to the findings (e.g. revisiting deep discounts or improving sizing/product
+    information for the worst category).
+  pass_threshold: 0.75
+tags:
+- ecommerce
+- open-ended
+- root-cause

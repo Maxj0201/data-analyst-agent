@@ -1,0 +1,11 @@
+id: l1_ecom_max_quantity
+difficulty: L1
+dataset: data/ecommerce/orders.csv
+question: What is the largest quantity on a single order?
+expected:
+  expected_value: 20.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- ecommerce
+- aggregate

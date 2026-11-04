@@ -1,0 +1,27 @@
+id: l2_ecom_top5_customers
+difficulty: L2
+dataset:
+- data/ecommerce/orders.csv
+- data/ecommerce/customers.csv
+- data/ecommerce/products.csv
+question: Who are the top 5 customers by net revenue? Give each customer's name and net revenue, highest
+  first. Net revenue = quantity * unit_price * (1 - discount_pct), counting only orders with status 'completed'.
+expected:
+  expected_rows:
+  - name: Mateo Thompson
+    net_revenue: 14499.98
+  - name: Wei Miller
+    net_revenue: 12988.69
+  - name: Omar Kim
+    net_revenue: 12161.02
+  - name: Priya Dubois
+    net_revenue: 12020.12
+  - name: Richard Jackson
+    net_revenue: 10280.57
+  tolerance: 0.005
+  order_matters: true
+tags:
+- ecommerce
+- revenue
+- join
+- top-n

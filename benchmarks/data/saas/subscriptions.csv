@@ -1,0 +1,1501 @@
+subscription_id,account_name,plan,seats,billing_cycle,mrr,region,start_date,churn_date,status,churn_reason
+S00001,Green Retail 0001,Basic,1,monthly,15.0,North America,2025-09-10,,active,
+S00002,Harbor Health 0002,Pro,13,annual,386.75,North America,2023-03-15,,active,
+S00003,Atlas Retail 0003,Business,46,monthly,2760.0,EMEA,2025-05-21,,active,
+S00004,Vertex Media 0004,Basic,2,annual,25.5,EMEA,2024-11-27,,active,
+S00005,Nimbus Logistics 0005,Basic,4,monthly,60.0,North America,2025-06-08,,active,
+S00006,Nimbus Works 0006,Pro,14,monthly,490.0,LATAM,2025-11-23,,active,
+S00007,Lumen Foods 0007,Pro,10,annual,297.5,North America,2024-03-30,,active,
+S00008,Vertex Media 0008,Business,41,annual,2091.0,APAC,2024-02-16,,active,
+S00009,Nimbus Logistics 0009,Business,36,monthly,2160.0,North America,2023-11-28,2025-08-26,churned,Missing features
+S00010,Summit Labs 0010,Enterprise,277,annual,22367.75,APAC,2024-07-29,,active,
+S00011,Cedar Partners 0011,Pro,10,annual,297.5,North America,2024-08-04,,active,
+S00012,Silver Retail 0012,Pro,11,annual,327.25,APAC,2024-04-11,2025-12-10,churned,Missing features
+S00013,Silver Works 0013,Pro,15,monthly,525.0,EMEA,2024-10-26,2025-09-17,churned,Poor support
+S00014,Rapid Analytics 0014,Pro,17,annual,505.75,North America,2023-01-28,,active,
+S00015,Cedar Capital 0015,Basic,5,monthly,75.0,APAC,2025-11-06,,active,
+S00016,Quantum Studios 0016,Basic,1,monthly,15.0,North America,2025-05-16,2025-05-21,churned,Price
+S00017,Lumen Analytics 0017,Basic,3,monthly,45.0,APAC,2025-01-13,2025-08-26,churned,Switched to competitor
+S00018,Nimbus Energy 0018,Pro,14,monthly,490.0,North America,2024-09-20,,active,
+S00019,Quantum Systems 0019,Business,53,annual,2703.0,North America,2023-12-05,2024-07-18,churned,Price
+S00020,Rapid Partners 0020,Pro,7,monthly,245.0,North America,2024-08-27,,active,
+S00021,Vertex Analytics 0021,Basic,4,annual,51.0,North America,2025-06-17,,active,
+S00022,Green Works 0022,Basic,4,annual,51.0,LATAM,2024-11-12,,active,
+S00023,Orbit Studios 0023,Pro,4,monthly,140.0,EMEA,2024-11-14,2025-01-24,churned,Missing features
+S00024,Silver Foods 0024,Pro,6,monthly,210.0,EMEA,2025-04-22,,active,
+S00025,Quantum Studios 0025,Basic,4,annual,51.0,North America,2024-08-22,,active,
+S00026,Silver Retail 0026,Basic,5,annual,63.75,EMEA,2025-06-28,,active,
+S00027,Pioneer Works 0027,Basic,4,monthly,60.0,APAC,2024-08-10,2024-11-02,churned,Missing features
+S00028,Pioneer Systems 0028,Pro,8,annual,238.0,North America,2024-04-24,,active,
+S00029,North Analytics 0029,Basic,3,annual,38.25,APAC,2023-03-04,2023-04-12,churned,Missing features
+S00030,Cedar Robotics 0030,Business,54,monthly,3240.0,APAC,2024-06-29,,active,
+S00031,Cedar Studios 0031,Basic,2,annual,25.5,EMEA,2023-07-10,2023-08-15,churned,Missing features
+S00032,Summit Capital 0032,Pro,18,monthly,630.0,APAC,2024-03-16,2025-07-22,churned,Price
+S00033,Lumen Retail 0033,Basic,3,annual,38.25,EMEA,2024-12-30,,active,
+S00034,Iron Studios 0034,Pro,18,monthly,630.0,North America,2023-03-03,2023-04-15,churned,Price
+S00035,Orbit Partners 0035,Enterprise,296,annual,23902.0,APAC,2023-10-26,,active,
+S00036,Nimbus Robotics 0036,Business,15,annual,765.0,North America,2023-05-21,,active,
+S00037,Blue Partners 0037,Pro,3,annual,89.25,LATAM,2025-04-10,,active,
+S00038,Rapid Partners 0038,Business,17,monthly,1020.0,North America,2023-12-20,,active,
+S00039,Harbor Works 0039,Enterprise,224,monthly,21280.0,North America,2023-06-30,,active,
+S00040,Rapid Partners 0040,Basic,1,annual,12.75,North America,2023-09-07,,active,
+S00041,North Robotics 0041,Pro,3,monthly,105.0,North America,2025-09-01,,active,
+S00042,Bright Logistics 0042,Pro,18,monthly,630.0,EMEA,2023-04-30,2024-06-30,churned,Budget cuts
+S00043,Acme Capital 0043,Basic,2,monthly,30.0,EMEA,2023-11-15,,active,
+S00044,Atlas Labs 0044,Basic,1,annual,12.75,North America,2024-10-17,2025-09-06,churned,Missing features
+S00045,Orbit Works 0045,Business,32,annual,1632.0,North America,2024-12-09,2025-04-15,churned,Poor support
+S00046,Pioneer Systems 0046,Pro,17,monthly,595.0,EMEA,2023-08-11,,active,
+S00047,Iron Energy 0047,Pro,9,annual,267.75,North America,2024-05-15,,active,
+S00048,Blue Robotics 0048,Business,10,annual,510.0,APAC,2023-03-15,,active,
+S00049,Falcon Partners 0049,Enterprise,208,annual,16796.0,EMEA,2023-09-17,,active,
+S00050,Cedar Health 0050,Business,23,monthly,1380.0,EMEA,2023-08-03,2024-11-14,churned,Missing features
+S00051,Green Analytics 0051,Basic,5,monthly,75.0,North America,2024-07-31,,active,
+S00052,Rapid Energy 0052,Pro,14,annual,416.5,North America,2025-05-03,,active,
+S00053,Silver Logistics 0053,Basic,1,monthly,15.0,APAC,2024-10-22,,active,
+S00054,Acme Labs 0054,Basic,5,annual,63.75,APAC,2023-02-23,2023-09-19,churned,Budget cuts
+S00055,Lumen Studios 0055,Pro,11,monthly,385.0,APAC,2025-03-23,,active,
+S00056,Blue Works 0056,Pro,4,annual,119.0,North America,2025-03-28,,active,
+S00057,Bright Energy 0057,Pro,16,annual,476.0,EMEA,2024-11-20,,active,
+S00058,Bright Retail 0058,Pro,13,monthly,455.0,EMEA,2024-11-15,2025-01-25,churned,Budget cuts
+S00059,Green Logistics 0059,Basic,3,monthly,45.0,EMEA,2025-08-11,,active,
+S00060,Harbor Robotics 0060,Basic,1,annual,12.75,EMEA,2024-01-26,2024-10-11,churned,Switched to competitor
+S00061,Nimbus Systems 0061,Enterprise,238,annual,19218.5,EMEA,2025-03-28,,active,
+S00062,Lumen Media 0062,Enterprise,268,annual,21641.0,EMEA,2025-11-22,,active,
+S00063,Blue Works 0063,Enterprise,126,monthly,11970.0,EMEA,2024-10-07,,active,
+S00064,Cedar Labs 0064,Pro,18,annual,535.5,North America,2025-08-23,,active,
+S00065,Bright Media 0065,Basic,2,monthly,30.0,EMEA,2024-03-04,2025-06-18,churned,Switched to competitor
+S00066,Quantum Systems 0066,Pro,14,annual,416.5,North America,2024-04-24,,active,
+S00067,Green Systems 0067,Business,31,monthly,1860.0,LATAM,2024-07-11,2025-08-26,churned,Switched to competitor
+S00068,Vertex Studios 0068,Business,43,monthly,2580.0,North America,2024-08-16,,active,
+S00069,Orbit Partners 0069,Basic,3,monthly,45.0,North America,2025-08-15,,active,
+S00070,Vertex Works 0070,Enterprise,197,annual,15907.75,North America,2024-09-26,,active,
+S00071,Orbit Partners 0071,Basic,1,annual,12.75,EMEA,2024-03-22,,active,
+S00072,Maple Capital 0072,Enterprise,190,annual,15342.5,North America,2025-01-25,,active,
+S00073,Cedar Analytics 0073,Pro,5,annual,148.75,EMEA,2024-04-20,2024-05-16,churned,Missing features
+S00074,Silver Health 0074,Basic,4,annual,51.0,North America,2025-03-22,,active,
+S00075,Silver Analytics 0075,Enterprise,89,monthly,8455.0,North America,2024-06-26,,active,
+S00076,Blue Labs 0076,Basic,4,monthly,60.0,EMEA,2024-04-16,,active,
+S00077,Maple Labs 0077,Business,15,monthly,900.0,LATAM,2023-01-26,,active,
+S00078,Bright Capital 0078,Basic,5,annual,63.75,North America,2025-08-10,,active,
+S00079,Harbor Capital 0079,Basic,1,monthly,15.0,LATAM,2024-06-04,,active,
+S00080,Green Analytics 0080,Basic,1,monthly,15.0,APAC,2024-12-18,2025-08-15,churned,Missing features
+S00081,Acme Labs 0081,Basic,5,monthly,75.0,EMEA,2023-08-03,2024-03-28,churned,Missing features
+S00082,Orbit Studios 0082,Pro,9,annual,267.75,EMEA,2023-12-20,,active,
+S00083,Atlas Partners 0083,Basic,1,monthly,15.0,APAC,2023-01-19,2023-04-10,churned,Poor support
+S00084,Bright Energy 0084,Basic,1,monthly,15.0,EMEA,2024-06-21,,active,
+S00085,Harbor Energy 0085,Pro,13,annual,386.75,North America,2023-07-28,,active,
+S00086,Vertex Health 0086,Business,39,monthly,2340.0,North America,2023-01-03,2023-11-12,churned,Poor support
+S00087,North Partners 0087,Business,29,annual,1479.0,North America,2024-09-18,,active,
+S00088,Lumen Logistics 0088,Enterprise,58,monthly,5510.0,EMEA,2024-04-03,,active,
+S00089,Acme Systems 0089,Basic,5,monthly,75.0,North America,2025-08-02,,active,
+S00090,Vertex Retail 0090,Basic,1,monthly,15.0,EMEA,2025-10-11,,active,
+S00091,Nimbus Energy 0091,Pro,13,annual,386.75,North America,2024-02-19,,active,
+S00092,Atlas Retail 0092,Business,56,annual,2856.0,North America,2023-06-11,,active,
+S00093,Falcon Analytics 0093,Basic,5,monthly,75.0,APAC,2024-11-04,2024-11-11,churned,Price
+S00094,Orbit Studios 0094,Basic,1,monthly,15.0,LATAM,2024-05-12,,active,
+S00095,Falcon Labs 0095,Basic,5,annual,63.75,EMEA,2023-02-26,2023-12-13,churned,Price
+S00096,Quantum Works 0096,Basic,1,monthly,15.0,EMEA,2024-01-13,,active,
+S00097,Quantum Capital 0097,Business,21,monthly,1260.0,EMEA,2024-06-28,,active,
+S00098,Maple Retail 0098,Basic,4,monthly,60.0,EMEA,2024-12-06,,active,
+S00099,Falcon Labs 0099,Basic,3,monthly,45.0,North America,2024-04-20,,active,
+S00100,Cedar Capital 0100,Basic,4,monthly,60.0,APAC,2023-06-18,2023-10-07,churned,Switched to competitor
+S00101,Maple Media 0101,Pro,15,monthly,525.0,APAC,2024-10-12,,active,
+S00102,Pioneer Retail 0102,Basic,3,annual,38.25,EMEA,2025-03-30,,active,
+S00103,Lumen Systems 0103,Pro,16,monthly,560.0,EMEA,2023-01-06,2023-08-05,churned,Missing features
+S00104,Green Energy 0104,Business,48,monthly,2880.0,EMEA,2024-11-07,,active,
+S00105,Acme Logistics 0105,Basic,2,monthly,30.0,North America,2024-04-28,,active,
+S00106,Silver Health 0106,Pro,14,annual,416.5,North America,2023-03-13,,active,
+S00107,Lumen Media 0107,Pro,6,monthly,210.0,APAC,2024-11-22,,active,
+S00108,Rapid Robotics 0108,Basic,2,monthly,30.0,LATAM,2025-04-01,,active,
+S00109,Pioneer Health 0109,Basic,4,monthly,60.0,North America,2023-04-14,2024-06-12,churned,Missing features
+S00110,North Works 0110,Pro,8,annual,238.0,North America,2024-12-09,,active,
+S00111,Pioneer Media 0111,Pro,3,annual,89.25,APAC,2024-07-13,,active,
+S00112,Blue Partners 0112,Basic,2,annual,25.5,North America,2024-07-29,,active,
+S00113,Lumen Health 0113,Basic,5,monthly,75.0,EMEA,2024-09-29,,active,
+S00114,Summit Energy 0114,Basic,1,annual,12.75,APAC,2023-03-26,2024-04-13,churned,Price
+S00115,Iron Media 0115,Pro,12,annual,357.0,EMEA,2024-06-29,,active,
+S00116,Lumen Logistics 0116,Basic,1,monthly,15.0,North America,2025-06-10,2025-06-21,churned,Missing features
+S00117,Atlas Energy 0117,Business,51,monthly,3060.0,North America,2025-01-22,,active,
+S00118,Harbor Works 0118,Business,46,annual,2346.0,North America,2025-08-11,,active,
+S00119,Vertex Logistics 0119,Basic,1,monthly,15.0,EMEA,2024-02-17,2024-05-23,churned,Missing features
+S00120,Orbit Foods 0120,Pro,19,monthly,665.0,North America,2023-04-18,,active,
+S00121,Silver Energy 0121,Business,28,annual,1428.0,EMEA,2024-07-31,,active,
+S00122,Iron Partners 0122,Pro,14,annual,416.5,North America,2025-07-24,,active,
+S00123,North Analytics 0123,Basic,4,monthly,60.0,APAC,2025-04-27,2025-11-25,churned,Budget cuts
+S00124,Blue Energy 0124,Business,10,monthly,600.0,North America,2024-11-20,,active,
+S00125,Iron Energy 0125,Business,21,monthly,1260.0,EMEA,2024-02-18,,active,
+S00126,Orbit Analytics 0126,Pro,18,monthly,630.0,EMEA,2025-02-09,,active,
+S00127,Orbit Logistics 0127,Basic,5,annual,63.75,North America,2023-01-17,,active,
+S00128,Falcon Foods 0128,Pro,20,monthly,700.0,North America,2023-03-19,2023-10-25,churned,Missing features
+S00129,Lumen Works 0129,Business,15,monthly,900.0,North America,2023-02-16,,active,
+S00130,Cedar Health 0130,Basic,3,monthly,45.0,North America,2023-04-18,,active,
+S00131,Quantum Capital 0131,Business,31,monthly,1860.0,APAC,2024-09-26,,active,
+S00132,Quantum Works 0132,Pro,13,monthly,455.0,North America,2024-11-09,2025-02-19,churned,Missing features
+S00133,Rapid Studios 0133,Basic,4,annual,51.0,EMEA,2024-01-11,,active,
+S00134,Iron Systems 0134,Business,45,monthly,2700.0,APAC,2025-04-29,,active,
+S00135,Harbor Robotics 0135,Enterprise,50,monthly,4750.0,EMEA,2024-06-13,,active,
+S00136,Cedar Energy 0136,Business,53,monthly,3180.0,EMEA,2023-02-02,2024-05-28,churned,Price
+S00137,Maple Energy 0137,Pro,3,monthly,105.0,North America,2025-09-24,,active,
+S00138,Rapid Retail 0138,Basic,3,monthly,45.0,North America,2025-07-13,,active,
+S00139,Bright Analytics 0139,Basic,5,monthly,75.0,North America,2023-01-13,2023-03-04,churned,Poor support
+S00140,Acme Health 0140,Enterprise,72,annual,5814.0,LATAM,2025-11-11,,active,
+S00141,Cedar Energy 0141,Basic,1,annual,12.75,EMEA,2025-02-06,,active,
+S00142,Vertex Capital 0142,Pro,6,annual,178.5,APAC,2024-11-01,,active,
+S00143,Lumen Labs 0143,Pro,11,annual,327.25,EMEA,2025-10-24,,active,
+S00144,Atlas Systems 0144,Enterprise,105,monthly,9975.0,North America,2023-08-19,2025-02-24,churned,Missing features
+S00145,Atlas Systems 0145,Enterprise,175,annual,14131.25,APAC,2025-04-20,,active,
+S00146,Harbor Robotics 0146,Business,15,monthly,900.0,APAC,2024-05-13,,active,
+S00147,Quantum Works 0147,Basic,5,annual,63.75,EMEA,2024-08-30,2025-11-07,churned,Missing features
+S00148,Vertex Systems 0148,Pro,3,annual,89.25,North America,2023-07-14,,active,
+S00149,Green Foods 0149,Basic,1,monthly,15.0,North America,2023-03-18,2025-07-01,churned,Switched to competitor
+S00150,Quantum Robotics 0150,Pro,6,annual,178.5,North America,2023-12-25,,active,
+S00151,Lumen Partners 0151,Pro,16,monthly,560.0,North America,2023-05-16,2024-01-08,churned,Switched to competitor
+S00152,Acme Logistics 0152,Pro,17,annual,505.75,LATAM,2023-12-12,2024-02-28,churned,Price
+S00153,Harbor Capital 0153,Basic,5,annual,63.75,EMEA,2023-10-08,,active,
+S00154,North Studios 0154,Business,13,monthly,780.0,North America,2024-12-07,,active,
+S00155,Green Analytics 0155,Business,48,annual,2448.0,APAC,2023-03-28,,active,
+S00156,Harbor Systems 0156,Enterprise,151,annual,12193.25,EMEA,2024-05-05,,active,
+S00157,Cedar Systems 0157,Pro,17,annual,505.75,North America,2023-03-29,2023-09-28,churned,Missing features
+S00158,Summit Logistics 0158,Basic,4,monthly,60.0,APAC,2024-06-30,,active,
+S00159,Summit Robotics 0159,Basic,2,monthly,30.0,North America,2024-07-24,2025-12-20,churned,Price
+S00160,Nimbus Works 0160,Pro,3,monthly,105.0,EMEA,2024-06-21,,active,
+S00161,Iron Studios 0161,Business,10,monthly,600.0,North America,2023-05-22,,active,
+S00162,Maple Health 0162,Basic,4,monthly,60.0,LATAM,2023-04-08,2023-12-31,churned,Price
+S00163,Pioneer Partners 0163,Pro,19,annual,565.25,EMEA,2025-02-06,,active,
+S00164,Rapid Energy 0164,Basic,3,monthly,45.0,APAC,2023-06-02,2024-01-25,churned,Price
+S00165,Summit Foods 0165,Basic,5,annual,63.75,APAC,2024-05-21,2025-05-18,churned,Budget cuts
+S00166,Falcon Logistics 0166,Enterprise,151,monthly,14345.0,EMEA,2025-07-23,,active,
+S00167,North Studios 0167,Basic,2,monthly,30.0,EMEA,2024-06-16,,active,
+S00168,Acme Partners 0168,Pro,19,monthly,665.0,EMEA,2024-09-27,2025-08-24,churned,Missing features
+S00169,Blue Works 0169,Basic,1,annual,12.75,EMEA,2023-06-25,2025-08-19,churned,Missing features
+S00170,Quantum Energy 0170,Enterprise,184,annual,14858.0,EMEA,2024-01-06,,active,
+S00171,Rapid Robotics 0171,Pro,14,monthly,490.0,North America,2023-12-21,,active,
+S00172,Iron Capital 0172,Pro,11,monthly,385.0,North America,2024-12-25,2025-03-15,churned,Budget cuts
+S00173,Silver Systems 0173,Enterprise,107,monthly,10165.0,LATAM,2024-11-26,2024-12-04,churned,Price
+S00174,Orbit Capital 0174,Basic,5,monthly,75.0,North America,2024-10-08,,active,
+S00175,Iron Partners 0175,Basic,4,monthly,60.0,North America,2024-03-26,2024-09-17,churned,Missing features
+S00176,Orbit Robotics 0176,Pro,12,monthly,420.0,APAC,2024-12-24,2025-04-07,churned,Missing features
+S00177,North Health 0177,Basic,3,monthly,45.0,EMEA,2024-01-03,,active,
+S00178,Orbit Works 0178,Pro,17,monthly,595.0,EMEA,2024-03-08,2025-06-30,churned,Price
+S00179,Acme Partners 0179,Basic,2,monthly,30.0,EMEA,2024-08-27,,active,
+S00180,Vertex Systems 0180,Pro,9,monthly,315.0,EMEA,2025-07-09,,active,
+S00181,Bright Partners 0181,Enterprise,264,annual,21318.0,APAC,2025-02-04,,active,
+S00182,Nimbus Analytics 0182,Business,58,monthly,3480.0,APAC,2023-08-19,,active,
+S00183,Orbit Systems 0183,Pro,6,annual,178.5,LATAM,2025-08-09,,active,
+S00184,Bright Energy 0184,Basic,1,annual,12.75,APAC,2024-03-03,,active,
+S00185,Green Media 0185,Pro,11,monthly,385.0,EMEA,2024-02-17,,active,
+S00186,Nimbus Works 0186,Enterprise,298,monthly,28310.0,EMEA,2024-05-07,,active,
+S00187,Harbor Energy 0187,Basic,5,monthly,75.0,EMEA,2023-07-22,,active,
+S00188,Quantum Capital 0188,Basic,3,annual,38.25,EMEA,2024-03-27,,active,
+S00189,Lumen Foods 0189,Basic,4,annual,51.0,EMEA,2024-11-07,2025-02-07,churned,Missing features
+S00190,Bright Partners 0190,Basic,2,monthly,30.0,EMEA,2024-10-28,,active,
+S00191,Vertex Robotics 0191,Pro,11,annual,327.25,EMEA,2024-07-24,,active,
+S00192,Green Partners 0192,Basic,5,monthly,75.0,North America,2024-09-24,,active,
+S00193,Falcon Media 0193,Basic,5,annual,63.75,North America,2025-11-07,,active,
+S00194,Cedar Robotics 0194,Pro,13,annual,386.75,North America,2025-10-10,,active,
+S00195,Rapid Media 0195,Basic,5,monthly,75.0,EMEA,2024-06-04,,active,
+S00196,Vertex Partners 0196,Pro,6,monthly,210.0,APAC,2025-09-14,,active,
+S00197,Iron Health 0197,Pro,18,monthly,630.0,North America,2023-09-30,,active,
+S00198,Rapid Analytics 0198,Pro,5,monthly,175.0,EMEA,2025-02-15,,active,
+S00199,Pioneer Retail 0199,Basic,1,monthly,15.0,North America,2023-04-27,2024-08-23,churned,Missing features
+S00200,Lumen Logistics 0200,Pro,11,monthly,385.0,EMEA,2023-01-12,,active,
+S00201,Maple Works 0201,Basic,3,monthly,45.0,APAC,2025-10-18,,active,
+S00202,Pioneer Analytics 0202,Pro,8,annual,238.0,North America,2023-04-21,,active,
+S00203,Bright Media 0203,Business,17,monthly,1020.0,APAC,2025-05-24,,active,
+S00204,Lumen Labs 0204,Business,50,monthly,3000.0,North America,2023-01-05,,active,
+S00205,Vertex Labs 0205,Pro,16,annual,476.0,North America,2023-01-13,,active,
+S00206,Lumen Health 0206,Pro,11,monthly,385.0,APAC,2023-07-04,,active,
+S00207,Cedar Energy 0207,Basic,3,annual,38.25,EMEA,2023-07-31,2024-03-18,churned,Budget cuts
+S00208,Falcon Analytics 0208,Pro,9,annual,267.75,North America,2024-01-09,,active,
+S00209,Quantum Retail 0209,Basic,3,annual,38.25,North America,2023-01-16,2023-01-29,churned,Switched to competitor
+S00210,Maple Foods 0210,Basic,2,monthly,30.0,North America,2024-09-24,2024-12-07,churned,Price
+S00211,Summit Health 0211,Basic,5,monthly,75.0,APAC,2023-01-28,2025-10-23,churned,Price
+S00212,Green Health 0212,Business,43,annual,2193.0,APAC,2024-05-27,,active,
+S00213,Vertex Logistics 0213,Pro,3,monthly,105.0,North America,2024-05-28,2025-11-12,churned,Switched to competitor
+S00214,Cedar Retail 0214,Pro,14,monthly,490.0,EMEA,2023-03-04,,active,
+S00215,Iron Foods 0215,Business,35,monthly,2100.0,North America,2023-05-02,,active,
+S00216,Harbor Systems 0216,Pro,6,monthly,210.0,EMEA,2024-01-05,2025-04-28,churned,Missing features
+S00217,Vertex Media 0217,Basic,1,annual,12.75,North America,2023-05-27,,active,
+S00218,Vertex Studios 0218,Basic,1,monthly,15.0,EMEA,2024-03-19,2025-06-12,churned,Poor support
+S00219,Bright Studios 0219,Basic,2,annual,25.5,APAC,2024-08-15,,active,
+S00220,Cedar Logistics 0220,Basic,4,monthly,60.0,LATAM,2024-01-10,2024-12-30,churned,Switched to competitor
+S00221,Bright Retail 0221,Pro,16,annual,476.0,EMEA,2025-04-25,,active,
+S00222,North Systems 0222,Business,44,monthly,2640.0,North America,2024-05-25,,active,
+S00223,North Partners 0223,Pro,20,monthly,700.0,North America,2024-09-15,,active,
+S00224,Iron Health 0224,Enterprise,98,monthly,9310.0,EMEA,2023-12-19,2025-01-29,churned,Price
+S00225,Blue Studios 0225,Pro,15,annual,446.25,North America,2025-06-03,,active,
+S00226,Lumen Analytics 0226,Basic,1,monthly,15.0,EMEA,2024-06-12,2025-08-20,churned,Price
+S00227,Cedar Retail 0227,Basic,2,monthly,30.0,EMEA,2024-11-13,2025-12-02,churned,Price
+S00228,Falcon Logistics 0228,Pro,12,monthly,420.0,North America,2023-02-06,2025-09-13,churned,Price
+S00229,Bright Studios 0229,Enterprise,242,annual,19541.5,North America,2023-03-16,,active,
+S00230,Maple Logistics 0230,Business,52,annual,2652.0,North America,2023-10-19,,active,
+S00231,Blue Capital 0231,Pro,20,monthly,700.0,North America,2023-09-21,2024-06-05,churned,Missing features
+S00232,Pioneer Studios 0232,Pro,16,monthly,560.0,APAC,2024-01-25,,active,
+S00233,Cedar Capital 0233,Basic,4,monthly,60.0,North America,2024-08-14,,active,
+S00234,Pioneer Partners 0234,Pro,17,monthly,595.0,North America,2023-08-31,2025-04-21,churned,Switched to competitor
+S00235,Green Logistics 0235,Pro,20,annual,595.0,North America,2025-05-30,,active,
+S00236,Vertex Studios 0236,Pro,20,annual,595.0,North America,2023-10-12,,active,
+S00237,Pioneer Robotics 0237,Basic,1,monthly,15.0,North America,2025-08-12,,active,
+S00238,Bright Partners 0238,Business,27,monthly,1620.0,North America,2024-02-19,,active,
+S00239,Cedar Systems 0239,Enterprise,283,monthly,26885.0,EMEA,2023-01-09,2025-05-16,churned,Switched to competitor
+S00240,Green Health 0240,Basic,4,monthly,60.0,North America,2023-10-09,2024-04-29,churned,Missing features
+S00241,Falcon Robotics 0241,Basic,4,monthly,60.0,North America,2025-07-21,2025-12-15,churned,Missing features
+S00242,Atlas Systems 0242,Business,54,monthly,3240.0,EMEA,2024-11-08,,active,
+S00243,Orbit Foods 0243,Pro,10,monthly,350.0,EMEA,2023-09-09,,active,
+S00244,Falcon Retail 0244,Basic,3,annual,38.25,APAC,2023-12-15,2024-08-07,churned,Missing features
+S00245,Cedar Partners 0245,Pro,14,monthly,490.0,North America,2023-02-24,2023-05-28,churned,Price
+S00246,Green Capital 0246,Pro,10,monthly,350.0,North America,2023-10-24,,active,
+S00247,Iron Health 0247,Basic,2,monthly,30.0,EMEA,2023-07-08,2024-02-25,churned,Price
+S00248,Green Energy 0248,Basic,5,monthly,75.0,APAC,2025-11-11,,active,
+S00249,Harbor Media 0249,Pro,4,monthly,140.0,North America,2024-09-04,2024-10-15,churned,Poor support
+S00250,Summit Foods 0250,Business,15,monthly,900.0,EMEA,2024-04-22,,active,
+S00251,Falcon Health 0251,Pro,18,annual,535.5,APAC,2024-09-13,,active,
+S00252,Acme Media 0252,Basic,2,annual,25.5,North America,2023-01-05,,active,
+S00253,Orbit Partners 0253,Pro,20,annual,595.0,North America,2025-06-26,,active,
+S00254,Quantum Partners 0254,Business,35,monthly,2100.0,APAC,2023-12-22,2024-05-09,churned,Switched to competitor
+S00255,Vertex Works 0255,Basic,4,monthly,60.0,EMEA,2025-04-04,,active,
+S00256,Nimbus Media 0256,Pro,3,annual,89.25,APAC,2023-05-30,,active,
+S00257,Green Partners 0257,Pro,7,annual,208.25,EMEA,2023-11-24,,active,
+S00258,Vertex Retail 0258,Basic,1,monthly,15.0,EMEA,2024-04-13,2024-05-18,churned,Budget cuts
+S00259,Falcon Labs 0259,Basic,4,monthly,60.0,North America,2024-03-21,2025-04-03,churned,Price
+S00260,Pioneer Energy 0260,Business,12,annual,612.0,APAC,2025-11-08,,active,
+S00261,North Capital 0261,Pro,6,monthly,210.0,North America,2023-03-07,,active,
+S00262,Blue Robotics 0262,Basic,2,monthly,30.0,EMEA,2024-10-28,2025-01-25,churned,Price
+S00263,Harbor Analytics 0263,Pro,5,monthly,175.0,North America,2024-03-05,,active,
+S00264,Orbit Works 0264,Pro,16,annual,476.0,North America,2025-04-11,,active,
+S00265,Lumen Health 0265,Pro,19,monthly,665.0,North America,2025-06-23,2025-09-07,churned,Missing features
+S00266,Iron Labs 0266,Pro,20,annual,595.0,North America,2025-07-17,,active,
+S00267,Quantum Logistics 0267,Basic,5,monthly,75.0,North America,2024-03-07,,active,
+S00268,Pioneer Labs 0268,Enterprise,185,annual,14938.75,North America,2024-03-21,,active,
+S00269,Cedar Works 0269,Basic,3,annual,38.25,North America,2024-06-27,,active,
+S00270,Green Capital 0270,Basic,4,monthly,60.0,APAC,2025-09-05,,active,
+S00271,Bright Analytics 0271,Business,60,monthly,3600.0,North America,2023-01-20,2025-11-06,churned,Missing features
+S00272,Vertex Retail 0272,Pro,15,monthly,525.0,North America,2023-02-10,,active,
+S00273,Rapid Systems 0273,Enterprise,91,monthly,8645.0,North America,2024-01-03,2024-02-12,churned,Price
+S00274,Maple Logistics 0274,Pro,18,monthly,630.0,EMEA,2025-08-07,,active,
+S00275,Bright Foods 0275,Basic,4,monthly,60.0,North America,2024-08-08,2024-09-06,churned,Switched to competitor
+S00276,Falcon Labs 0276,Pro,14,monthly,490.0,North America,2025-03-01,,active,
+S00277,Vertex Studios 0277,Business,16,monthly,960.0,North America,2023-11-28,,active,
+S00278,Orbit Robotics 0278,Pro,17,monthly,595.0,North America,2024-04-26,,active,
+S00279,Pioneer Partners 0279,Pro,15,monthly,525.0,North America,2024-02-20,,active,
+S00280,Falcon Systems 0280,Basic,4,monthly,60.0,EMEA,2023-10-14,2024-06-12,churned,Price
+S00281,Summit Studios 0281,Enterprise,232,monthly,22040.0,North America,2024-05-31,,active,
+S00282,Harbor Logistics 0282,Basic,1,annual,12.75,APAC,2025-11-04,,active,
+S00283,Summit Retail 0283,Pro,8,annual,238.0,EMEA,2025-08-21,2025-11-02,churned,Budget cuts
+S00284,Bright Foods 0284,Basic,2,monthly,30.0,North America,2024-06-08,2025-04-20,churned,Switched to competitor
+S00285,Quantum Capital 0285,Pro,20,monthly,700.0,North America,2023-04-15,2023-07-11,churned,Missing features
+S00286,North Media 0286,Enterprise,228,monthly,21660.0,North America,2023-07-12,,active,
+S00287,Blue Studios 0287,Pro,13,monthly,455.0,North America,2025-06-10,2025-06-22,churned,Switched to competitor
+S00288,Silver Systems 0288,Pro,3,monthly,105.0,EMEA,2025-01-05,,active,
+S00289,Orbit Robotics 0289,Pro,12,monthly,420.0,EMEA,2023-11-06,,active,
+S00290,Bright Health 0290,Basic,4,monthly,60.0,North America,2024-07-23,2024-09-22,churned,Price
+S00291,Harbor Studios 0291,Pro,20,annual,595.0,APAC,2024-08-17,2025-01-12,churned,Price
+S00292,Harbor Studios 0292,Pro,17,annual,505.75,APAC,2023-05-19,,active,
+S00293,Green Media 0293,Basic,3,monthly,45.0,North America,2024-03-05,2024-03-19,churned,Missing features
+S00294,Green Labs 0294,Pro,11,monthly,385.0,EMEA,2023-03-08,2024-05-04,churned,Switched to competitor
+S00295,Harbor Analytics 0295,Basic,5,annual,63.75,APAC,2025-09-14,,active,
+S00296,Cedar Media 0296,Pro,20,monthly,700.0,EMEA,2024-10-20,,active,
+S00297,Harbor Energy 0297,Basic,3,annual,38.25,LATAM,2023-09-09,,active,
+S00298,Cedar Media 0298,Business,60,monthly,3600.0,EMEA,2023-10-03,2024-03-28,churned,Missing features
+S00299,Green Health 0299,Enterprise,280,monthly,26600.0,EMEA,2024-10-08,,active,
+S00300,North Robotics 0300,Pro,9,monthly,315.0,LATAM,2023-11-03,2024-05-16,churned,Poor support
+S00301,Iron Retail 0301,Basic,3,monthly,45.0,LATAM,2023-05-06,2024-05-11,churned,Budget cuts
+S00302,Cedar Media 0302,Basic,1,annual,12.75,North America,2023-11-18,,active,
+S00303,Lumen Retail 0303,Pro,15,annual,446.25,North America,2024-10-25,,active,
+S00304,Maple Analytics 0304,Enterprise,100,monthly,9500.0,EMEA,2025-01-08,,active,
+S00305,Nimbus Labs 0305,Basic,4,annual,51.0,EMEA,2025-07-22,2025-08-03,churned,Price
+S00306,Lumen Foods 0306,Pro,14,annual,416.5,EMEA,2023-07-23,,active,
+S00307,Acme Logistics 0307,Basic,3,annual,38.25,North America,2023-05-13,,active,
+S00308,Orbit Partners 0308,Basic,3,annual,38.25,LATAM,2025-02-10,,active,
+S00309,Orbit Studios 0309,Basic,1,annual,12.75,EMEA,2023-11-18,,active,
+S00310,Rapid Systems 0310,Pro,8,monthly,280.0,EMEA,2025-10-25,,active,
+S00311,Vertex Foods 0311,Business,57,annual,2907.0,LATAM,2023-07-22,,active,
+S00312,Atlas Media 0312,Enterprise,200,monthly,19000.0,LATAM,2023-02-13,,active,
+S00313,Summit Energy 0313,Business,24,annual,1224.0,EMEA,2023-01-04,,active,
+S00314,Vertex Capital 0314,Basic,5,annual,63.75,APAC,2025-06-29,2025-12-04,churned,Price
+S00315,Bright Logistics 0315,Basic,3,monthly,45.0,APAC,2024-09-15,2024-10-25,churned,Price
+S00316,Nimbus Studios 0316,Business,38,annual,1938.0,EMEA,2023-03-20,,active,
+S00317,Atlas Partners 0317,Basic,3,annual,38.25,North America,2023-05-24,2024-05-14,churned,Poor support
+S00318,Nimbus Energy 0318,Business,32,monthly,1920.0,North America,2023-07-09,,active,
+S00319,Rapid Systems 0319,Pro,16,monthly,560.0,North America,2023-05-26,,active,
+S00320,Acme Partners 0320,Business,32,monthly,1920.0,North America,2025-05-25,,active,
+S00321,Quantum Robotics 0321,Basic,5,monthly,75.0,APAC,2025-05-23,,active,
+S00322,Green Labs 0322,Basic,5,monthly,75.0,EMEA,2025-01-16,,active,
+S00323,Pioneer Analytics 0323,Basic,4,monthly,60.0,North America,2024-09-24,,active,
+S00324,North Foods 0324,Business,13,monthly,780.0,APAC,2025-01-15,,active,
+S00325,Iron Logistics 0325,Basic,4,annual,51.0,North America,2024-05-24,2024-10-14,churned,Budget cuts
+S00326,Maple Capital 0326,Basic,3,monthly,45.0,North America,2023-02-13,2023-03-03,churned,Price
+S00327,Pioneer Robotics 0327,Basic,5,annual,63.75,North America,2025-04-12,,active,
+S00328,Falcon Analytics 0328,Basic,1,monthly,15.0,North America,2023-08-03,2023-09-20,churned,Missing features
+S00329,Orbit Systems 0329,Enterprise,285,monthly,27075.0,LATAM,2024-07-27,,active,
+S00330,Cedar Works 0330,Pro,11,monthly,385.0,LATAM,2024-05-27,2025-05-03,churned,Missing features
+S00331,Iron Works 0331,Basic,3,annual,38.25,North America,2023-11-20,,active,
+S00332,Vertex Labs 0332,Pro,5,monthly,175.0,EMEA,2024-10-03,,active,
+S00333,Maple Health 0333,Enterprise,207,monthly,19665.0,North America,2024-05-24,,active,
+S00334,Iron Retail 0334,Pro,7,monthly,245.0,North America,2024-10-24,,active,
+S00335,Nimbus Capital 0335,Basic,5,annual,63.75,APAC,2023-11-21,,active,
+S00336,Summit Robotics 0336,Basic,3,annual,38.25,North America,2024-12-19,,active,
+S00337,Falcon Retail 0337,Pro,13,annual,386.75,EMEA,2025-09-26,,active,
+S00338,Bright Media 0338,Basic,5,monthly,75.0,North America,2023-08-06,2025-05-12,churned,Budget cuts
+S00339,Nimbus Works 0339,Basic,3,monthly,45.0,North America,2023-06-04,2024-05-27,churned,Missing features
+S00340,Pioneer Analytics 0340,Basic,5,monthly,75.0,APAC,2023-08-16,2024-04-11,churned,Price
+S00341,Harbor Health 0341,Basic,2,annual,25.5,APAC,2025-01-01,2025-09-20,churned,Missing features
+S00342,Lumen Media 0342,Basic,2,monthly,30.0,North America,2024-07-02,2024-11-18,churned,Switched to competitor
+S00343,Cedar Labs 0343,Enterprise,300,annual,24225.0,North America,2024-03-14,,active,
+S00344,Lumen Robotics 0344,Basic,3,monthly,45.0,North America,2024-10-20,2025-01-16,churned,Missing features
+S00345,Green Retail 0345,Pro,17,annual,505.75,North America,2024-05-02,2025-04-29,churned,Price
+S00346,Green Capital 0346,Pro,18,monthly,630.0,North America,2024-02-24,,active,
+S00347,Silver Retail 0347,Pro,16,monthly,560.0,APAC,2024-03-16,,active,
+S00348,Bright Media 0348,Enterprise,282,monthly,26790.0,LATAM,2025-05-14,,active,
+S00349,Lumen Health 0349,Basic,5,annual,63.75,EMEA,2023-06-20,2025-03-07,churned,Switched to competitor
+S00350,Summit Systems 0350,Enterprise,270,monthly,25650.0,LATAM,2024-09-09,,active,
+S00351,Rapid Media 0351,Basic,1,monthly,15.0,North America,2023-12-06,,active,
+S00352,Cedar Media 0352,Basic,2,monthly,30.0,LATAM,2025-02-03,,active,
+S00353,Rapid Media 0353,Pro,7,monthly,245.0,APAC,2025-05-08,,active,
+S00354,Summit Retail 0354,Business,38,monthly,2280.0,EMEA,2023-11-29,,active,
+S00355,Bright Energy 0355,Basic,3,monthly,45.0,EMEA,2023-04-13,,active,
+S00356,Quantum Retail 0356,Basic,5,monthly,75.0,APAC,2024-06-21,2025-01-12,churned,Price
+S00357,Green Energy 0357,Pro,9,monthly,315.0,North America,2025-05-05,,active,
+S00358,Falcon Media 0358,Basic,2,monthly,30.0,North America,2024-10-13,2025-06-29,churned,Missing features
+S00359,Rapid Health 0359,Pro,17,monthly,595.0,LATAM,2025-04-21,2025-08-18,churned,Switched to competitor
+S00360,Harbor Energy 0360,Pro,20,monthly,700.0,EMEA,2023-11-21,2025-03-06,churned,Missing features
+S00361,Harbor Energy 0361,Basic,5,monthly,75.0,LATAM,2024-09-30,,active,
+S00362,Atlas Works 0362,Basic,2,monthly,30.0,North America,2023-07-07,2024-05-22,churned,Switched to competitor
+S00363,Quantum Works 0363,Pro,5,monthly,175.0,LATAM,2024-01-11,2024-11-21,churned,Price
+S00364,Iron Robotics 0364,Business,11,annual,561.0,North America,2023-12-10,,active,
+S00365,Summit Foods 0365,Basic,5,monthly,75.0,North America,2025-11-10,,active,
+S00366,Acme Labs 0366,Pro,17,monthly,595.0,EMEA,2023-10-26,2024-05-13,churned,Switched to competitor
+S00367,North Labs 0367,Pro,15,monthly,525.0,North America,2024-05-23,,active,
+S00368,Silver Foods 0368,Basic,2,annual,25.5,North America,2024-01-02,2024-05-25,churned,Price
+S00369,Rapid Partners 0369,Basic,2,monthly,30.0,EMEA,2023-03-31,2024-02-12,churned,Switched to competitor
+S00370,Orbit Studios 0370,Pro,9,annual,267.75,North America,2024-07-27,2024-09-26,churned,Price
+S00371,Harbor Capital 0371,Enterprise,280,annual,22610.0,EMEA,2024-10-15,,active,
+S00372,Blue Health 0372,Pro,3,annual,89.25,North America,2025-04-16,,active,
+S00373,Nimbus Partners 0373,Pro,19,monthly,665.0,North America,2025-01-07,2025-03-18,churned,Missing features
+S00374,Orbit Retail 0374,Business,35,annual,1785.0,LATAM,2023-06-26,,active,
+S00375,Orbit Retail 0375,Business,49,annual,2499.0,LATAM,2023-03-22,2024-04-01,churned,Poor support
+S00376,Maple Robotics 0376,Business,32,monthly,1920.0,North America,2023-08-24,2024-04-09,churned,Price
+S00377,North Media 0377,Basic,2,annual,25.5,APAC,2024-04-18,2024-04-27,churned,Price
+S00378,Pioneer Energy 0378,Basic,5,annual,63.75,North America,2025-01-14,2025-03-01,churned,Switched to competitor
+S00379,Silver Labs 0379,Pro,15,monthly,525.0,North America,2024-04-14,2025-07-13,churned,Price
+S00380,Rapid Robotics 0380,Basic,1,monthly,15.0,North America,2023-12-28,,active,
+S00381,Vertex Retail 0381,Pro,6,monthly,210.0,LATAM,2025-11-11,,active,
+S00382,Orbit Robotics 0382,Business,44,annual,2244.0,APAC,2024-04-27,,active,
+S00383,Acme Health 0383,Pro,15,monthly,525.0,North America,2025-09-27,,active,
+S00384,Green Works 0384,Pro,10,monthly,350.0,LATAM,2023-05-22,2024-02-20,churned,Price
+S00385,Harbor Analytics 0385,Pro,16,monthly,560.0,APAC,2023-03-10,,active,
+S00386,Blue Media 0386,Basic,3,annual,38.25,North America,2023-12-02,2024-07-24,churned,Switched to competitor
+S00387,Green Logistics 0387,Business,51,annual,2601.0,North America,2024-01-18,,active,
+S00388,Cedar Analytics 0388,Basic,2,monthly,30.0,EMEA,2024-03-29,,active,
+S00389,Lumen Media 0389,Pro,9,annual,267.75,North America,2023-01-25,,active,
+S00390,Bright Energy 0390,Pro,14,annual,416.5,EMEA,2023-01-29,,active,
+S00391,Vertex Media 0391,Basic,4,annual,51.0,North America,2024-09-12,2025-06-30,churned,Poor support
+S00392,Rapid Labs 0392,Basic,2,monthly,30.0,North America,2023-05-06,,active,
+S00393,Rapid Media 0393,Enterprise,205,monthly,19475.0,EMEA,2023-04-28,,active,
+S00394,Cedar Systems 0394,Business,56,monthly,3360.0,North America,2025-05-17,,active,
+S00395,Atlas Retail 0395,Basic,5,monthly,75.0,LATAM,2024-05-31,,active,
+S00396,Nimbus Media 0396,Pro,18,monthly,630.0,APAC,2024-08-15,2024-09-30,churned,Price
+S00397,Harbor Analytics 0397,Pro,6,monthly,210.0,North America,2023-09-18,,active,
+S00398,Summit Foods 0398,Business,33,monthly,1980.0,EMEA,2023-02-18,,active,
+S00399,Atlas Media 0399,Basic,1,monthly,15.0,APAC,2024-11-28,,active,
+S00400,Lumen Media 0400,Business,25,monthly,1500.0,North America,2025-01-14,,active,
+S00401,Orbit Logistics 0401,Pro,12,annual,357.0,North America,2025-09-14,,active,
+S00402,Rapid Retail 0402,Basic,5,annual,63.75,North America,2024-07-01,,active,
+S00403,Vertex Works 0403,Business,45,monthly,2700.0,EMEA,2023-01-23,2023-07-03,churned,Missing features
+S00404,Silver Works 0404,Basic,5,annual,63.75,APAC,2024-04-06,,active,
+S00405,Blue Energy 0405,Pro,10,annual,297.5,LATAM,2024-05-20,,active,
+S00406,Lumen Systems 0406,Pro,5,monthly,175.0,APAC,2025-08-02,,active,
+S00407,Harbor Foods 0407,Basic,1,monthly,15.0,North America,2025-03-23,2025-12-03,churned,Price
+S00408,Maple Labs 0408,Business,19,annual,969.0,North America,2024-06-16,,active,
+S00409,Maple Foods 0409,Business,15,monthly,900.0,North America,2025-03-05,,active,
+S00410,Pioneer Works 0410,Enterprise,122,annual,9851.5,LATAM,2023-10-20,,active,
+S00411,Green Robotics 0411,Pro,5,monthly,175.0,North America,2025-04-18,,active,
+S00412,Acme Health 0412,Business,25,monthly,1500.0,North America,2025-01-30,,active,
+S00413,Orbit Foods 0413,Basic,2,annual,25.5,APAC,2024-03-05,,active,
+S00414,Silver Energy 0414,Business,22,annual,1122.0,APAC,2025-05-15,,active,
+S00415,Green Studios 0415,Pro,6,annual,178.5,North America,2025-11-08,,active,
+S00416,Lumen Energy 0416,Basic,3,monthly,45.0,LATAM,2024-05-24,,active,
+S00417,Quantum Capital 0417,Basic,5,annual,63.75,North America,2025-08-03,,active,
+S00418,Acme Partners 0418,Basic,3,monthly,45.0,EMEA,2025-09-21,,active,
+S00419,Falcon Logistics 0419,Basic,5,annual,63.75,EMEA,2025-05-26,,active,
+S00420,Silver Capital 0420,Business,26,monthly,1560.0,North America,2024-05-02,,active,
+S00421,Vertex Retail 0421,Basic,3,monthly,45.0,North America,2025-05-23,,active,
+S00422,Orbit Studios 0422,Basic,2,monthly,30.0,EMEA,2024-02-07,2025-10-03,churned,Price
+S00423,Lumen Logistics 0423,Enterprise,209,monthly,19855.0,APAC,2025-01-07,,active,
+S00424,Quantum Systems 0424,Pro,20,annual,595.0,LATAM,2023-07-23,,active,
+S00425,Silver Studios 0425,Pro,17,monthly,595.0,EMEA,2024-08-15,,active,
+S00426,Vertex Retail 0426,Basic,2,monthly,30.0,North America,2024-07-16,2024-12-27,churned,Budget cuts
+S00427,Silver Health 0427,Business,52,monthly,3120.0,APAC,2023-11-19,,active,
+S00428,Maple Health 0428,Business,24,monthly,1440.0,North America,2024-11-02,,active,
+S00429,Nimbus Studios 0429,Pro,11,monthly,385.0,North America,2023-06-24,,active,
+S00430,Harbor Partners 0430,Business,17,monthly,1020.0,North America,2025-07-27,,active,
+S00431,Blue Media 0431,Business,25,monthly,1500.0,North America,2024-09-26,,active,
+S00432,Quantum Analytics 0432,Pro,17,monthly,595.0,APAC,2024-10-20,,active,
+S00433,Green Systems 0433,Pro,5,annual,148.75,North America,2023-11-19,,active,
+S00434,Acme Foods 0434,Basic,4,annual,51.0,APAC,2025-08-29,,active,
+S00435,Harbor Systems 0435,Basic,1,annual,12.75,EMEA,2023-08-14,2024-02-02,churned,Price
+S00436,Acme Studios 0436,Pro,3,monthly,105.0,EMEA,2025-11-15,,active,
+S00437,Iron Foods 0437,Pro,20,monthly,700.0,LATAM,2025-06-05,,active,
+S00438,Maple Capital 0438,Basic,5,monthly,75.0,North America,2025-02-09,,active,
+S00439,Maple Analytics 0439,Enterprise,250,monthly,23750.0,North America,2024-03-21,,active,
+S00440,Green Logistics 0440,Business,48,monthly,2880.0,EMEA,2025-03-08,,active,
+S00441,Pioneer Health 0441,Basic,5,monthly,75.0,APAC,2024-01-07,,active,
+S00442,Green Foods 0442,Basic,3,annual,38.25,EMEA,2023-02-07,,active,
+S00443,Maple Systems 0443,Basic,3,monthly,45.0,North America,2025-09-11,,active,
+S00444,Bright Partners 0444,Enterprise,293,annual,23659.75,APAC,2024-08-21,,active,
+S00445,Orbit Partners 0445,Business,31,monthly,1860.0,EMEA,2025-06-18,,active,
+S00446,Acme Foods 0446,Basic,5,annual,63.75,North America,2023-05-04,,active,
+S00447,Harbor Studios 0447,Basic,3,monthly,45.0,APAC,2025-10-12,,active,
+S00448,Pioneer Health 0448,Pro,16,annual,476.0,LATAM,2023-11-10,,active,
+S00449,Orbit Systems 0449,Pro,14,monthly,490.0,North America,2023-12-25,,active,
+S00450,Bright Systems 0450,Business,35,monthly,2100.0,North America,2024-07-20,,active,
+S00451,Blue Health 0451,Pro,6,monthly,210.0,North America,2025-02-17,,active,
+S00452,North Foods 0452,Business,42,annual,2142.0,APAC,2023-12-29,,active,
+S00453,North Logistics 0453,Basic,1,annual,12.75,North America,2024-09-02,,active,
+S00454,Nimbus Energy 0454,Basic,4,monthly,60.0,EMEA,2023-10-02,,active,
+S00455,Blue Health 0455,Enterprise,92,annual,7429.0,EMEA,2024-03-21,,active,
+S00456,Rapid Retail 0456,Business,31,annual,1581.0,EMEA,2025-01-07,,active,
+S00457,Acme Partners 0457,Basic,5,annual,63.75,LATAM,2023-02-20,2024-09-03,churned,Budget cuts
+S00458,Blue Systems 0458,Basic,5,annual,63.75,EMEA,2023-01-12,2025-08-07,churned,Price
+S00459,Iron Logistics 0459,Basic,3,monthly,45.0,EMEA,2025-06-25,,active,
+S00460,Vertex Capital 0460,Business,51,annual,2601.0,North America,2023-01-21,2023-11-28,churned,Price
+S00461,Orbit Studios 0461,Pro,9,monthly,315.0,North America,2024-07-19,,active,
+S00462,Maple Analytics 0462,Pro,8,annual,238.0,APAC,2025-08-03,,active,
+S00463,Pioneer Foods 0463,Basic,4,monthly,60.0,EMEA,2025-07-20,,active,
+S00464,Quantum Retail 0464,Pro,19,annual,565.25,APAC,2025-07-29,,active,
+S00465,Atlas Logistics 0465,Business,15,monthly,900.0,EMEA,2025-02-07,,active,
+S00466,Summit Media 0466,Basic,2,monthly,30.0,EMEA,2023-10-13,2024-08-13,churned,Budget cuts
+S00467,Atlas Retail 0467,Basic,3,monthly,45.0,APAC,2024-06-23,2024-12-11,churned,Budget cuts
+S00468,Bright Partners 0468,Pro,6,monthly,210.0,LATAM,2025-08-23,,active,
+S00469,Blue Media 0469,Pro,16,monthly,560.0,North America,2023-08-13,2024-01-23,churned,Budget cuts
+S00470,Acme Works 0470,Pro,11,monthly,385.0,North America,2023-08-11,2024-08-24,churned,Price
+S00471,Bright Analytics 0471,Pro,17,monthly,595.0,EMEA,2024-06-28,,active,
+S00472,Silver Studios 0472,Business,44,monthly,2640.0,LATAM,2023-12-17,,active,
+S00473,Silver Health 0473,Basic,4,monthly,60.0,LATAM,2024-03-17,2025-07-02,churned,Budget cuts
+S00474,Vertex Systems 0474,Basic,2,annual,25.5,LATAM,2023-06-16,,active,
+S00475,Falcon Retail 0475,Basic,4,monthly,60.0,North America,2023-05-31,,active,
+S00476,Pioneer Analytics 0476,Business,46,monthly,2760.0,EMEA,2023-04-01,,active,
+S00477,Nimbus Health 0477,Basic,2,monthly,30.0,North America,2023-04-11,,active,
+S00478,Bright Energy 0478,Basic,4,monthly,60.0,North America,2024-02-18,2024-11-24,churned,Switched to competitor
+S00479,Rapid Logistics 0479,Basic,1,monthly,15.0,APAC,2025-01-17,2025-03-30,churned,Missing features
+S00480,Atlas Studios 0480,Basic,5,monthly,75.0,North America,2024-08-29,,active,
+S00481,Nimbus Energy 0481,Basic,2,annual,25.5,EMEA,2025-09-05,,active,
+S00482,Silver Studios 0482,Basic,1,annual,12.75,APAC,2024-10-24,2025-04-21,churned,Switched to competitor
+S00483,Cedar Media 0483,Business,38,annual,1938.0,North America,2023-07-20,,active,
+S00484,Pioneer Foods 0484,Pro,9,monthly,315.0,North America,2024-01-28,,active,
+S00485,Summit Capital 0485,Basic,1,monthly,15.0,North America,2023-01-26,2023-03-02,churned,Poor support
+S00486,Maple Foods 0486,Business,59,annual,3009.0,EMEA,2024-09-28,,active,
+S00487,Bright Analytics 0487,Basic,5,monthly,75.0,North America,2024-09-10,2025-04-30,churned,Budget cuts
+S00488,Green Media 0488,Pro,19,monthly,665.0,North America,2024-01-22,,active,
+S00489,Vertex Health 0489,Business,58,annual,2958.0,North America,2024-09-29,,active,
+S00490,Blue Works 0490,Pro,8,monthly,280.0,LATAM,2024-06-03,,active,
+S00491,Falcon Health 0491,Pro,10,annual,297.5,EMEA,2024-02-06,,active,
+S00492,North Foods 0492,Business,55,monthly,3300.0,LATAM,2023-02-25,,active,
+S00493,Harbor Energy 0493,Enterprise,96,annual,7752.0,APAC,2024-01-14,2025-02-11,churned,Missing features
+S00494,Lumen Robotics 0494,Business,18,annual,918.0,EMEA,2025-03-04,,active,
+S00495,Maple Studios 0495,Basic,4,monthly,60.0,North America,2023-03-15,,active,
+S00496,Nimbus Labs 0496,Basic,4,annual,51.0,APAC,2023-09-20,2024-11-28,churned,Missing features
+S00497,North Labs 0497,Pro,20,annual,595.0,LATAM,2023-09-24,,active,
+S00498,Bright Logistics 0498,Enterprise,244,annual,19703.0,North America,2023-08-15,,active,
+S00499,Silver Foods 0499,Basic,3,monthly,45.0,North America,2024-01-27,2024-12-01,churned,Missing features
+S00500,Iron Robotics 0500,Pro,8,annual,238.0,LATAM,2023-02-03,2023-10-13,churned,Switched to competitor
+S00501,Bright Logistics 0501,Basic,2,monthly,30.0,EMEA,2025-11-04,,active,
+S00502,Quantum Partners 0502,Basic,4,annual,51.0,North America,2024-02-28,2025-04-17,churned,Missing features
+S00503,North Health 0503,Basic,4,annual,51.0,North America,2025-05-29,,active,
+S00504,Blue Partners 0504,Basic,3,monthly,45.0,North America,2024-04-04,,active,
+S00505,Cedar Systems 0505,Pro,10,monthly,350.0,North America,2023-05-22,2024-05-11,churned,Price
+S00506,Silver Retail 0506,Pro,20,monthly,700.0,North America,2024-05-06,,active,
+S00507,Atlas Health 0507,Business,31,monthly,1860.0,EMEA,2024-02-19,,active,
+S00508,Harbor Energy 0508,Enterprise,40,monthly,3800.0,LATAM,2023-03-06,,active,
+S00509,Green Robotics 0509,Basic,4,annual,51.0,North America,2024-05-28,,active,
+S00510,Atlas Health 0510,Pro,12,monthly,420.0,APAC,2023-11-15,,active,
+S00511,Nimbus Works 0511,Pro,15,monthly,525.0,EMEA,2023-10-29,2024-05-09,churned,Budget cuts
+S00512,Summit Retail 0512,Business,56,monthly,3360.0,North America,2024-07-16,2024-09-08,churned,Switched to competitor
+S00513,Blue Foods 0513,Basic,1,monthly,15.0,North America,2023-04-16,2025-06-04,churned,Missing features
+S00514,Pioneer Robotics 0514,Business,13,annual,663.0,EMEA,2025-06-12,,active,
+S00515,Iron Media 0515,Basic,5,monthly,75.0,APAC,2024-09-09,2024-10-06,churned,Budget cuts
+S00516,Lumen Works 0516,Basic,5,monthly,75.0,EMEA,2024-11-19,2025-08-10,churned,Price
+S00517,North Studios 0517,Enterprise,228,annual,18411.0,EMEA,2023-01-30,,active,
+S00518,Cedar Foods 0518,Pro,3,monthly,105.0,LATAM,2023-09-14,2024-12-30,churned,Price
+S00519,Maple Labs 0519,Basic,1,monthly,15.0,North America,2025-07-26,2025-11-11,churned,Price
+S00520,Rapid Energy 0520,Business,42,annual,2142.0,LATAM,2023-10-10,,active,
+S00521,Rapid Labs 0521,Business,23,monthly,1380.0,EMEA,2024-10-04,,active,
+S00522,Harbor Retail 0522,Business,54,annual,2754.0,LATAM,2023-05-31,,active,
+S00523,Cedar Retail 0523,Basic,2,annual,25.5,North America,2023-04-15,,active,
+S00524,Bright Health 0524,Business,35,annual,1785.0,EMEA,2023-12-29,,active,
+S00525,Silver Energy 0525,Business,52,monthly,3120.0,North America,2023-02-11,,active,
+S00526,Rapid Partners 0526,Basic,4,annual,51.0,LATAM,2023-10-24,2025-02-01,churned,Switched to competitor
+S00527,Blue Works 0527,Basic,1,monthly,15.0,North America,2024-09-16,2025-04-10,churned,Price
+S00528,Summit Analytics 0528,Pro,14,monthly,490.0,North America,2023-09-01,2024-05-08,churned,Missing features
+S00529,Acme Retail 0529,Enterprise,216,monthly,20520.0,LATAM,2023-07-30,,active,
+S00530,Bright Robotics 0530,Business,43,annual,2193.0,North America,2024-02-08,,active,
+S00531,Falcon Energy 0531,Basic,4,monthly,60.0,North America,2024-11-23,,active,
+S00532,Harbor Health 0532,Pro,4,annual,119.0,North America,2023-10-05,,active,
+S00533,Rapid Media 0533,Pro,20,annual,595.0,EMEA,2025-04-17,,active,
+S00534,Green Partners 0534,Basic,5,monthly,75.0,North America,2023-06-26,2024-08-04,churned,Poor support
+S00535,Blue Systems 0535,Pro,10,annual,297.5,EMEA,2025-07-07,,active,
+S00536,Harbor Health 0536,Basic,2,annual,25.5,APAC,2025-01-18,,active,
+S00537,Nimbus Labs 0537,Business,44,monthly,2640.0,North America,2023-08-04,,active,
+S00538,Quantum Energy 0538,Basic,2,monthly,30.0,North America,2023-12-29,2024-05-04,churned,Missing features
+S00539,North Capital 0539,Basic,5,monthly,75.0,APAC,2025-10-26,,active,
+S00540,Nimbus Systems 0540,Basic,3,monthly,45.0,North America,2025-09-30,,active,
+S00541,Silver Foods 0541,Basic,1,monthly,15.0,North America,2023-11-05,2024-05-14,churned,Missing features
+S00542,Harbor Systems 0542,Business,56,monthly,3360.0,LATAM,2024-09-16,,active,
+S00543,Summit Labs 0543,Enterprise,123,annual,9932.25,APAC,2025-08-07,,active,
+S00544,Cedar Partners 0544,Pro,20,monthly,700.0,LATAM,2023-04-30,2023-06-16,churned,Switched to competitor
+S00545,Bright Health 0545,Enterprise,290,monthly,27550.0,North America,2023-09-07,2024-12-06,churned,Missing features
+S00546,Atlas Labs 0546,Pro,14,monthly,490.0,North America,2023-06-14,,active,
+S00547,Silver Capital 0547,Basic,2,monthly,30.0,North America,2025-02-20,2025-07-12,churned,Missing features
+S00548,Nimbus Partners 0548,Business,33,annual,1683.0,North America,2025-01-11,,active,
+S00549,Bright Studios 0549,Pro,18,monthly,630.0,North America,2025-05-20,,active,
+S00550,Orbit Energy 0550,Pro,5,annual,148.75,EMEA,2023-05-12,,active,
+S00551,Rapid Energy 0551,Business,42,monthly,2520.0,EMEA,2024-11-24,,active,
+S00552,Cedar Partners 0552,Basic,4,monthly,60.0,North America,2023-05-27,2024-05-17,churned,Switched to competitor
+S00553,Summit Capital 0553,Basic,1,monthly,15.0,EMEA,2023-08-30,,active,
+S00554,Orbit Retail 0554,Basic,3,monthly,45.0,EMEA,2023-08-02,2023-12-16,churned,Missing features
+S00555,North Media 0555,Pro,13,monthly,455.0,North America,2025-05-28,,active,
+S00556,Lumen Foods 0556,Pro,13,monthly,455.0,EMEA,2025-02-10,,active,
+S00557,Pioneer Studios 0557,Basic,2,monthly,30.0,EMEA,2023-08-20,2025-06-26,churned,Switched to competitor
+S00558,Blue Media 0558,Business,34,monthly,2040.0,APAC,2025-08-24,,active,
+S00559,Cedar Capital 0559,Pro,8,monthly,280.0,North America,2023-11-01,,active,
+S00560,Vertex Partners 0560,Pro,16,annual,476.0,North America,2025-11-04,,active,
+S00561,Harbor Studios 0561,Pro,16,annual,476.0,North America,2024-05-29,,active,
+S00562,Quantum Labs 0562,Pro,14,annual,416.5,North America,2024-10-12,,active,
+S00563,Iron Analytics 0563,Pro,16,annual,476.0,North America,2023-03-29,,active,
+S00564,Bright Capital 0564,Basic,4,monthly,60.0,APAC,2024-10-28,2025-04-21,churned,Switched to competitor
+S00565,North Capital 0565,Pro,8,annual,238.0,North America,2024-03-16,,active,
+S00566,Falcon Media 0566,Pro,9,monthly,315.0,EMEA,2024-11-18,,active,
+S00567,Cedar Media 0567,Basic,5,annual,63.75,LATAM,2023-08-06,,active,
+S00568,Blue Retail 0568,Pro,17,monthly,595.0,North America,2023-12-19,2024-03-29,churned,Price
+S00569,Maple Retail 0569,Basic,3,monthly,45.0,EMEA,2024-02-24,,active,
+S00570,Maple Partners 0570,Pro,16,monthly,560.0,North America,2024-02-04,,active,
+S00571,Orbit Labs 0571,Basic,3,monthly,45.0,North America,2024-05-24,,active,
+S00572,Falcon Studios 0572,Basic,4,annual,51.0,LATAM,2023-10-08,,active,
+S00573,Acme Robotics 0573,Basic,4,monthly,60.0,North America,2023-12-18,2025-06-21,churned,Missing features
+S00574,Iron Studios 0574,Enterprise,252,annual,20349.0,North America,2024-05-10,,active,
+S00575,Pioneer Energy 0575,Basic,5,monthly,75.0,LATAM,2025-11-27,,active,
+S00576,Falcon Labs 0576,Pro,15,annual,446.25,EMEA,2024-03-27,2025-02-22,churned,Missing features
+S00577,Cedar Labs 0577,Basic,3,monthly,45.0,APAC,2023-02-21,2023-10-09,churned,Switched to competitor
+S00578,Silver Retail 0578,Basic,3,monthly,45.0,EMEA,2025-07-11,2025-10-07,churned,Price
+S00579,Iron Works 0579,Pro,16,monthly,560.0,EMEA,2023-11-20,2024-02-05,churned,Budget cuts
+S00580,Orbit Systems 0580,Basic,5,annual,63.75,APAC,2025-03-09,,active,
+S00581,Rapid Media 0581,Pro,15,annual,446.25,North America,2025-05-27,,active,
+S00582,Falcon Studios 0582,Pro,15,annual,446.25,APAC,2025-07-03,,active,
+S00583,Lumen Media 0583,Pro,14,monthly,490.0,LATAM,2023-02-02,2025-10-15,churned,Budget cuts
+S00584,Maple Robotics 0584,Enterprise,114,annual,9205.5,North America,2025-07-07,,active,
+S00585,Blue Capital 0585,Basic,1,annual,12.75,EMEA,2024-06-08,,active,
+S00586,Lumen Health 0586,Basic,3,monthly,45.0,North America,2025-06-23,,active,
+S00587,Summit Robotics 0587,Pro,7,annual,208.25,EMEA,2024-02-08,,active,
+S00588,Quantum Media 0588,Enterprise,281,monthly,26695.0,APAC,2023-04-15,,active,
+S00589,Falcon Studios 0589,Pro,17,monthly,595.0,APAC,2024-10-07,2025-05-06,churned,Missing features
+S00590,Cedar Retail 0590,Pro,14,monthly,490.0,EMEA,2023-02-14,,active,
+S00591,Bright Logistics 0591,Basic,5,monthly,75.0,North America,2024-01-05,,active,
+S00592,Acme Analytics 0592,Pro,13,annual,386.75,EMEA,2025-08-26,,active,
+S00593,Quantum Studios 0593,Business,31,annual,1581.0,EMEA,2023-10-16,,active,
+S00594,Iron Works 0594,Business,10,monthly,600.0,North America,2025-11-08,,active,
+S00595,Iron Logistics 0595,Business,59,monthly,3540.0,APAC,2024-02-18,,active,
+S00596,Harbor Health 0596,Business,10,monthly,600.0,APAC,2024-09-01,,active,
+S00597,Vertex Health 0597,Basic,4,monthly,60.0,North America,2023-03-30,,active,
+S00598,Silver Foods 0598,Basic,1,monthly,15.0,APAC,2024-07-04,2025-01-03,churned,Price
+S00599,Harbor Studios 0599,Business,34,monthly,2040.0,APAC,2025-08-13,,active,
+S00600,Falcon Systems 0600,Basic,4,monthly,60.0,North America,2025-01-31,2025-09-21,churned,Missing features
+S00601,Summit Health 0601,Basic,4,monthly,60.0,EMEA,2025-06-27,,active,
+S00602,Bright Capital 0602,Pro,16,monthly,560.0,APAC,2025-01-17,,active,
+S00603,Green Systems 0603,Pro,17,monthly,595.0,LATAM,2023-03-21,,active,
+S00604,Rapid Labs 0604,Pro,18,monthly,630.0,North America,2024-09-21,,active,
+S00605,Cedar Retail 0605,Basic,3,monthly,45.0,North America,2025-04-30,,active,
+S00606,Lumen Foods 0606,Pro,11,monthly,385.0,APAC,2023-09-02,2024-10-22,churned,Missing features
+S00607,Bright Capital 0607,Basic,5,annual,63.75,EMEA,2024-01-06,2024-07-10,churned,Poor support
+S00608,Atlas Labs 0608,Business,56,monthly,3360.0,APAC,2024-10-01,,active,
+S00609,Lumen Systems 0609,Basic,5,monthly,75.0,North America,2024-09-01,2025-09-14,churned,Poor support
+S00610,Maple Energy 0610,Pro,3,annual,89.25,APAC,2023-11-14,2025-08-30,churned,Budget cuts
+S00611,Bright Media 0611,Basic,4,annual,51.0,APAC,2023-07-13,,active,
+S00612,Cedar Systems 0612,Basic,2,monthly,30.0,EMEA,2025-11-23,,active,
+S00613,Bright Capital 0613,Business,34,monthly,2040.0,EMEA,2024-11-19,2025-10-04,churned,Poor support
+S00614,Acme Analytics 0614,Pro,12,monthly,420.0,North America,2025-06-10,,active,
+S00615,Silver Logistics 0615,Pro,3,monthly,105.0,LATAM,2023-11-06,,active,
+S00616,Falcon Labs 0616,Basic,5,monthly,75.0,LATAM,2025-03-05,,active,
+S00617,Cedar Systems 0617,Basic,1,monthly,15.0,North America,2024-09-17,,active,
+S00618,Falcon Retail 0618,Enterprise,44,annual,3553.0,North America,2024-04-17,,active,
+S00619,Green Works 0619,Pro,5,annual,148.75,North America,2023-01-04,2025-08-27,churned,Missing features
+S00620,Atlas Media 0620,Enterprise,279,monthly,26505.0,North America,2023-09-17,,active,
+S00621,Cedar Systems 0621,Pro,17,monthly,595.0,North America,2023-02-25,,active,
+S00622,Blue Media 0622,Pro,16,annual,476.0,North America,2024-06-18,,active,
+S00623,Iron Health 0623,Enterprise,92,annual,7429.0,LATAM,2023-07-31,,active,
+S00624,Maple Energy 0624,Business,48,annual,2448.0,EMEA,2025-06-28,,active,
+S00625,Vertex Systems 0625,Pro,20,monthly,700.0,EMEA,2025-09-20,,active,
+S00626,Nimbus Energy 0626,Pro,17,monthly,595.0,EMEA,2023-01-16,2023-05-29,churned,Switched to competitor
+S00627,Cedar Energy 0627,Basic,5,monthly,75.0,North America,2024-03-12,,active,
+S00628,Nimbus Capital 0628,Basic,3,annual,38.25,North America,2023-11-11,,active,
+S00629,Pioneer Systems 0629,Business,40,monthly,2400.0,North America,2025-02-24,,active,
+S00630,Orbit Works 0630,Business,30,monthly,1800.0,North America,2024-11-29,,active,
+S00631,Blue Systems 0631,Basic,2,monthly,30.0,North America,2025-01-08,,active,
+S00632,Iron Labs 0632,Business,45,monthly,2700.0,LATAM,2023-06-20,,active,
+S00633,Falcon Foods 0633,Enterprise,293,annual,23659.75,APAC,2023-06-13,,active,
+S00634,Acme Partners 0634,Basic,1,monthly,15.0,North America,2023-12-30,2025-07-03,churned,Price
+S00635,Orbit Health 0635,Basic,4,monthly,60.0,EMEA,2023-04-07,2025-01-12,churned,Switched to competitor
+S00636,Quantum Capital 0636,Pro,4,monthly,140.0,North America,2024-02-13,,active,
+S00637,Cedar Studios 0637,Pro,16,monthly,560.0,EMEA,2023-02-02,,active,
+S00638,Nimbus Energy 0638,Pro,13,monthly,455.0,LATAM,2024-03-03,2025-08-03,churned,Budget cuts
+S00639,Maple Analytics 0639,Enterprise,297,annual,23982.75,North America,2023-04-28,,active,
+S00640,Summit Analytics 0640,Basic,4,monthly,60.0,APAC,2025-06-29,,active,
+S00641,Vertex Capital 0641,Basic,2,annual,25.5,North America,2024-11-27,2025-09-19,churned,Missing features
+S00642,Rapid Foods 0642,Pro,6,monthly,210.0,North America,2024-04-27,,active,
+S00643,North Systems 0643,Basic,2,annual,25.5,APAC,2023-04-24,,active,
+S00644,Blue Studios 0644,Basic,3,annual,38.25,North America,2025-08-25,,active,
+S00645,Green Capital 0645,Basic,2,monthly,30.0,LATAM,2025-07-17,,active,
+S00646,Blue Retail 0646,Pro,3,monthly,105.0,EMEA,2023-09-29,,active,
+S00647,Maple Systems 0647,Basic,1,monthly,15.0,North America,2025-04-17,,active,
+S00648,Harbor Capital 0648,Pro,5,monthly,175.0,North America,2024-11-18,2025-01-26,churned,Missing features
+S00649,Orbit Labs 0649,Pro,8,annual,238.0,North America,2024-07-23,,active,
+S00650,Cedar Studios 0650,Business,17,annual,867.0,APAC,2025-11-14,,active,
+S00651,Rapid Analytics 0651,Basic,4,monthly,60.0,North America,2023-07-04,2025-02-26,churned,Budget cuts
+S00652,Green Partners 0652,Basic,1,monthly,15.0,North America,2024-04-15,2024-06-13,churned,Missing features
+S00653,Pioneer Studios 0653,Business,35,monthly,2100.0,North America,2025-02-15,,active,
+S00654,Cedar Energy 0654,Pro,5,monthly,175.0,EMEA,2023-10-26,,active,
+S00655,Iron Partners 0655,Basic,4,monthly,60.0,APAC,2023-05-17,,active,
+S00656,Vertex Partners 0656,Pro,5,annual,148.75,North America,2023-09-15,,active,
+S00657,Falcon Media 0657,Basic,4,monthly,60.0,APAC,2023-01-28,2023-06-25,churned,Missing features
+S00658,Nimbus Logistics 0658,Basic,5,monthly,75.0,APAC,2023-02-05,,active,
+S00659,Rapid Health 0659,Basic,1,annual,12.75,North America,2025-07-22,,active,
+S00660,Atlas Energy 0660,Basic,2,annual,25.5,EMEA,2023-12-18,,active,
+S00661,Vertex Systems 0661,Basic,1,monthly,15.0,North America,2023-03-18,,active,
+S00662,Lumen Robotics 0662,Basic,5,annual,63.75,North America,2025-02-24,,active,
+S00663,Pioneer Capital 0663,Basic,1,annual,12.75,LATAM,2024-01-16,2025-11-05,churned,Price
+S00664,Maple Capital 0664,Basic,2,monthly,30.0,EMEA,2023-11-28,2024-06-24,churned,Missing features
+S00665,Quantum Health 0665,Business,55,monthly,3300.0,North America,2024-02-17,,active,
+S00666,Maple Works 0666,Pro,20,monthly,700.0,EMEA,2025-06-12,,active,
+S00667,Nimbus Partners 0667,Business,39,annual,1989.0,EMEA,2024-03-27,,active,
+S00668,Harbor Media 0668,Basic,5,monthly,75.0,North America,2024-07-05,,active,
+S00669,Summit Media 0669,Business,18,monthly,1080.0,APAC,2024-08-21,,active,
+S00670,Atlas Studios 0670,Pro,14,monthly,490.0,North America,2024-12-26,,active,
+S00671,Maple Retail 0671,Pro,11,monthly,385.0,North America,2023-08-24,2024-06-21,churned,Missing features
+S00672,Lumen Studios 0672,Basic,1,monthly,15.0,APAC,2024-05-29,,active,
+S00673,Orbit Capital 0673,Basic,5,monthly,75.0,LATAM,2023-09-30,2025-12-30,churned,Switched to competitor
+S00674,Harbor Labs 0674,Basic,4,annual,51.0,LATAM,2025-06-07,,active,
+S00675,Bright Labs 0675,Business,12,monthly,720.0,APAC,2023-10-06,2025-07-03,churned,Price
+S00676,Blue Capital 0676,Business,42,monthly,2520.0,EMEA,2024-08-03,,active,
+S00677,Falcon Foods 0677,Pro,18,monthly,630.0,North America,2023-05-01,,active,
+S00678,North Systems 0678,Business,16,monthly,960.0,APAC,2023-01-17,,active,
+S00679,North Robotics 0679,Enterprise,240,monthly,22800.0,North America,2025-03-23,,active,
+S00680,Rapid Logistics 0680,Pro,14,monthly,490.0,EMEA,2023-03-24,2025-05-03,churned,Price
+S00681,Falcon Media 0681,Pro,14,monthly,490.0,North America,2024-12-12,,active,
+S00682,Lumen Retail 0682,Basic,4,monthly,60.0,APAC,2025-06-01,,active,
+S00683,Quantum Foods 0683,Basic,1,annual,12.75,LATAM,2025-07-06,,active,
+S00684,Pioneer Analytics 0684,Pro,13,annual,386.75,APAC,2023-10-01,,active,
+S00685,Quantum Systems 0685,Pro,14,monthly,490.0,North America,2024-05-24,,active,
+S00686,Green Media 0686,Business,25,monthly,1500.0,APAC,2024-03-05,,active,
+S00687,Atlas Capital 0687,Basic,4,monthly,60.0,EMEA,2025-01-07,,active,
+S00688,North Labs 0688,Business,41,annual,2091.0,EMEA,2024-05-12,,active,
+S00689,Green Energy 0689,Basic,2,monthly,30.0,APAC,2024-08-30,,active,
+S00690,Lumen Logistics 0690,Basic,3,monthly,45.0,APAC,2023-06-22,,active,
+S00691,Blue Logistics 0691,Pro,12,monthly,420.0,EMEA,2025-07-18,,active,
+S00692,North Media 0692,Basic,1,monthly,15.0,APAC,2024-06-29,2025-03-04,churned,Price
+S00693,Cedar Studios 0693,Basic,2,annual,25.5,North America,2023-12-11,,active,
+S00694,Blue Logistics 0694,Basic,3,annual,38.25,APAC,2023-03-10,2025-04-28,churned,Budget cuts
+S00695,Lumen Foods 0695,Basic,5,monthly,75.0,North America,2024-07-01,,active,
+S00696,Vertex Partners 0696,Basic,4,annual,51.0,EMEA,2024-06-21,,active,
+S00697,Orbit Works 0697,Basic,3,monthly,45.0,APAC,2025-08-20,2025-08-31,churned,Price
+S00698,Blue Analytics 0698,Business,24,annual,1224.0,EMEA,2024-11-22,,active,
+S00699,Cedar Robotics 0699,Basic,3,monthly,45.0,LATAM,2023-12-23,2024-03-01,churned,Poor support
+S00700,Vertex Capital 0700,Enterprise,147,monthly,13965.0,North America,2025-03-10,,active,
+S00701,Vertex Works 0701,Enterprise,55,annual,4441.25,North America,2023-06-26,,active,
+S00702,Falcon Capital 0702,Pro,20,monthly,700.0,North America,2024-02-25,2025-12-18,churned,Price
+S00703,Pioneer Analytics 0703,Basic,2,monthly,30.0,LATAM,2023-01-17,2023-03-24,churned,Price
+S00704,Atlas Foods 0704,Pro,8,annual,238.0,North America,2024-04-06,,active,
+S00705,Pioneer Energy 0705,Pro,4,monthly,140.0,EMEA,2023-05-11,,active,
+S00706,Lumen Health 0706,Pro,7,monthly,245.0,North America,2023-11-27,2025-01-09,churned,Missing features
+S00707,Bright Partners 0707,Basic,1,annual,12.75,North America,2024-04-11,,active,
+S00708,Falcon Studios 0708,Pro,17,monthly,595.0,EMEA,2024-08-01,,active,
+S00709,Iron Media 0709,Pro,20,monthly,700.0,North America,2024-06-04,,active,
+S00710,Orbit Systems 0710,Basic,5,monthly,75.0,EMEA,2024-03-11,,active,
+S00711,Iron Retail 0711,Pro,6,annual,178.5,EMEA,2024-05-11,2024-11-18,churned,Switched to competitor
+S00712,Pioneer Systems 0712,Basic,2,annual,25.5,APAC,2023-04-11,2024-07-15,churned,Price
+S00713,Falcon Robotics 0713,Enterprise,190,annual,15342.5,EMEA,2023-12-15,,active,
+S00714,Nimbus Retail 0714,Enterprise,158,annual,12758.5,EMEA,2025-06-16,,active,
+S00715,Iron Logistics 0715,Pro,10,annual,297.5,EMEA,2024-03-03,,active,
+S00716,Iron Analytics 0716,Basic,4,monthly,60.0,EMEA,2024-12-24,,active,
+S00717,Pioneer Energy 0717,Basic,3,annual,38.25,North America,2023-05-31,,active,
+S00718,Summit Studios 0718,Pro,5,monthly,175.0,LATAM,2025-01-08,,active,
+S00719,Summit Foods 0719,Basic,5,monthly,75.0,North America,2025-09-20,,active,
+S00720,Blue Studios 0720,Enterprise,238,annual,19218.5,LATAM,2024-09-03,,active,
+S00721,Acme Logistics 0721,Pro,20,monthly,700.0,LATAM,2025-01-30,2025-12-26,churned,Budget cuts
+S00722,Harbor Foods 0722,Pro,8,annual,238.0,EMEA,2025-10-10,2025-10-15,churned,Switched to competitor
+S00723,Quantum Robotics 0723,Basic,2,monthly,30.0,APAC,2023-03-25,,active,
+S00724,Harbor Media 0724,Business,25,monthly,1500.0,North America,2025-06-28,,active,
+S00725,Orbit Labs 0725,Pro,13,annual,386.75,EMEA,2025-07-26,,active,
+S00726,Quantum Media 0726,Pro,9,annual,267.75,North America,2023-04-13,2025-01-19,churned,Missing features
+S00727,Maple Studios 0727,Business,17,monthly,1020.0,EMEA,2024-12-06,,active,
+S00728,Pioneer Works 0728,Pro,19,annual,565.25,North America,2025-01-04,,active,
+S00729,Green Retail 0729,Enterprise,285,monthly,27075.0,North America,2024-12-18,,active,
+S00730,Summit Labs 0730,Business,58,monthly,3480.0,North America,2024-07-31,,active,
+S00731,Falcon Partners 0731,Basic,1,annual,12.75,APAC,2023-10-24,,active,
+S00732,Quantum Capital 0732,Basic,3,annual,38.25,EMEA,2023-05-09,,active,
+S00733,Pioneer Media 0733,Pro,6,annual,178.5,North America,2024-01-17,,active,
+S00734,Quantum Energy 0734,Pro,14,monthly,490.0,North America,2025-02-19,,active,
+S00735,Lumen Partners 0735,Pro,18,monthly,630.0,EMEA,2024-03-28,,active,
+S00736,Falcon Health 0736,Pro,8,monthly,280.0,EMEA,2024-08-15,,active,
+S00737,Pioneer Analytics 0737,Business,54,monthly,3240.0,EMEA,2025-10-04,,active,
+S00738,Nimbus Retail 0738,Pro,15,monthly,525.0,APAC,2024-10-20,,active,
+S00739,Falcon Logistics 0739,Basic,4,monthly,60.0,North America,2024-08-09,2024-12-06,churned,Missing features
+S00740,Atlas Health 0740,Basic,5,annual,63.75,North America,2024-08-30,,active,
+S00741,Harbor Works 0741,Business,48,monthly,2880.0,LATAM,2023-02-25,,active,
+S00742,North Analytics 0742,Pro,18,annual,535.5,EMEA,2025-07-30,,active,
+S00743,Atlas Analytics 0743,Pro,19,annual,565.25,North America,2023-06-03,,active,
+S00744,Iron Media 0744,Business,30,monthly,1800.0,North America,2023-09-22,2024-10-19,churned,Switched to competitor
+S00745,Summit Labs 0745,Pro,9,monthly,315.0,North America,2023-01-01,2024-03-20,churned,Missing features
+S00746,North Capital 0746,Pro,12,annual,357.0,North America,2025-03-17,,active,
+S00747,Cedar Studios 0747,Business,18,monthly,1080.0,North America,2025-03-03,,active,
+S00748,Vertex Systems 0748,Business,40,monthly,2400.0,EMEA,2024-03-08,2024-08-12,churned,Budget cuts
+S00749,Harbor Labs 0749,Pro,10,monthly,350.0,North America,2024-06-16,2025-05-29,churned,Budget cuts
+S00750,Lumen Studios 0750,Business,24,annual,1224.0,North America,2023-05-28,,active,
+S00751,Atlas Works 0751,Business,44,annual,2244.0,North America,2024-05-28,,active,
+S00752,Lumen Energy 0752,Business,49,monthly,2940.0,APAC,2025-05-19,,active,
+S00753,Harbor Studios 0753,Basic,2,monthly,30.0,North America,2023-06-14,,active,
+S00754,Green Studios 0754,Pro,14,monthly,490.0,North America,2025-02-10,,active,
+S00755,Maple Labs 0755,Business,35,annual,1785.0,North America,2023-12-07,,active,
+S00756,Nimbus Media 0756,Enterprise,272,monthly,25840.0,North America,2025-08-15,,active,
+S00757,Lumen Health 0757,Basic,1,annual,12.75,EMEA,2024-11-22,,active,
+S00758,Bright Foods 0758,Basic,4,annual,51.0,North America,2023-05-27,,active,
+S00759,Summit Energy 0759,Enterprise,257,monthly,24415.0,North America,2023-12-20,,active,
+S00760,Falcon Media 0760,Basic,3,monthly,45.0,APAC,2024-09-22,2024-10-08,churned,Switched to competitor
+S00761,Silver Retail 0761,Basic,3,monthly,45.0,North America,2023-01-06,2024-07-22,churned,Budget cuts
+S00762,Lumen Labs 0762,Basic,3,monthly,45.0,North America,2025-03-06,,active,
+S00763,Pioneer Analytics 0763,Pro,7,monthly,245.0,North America,2024-07-17,,active,
+S00764,Harbor Logistics 0764,Pro,12,monthly,420.0,North America,2024-06-20,2025-12-18,churned,Price
+S00765,Silver Logistics 0765,Business,21,monthly,1260.0,EMEA,2024-06-12,,active,
+S00766,Silver Robotics 0766,Basic,2,annual,25.5,North America,2025-10-26,,active,
+S00767,Blue Partners 0767,Basic,2,annual,25.5,LATAM,2023-11-08,,active,
+S00768,Falcon Analytics 0768,Pro,13,monthly,455.0,North America,2023-01-30,,active,
+S00769,Harbor Labs 0769,Business,60,annual,3060.0,EMEA,2025-01-10,,active,
+S00770,Iron Logistics 0770,Basic,5,monthly,75.0,EMEA,2025-04-09,,active,
+S00771,Cedar Foods 0771,Basic,2,annual,25.5,EMEA,2023-04-24,2025-09-19,churned,Missing features
+S00772,Pioneer Foods 0772,Basic,3,annual,38.25,LATAM,2023-01-31,,active,
+S00773,Bright Media 0773,Basic,3,annual,38.25,North America,2024-09-08,,active,
+S00774,Cedar Energy 0774,Pro,9,annual,267.75,North America,2025-06-29,,active,
+S00775,Iron Partners 0775,Pro,18,monthly,630.0,EMEA,2024-09-29,2025-09-02,churned,Poor support
+S00776,Acme Logistics 0776,Pro,4,annual,119.0,North America,2023-09-22,,active,
+S00777,North Foods 0777,Pro,8,monthly,280.0,EMEA,2024-10-28,,active,
+S00778,Acme Foods 0778,Business,10,annual,510.0,North America,2023-12-29,,active,
+S00779,Silver Robotics 0779,Business,18,annual,918.0,North America,2023-03-29,,active,
+S00780,Atlas Retail 0780,Pro,19,annual,565.25,North America,2023-03-12,,active,
+S00781,Falcon Logistics 0781,Pro,15,monthly,525.0,North America,2024-05-25,,active,
+S00782,Orbit Systems 0782,Business,51,monthly,3060.0,APAC,2023-06-02,,active,
+S00783,Pioneer Robotics 0783,Business,53,monthly,3180.0,APAC,2024-01-12,2025-11-16,churned,Switched to competitor
+S00784,Harbor Studios 0784,Basic,5,annual,63.75,EMEA,2024-07-01,,active,
+S00785,Green Partners 0785,Pro,10,annual,297.5,EMEA,2025-07-28,2025-10-12,churned,Price
+S00786,Bright Capital 0786,Basic,2,monthly,30.0,North America,2025-01-12,2025-05-31,churned,Price
+S00787,Acme Capital 0787,Enterprise,209,monthly,19855.0,North America,2023-04-20,,active,
+S00788,Nimbus Health 0788,Basic,4,monthly,60.0,North America,2025-06-08,,active,
+S00789,Harbor Studios 0789,Business,38,annual,1938.0,North America,2025-07-01,,active,
+S00790,Lumen Energy 0790,Pro,20,monthly,700.0,APAC,2023-10-28,2025-11-12,churned,Missing features
+S00791,Orbit Retail 0791,Basic,4,annual,51.0,EMEA,2025-03-03,,active,
+S00792,Iron Robotics 0792,Business,25,annual,1275.0,LATAM,2023-07-30,,active,
+S00793,Acme Energy 0793,Business,57,monthly,3420.0,EMEA,2023-11-02,,active,
+S00794,Blue Energy 0794,Business,28,monthly,1680.0,LATAM,2023-03-10,,active,
+S00795,Vertex Studios 0795,Basic,1,monthly,15.0,North America,2023-02-11,2024-08-18,churned,Price
+S00796,Quantum Analytics 0796,Business,52,monthly,3120.0,LATAM,2023-02-09,,active,
+S00797,Green Works 0797,Basic,1,monthly,15.0,EMEA,2025-09-03,,active,
+S00798,Bright Health 0798,Basic,1,annual,12.75,North America,2024-09-30,,active,
+S00799,North Health 0799,Pro,9,annual,267.75,North America,2023-10-29,2024-10-22,churned,Switched to competitor
+S00800,Silver Health 0800,Enterprise,84,monthly,7980.0,APAC,2025-09-10,,active,
+S00801,Vertex Robotics 0801,Enterprise,214,annual,17280.5,North America,2024-10-19,,active,
+S00802,Silver Media 0802,Basic,1,annual,12.75,North America,2023-07-01,,active,
+S00803,Summit Works 0803,Business,11,annual,561.0,LATAM,2025-11-27,,active,
+S00804,Orbit Robotics 0804,Basic,4,monthly,60.0,North America,2025-04-02,,active,
+S00805,Iron Health 0805,Basic,4,monthly,60.0,APAC,2025-02-23,2025-08-05,churned,Missing features
+S00806,Nimbus Works 0806,Pro,12,monthly,420.0,North America,2023-08-24,,active,
+S00807,Atlas Logistics 0807,Business,50,monthly,3000.0,EMEA,2025-04-15,,active,
+S00808,Quantum Analytics 0808,Business,17,monthly,1020.0,LATAM,2025-07-16,,active,
+S00809,Blue Capital 0809,Pro,16,monthly,560.0,North America,2023-04-06,2024-03-16,churned,Price
+S00810,Summit Health 0810,Business,13,monthly,780.0,APAC,2023-08-27,,active,
+S00811,Summit Works 0811,Basic,1,monthly,15.0,LATAM,2025-03-10,,active,
+S00812,North Energy 0812,Basic,2,annual,25.5,North America,2023-03-11,,active,
+S00813,Orbit Retail 0813,Pro,4,monthly,140.0,North America,2024-04-13,,active,
+S00814,Rapid Analytics 0814,Basic,4,monthly,60.0,North America,2024-04-09,,active,
+S00815,Blue Studios 0815,Pro,6,monthly,210.0,North America,2023-05-30,2023-09-17,churned,Budget cuts
+S00816,Maple Partners 0816,Basic,5,annual,63.75,APAC,2025-05-03,,active,
+S00817,Maple Media 0817,Pro,16,monthly,560.0,EMEA,2023-11-21,2025-07-27,churned,Price
+S00818,Quantum Retail 0818,Enterprise,228,monthly,21660.0,North America,2023-03-03,,active,
+S00819,Orbit Systems 0819,Enterprise,102,annual,8236.5,North America,2025-11-21,,active,
+S00820,North Capital 0820,Pro,19,monthly,665.0,North America,2025-03-04,,active,
+S00821,Green Labs 0821,Pro,13,annual,386.75,LATAM,2024-07-28,,active,
+S00822,Pioneer Capital 0822,Basic,1,monthly,15.0,North America,2023-05-07,,active,
+S00823,Summit Logistics 0823,Pro,5,annual,148.75,North America,2025-02-20,,active,
+S00824,Silver Capital 0824,Enterprise,113,annual,9124.75,North America,2023-02-08,,active,
+S00825,Rapid Media 0825,Basic,5,monthly,75.0,North America,2023-12-14,,active,
+S00826,Vertex Works 0826,Basic,5,monthly,75.0,EMEA,2024-02-05,,active,
+S00827,Atlas Works 0827,Business,22,monthly,1320.0,EMEA,2025-10-03,,active,
+S00828,Silver Labs 0828,Pro,12,monthly,420.0,EMEA,2025-08-10,,active,
+S00829,Nimbus Media 0829,Pro,13,monthly,455.0,EMEA,2023-04-04,,active,
+S00830,Vertex Partners 0830,Business,40,monthly,2400.0,EMEA,2025-10-17,,active,
+S00831,Bright Foods 0831,Enterprise,237,annual,19137.75,EMEA,2024-02-08,,active,
+S00832,Pioneer Media 0832,Business,26,monthly,1560.0,North America,2025-01-06,,active,
+S00833,Green Analytics 0833,Business,55,monthly,3300.0,North America,2024-07-02,,active,
+S00834,Nimbus Health 0834,Basic,5,annual,63.75,EMEA,2023-08-12,,active,
+S00835,Lumen Foods 0835,Pro,19,monthly,665.0,EMEA,2024-08-18,,active,
+S00836,Summit Health 0836,Enterprise,218,annual,17603.5,North America,2024-04-20,,active,
+S00837,Summit Health 0837,Basic,2,monthly,30.0,APAC,2023-05-05,2025-01-16,churned,Poor support
+S00838,Iron Analytics 0838,Business,48,monthly,2880.0,North America,2023-03-27,,active,
+S00839,Acme Capital 0839,Pro,20,monthly,700.0,APAC,2025-04-12,,active,
+S00840,Green Media 0840,Basic,4,annual,51.0,APAC,2025-03-23,,active,
+S00841,Pioneer Works 0841,Enterprise,189,monthly,17955.0,North America,2023-12-15,,active,
+S00842,Orbit Foods 0842,Pro,17,annual,505.75,LATAM,2023-07-19,,active,
+S00843,Silver Media 0843,Enterprise,175,monthly,16625.0,EMEA,2024-09-02,,active,
+S00844,Pioneer Foods 0844,Business,45,monthly,2700.0,EMEA,2025-02-13,,active,
+S00845,Quantum Analytics 0845,Pro,3,annual,89.25,EMEA,2023-06-30,,active,
+S00846,Harbor Capital 0846,Basic,5,monthly,75.0,North America,2024-05-24,,active,
+S00847,Silver Works 0847,Pro,20,annual,595.0,APAC,2024-02-06,,active,
+S00848,Maple Studios 0848,Basic,2,monthly,30.0,EMEA,2025-04-04,,active,
+S00849,Rapid Analytics 0849,Pro,6,annual,178.5,EMEA,2024-07-05,,active,
+S00850,Summit Foods 0850,Business,45,monthly,2700.0,APAC,2024-04-20,,active,
+S00851,Lumen Robotics 0851,Basic,3,monthly,45.0,LATAM,2025-04-14,,active,
+S00852,Summit Systems 0852,Pro,10,annual,297.5,North America,2023-12-27,2025-04-15,churned,Poor support
+S00853,Green Partners 0853,Basic,4,annual,51.0,EMEA,2024-03-15,,active,
+S00854,Green Logistics 0854,Business,55,annual,2805.0,EMEA,2023-07-18,,active,
+S00855,Blue Logistics 0855,Basic,5,annual,63.75,North America,2023-04-14,,active,
+S00856,Vertex Retail 0856,Enterprise,226,annual,18249.5,LATAM,2024-05-23,,active,
+S00857,Pioneer Media 0857,Pro,16,annual,476.0,APAC,2024-07-23,,active,
+S00858,North Labs 0858,Pro,12,annual,357.0,EMEA,2025-08-11,,active,
+S00859,Acme Systems 0859,Basic,5,annual,63.75,EMEA,2023-01-24,2024-02-28,churned,Missing features
+S00860,Iron Foods 0860,Business,30,monthly,1800.0,North America,2024-10-28,,active,
+S00861,Silver Labs 0861,Business,45,monthly,2700.0,EMEA,2024-08-05,,active,
+S00862,Iron Analytics 0862,Business,12,monthly,720.0,APAC,2023-10-30,,active,
+S00863,Quantum Retail 0863,Basic,1,annual,12.75,EMEA,2024-10-29,,active,
+S00864,Vertex Media 0864,Business,40,monthly,2400.0,LATAM,2023-03-23,,active,
+S00865,Vertex Capital 0865,Basic,5,monthly,75.0,North America,2024-08-04,,active,
+S00866,Pioneer Analytics 0866,Enterprise,245,monthly,23275.0,North America,2024-09-03,2025-04-06,churned,Price
+S00867,Rapid Health 0867,Business,37,annual,1887.0,North America,2025-02-25,,active,
+S00868,Vertex Health 0868,Basic,2,monthly,30.0,LATAM,2025-04-12,,active,
+S00869,Quantum Retail 0869,Pro,12,annual,357.0,North America,2024-09-01,2025-02-12,churned,Switched to competitor
+S00870,Atlas Robotics 0870,Pro,18,monthly,630.0,EMEA,2024-09-05,,active,
+S00871,Orbit Systems 0871,Basic,1,annual,12.75,EMEA,2025-11-30,,active,
+S00872,Silver Studios 0872,Basic,4,monthly,60.0,North America,2023-04-04,2024-08-13,churned,Switched to competitor
+S00873,Nimbus Partners 0873,Basic,1,annual,12.75,APAC,2025-08-25,,active,
+S00874,Maple Health 0874,Business,29,monthly,1740.0,APAC,2024-10-02,2025-07-18,churned,Budget cuts
+S00875,Quantum Energy 0875,Basic,2,annual,25.5,APAC,2024-12-02,2025-08-01,churned,Price
+S00876,Acme Systems 0876,Business,28,monthly,1680.0,APAC,2024-08-03,,active,
+S00877,Nimbus Studios 0877,Basic,3,monthly,45.0,North America,2024-02-02,2024-07-01,churned,Switched to competitor
+S00878,Acme Labs 0878,Business,16,annual,816.0,North America,2023-03-15,2024-09-14,churned,Missing features
+S00879,Harbor Robotics 0879,Business,46,annual,2346.0,EMEA,2024-06-02,,active,
+S00880,Cedar Media 0880,Basic,4,monthly,60.0,North America,2025-01-16,2025-11-14,churned,Price
+S00881,Blue Retail 0881,Basic,5,monthly,75.0,APAC,2025-06-29,,active,
+S00882,Green Energy 0882,Pro,9,monthly,315.0,EMEA,2023-02-27,,active,
+S00883,Quantum Foods 0883,Basic,1,monthly,15.0,EMEA,2025-04-17,2025-09-15,churned,Poor support
+S00884,Bright Analytics 0884,Pro,7,annual,208.25,EMEA,2025-07-01,,active,
+S00885,Cedar Media 0885,Basic,2,annual,25.5,LATAM,2024-01-30,,active,
+S00886,Maple Health 0886,Basic,3,annual,38.25,North America,2023-06-07,,active,
+S00887,Atlas Studios 0887,Pro,7,monthly,245.0,EMEA,2024-07-19,,active,
+S00888,Iron Robotics 0888,Pro,17,monthly,595.0,North America,2023-10-03,,active,
+S00889,North Studios 0889,Pro,7,annual,208.25,APAC,2024-06-05,,active,
+S00890,Acme Studios 0890,Basic,5,monthly,75.0,North America,2025-09-08,,active,
+S00891,Nimbus Labs 0891,Basic,2,annual,25.5,North America,2024-08-07,,active,
+S00892,Pioneer Energy 0892,Business,26,monthly,1560.0,EMEA,2024-12-31,,active,
+S00893,Vertex Energy 0893,Pro,17,annual,505.75,EMEA,2025-07-24,,active,
+S00894,Maple Media 0894,Basic,4,monthly,60.0,North America,2023-12-13,,active,
+S00895,Iron Partners 0895,Basic,1,monthly,15.0,EMEA,2023-08-05,2024-12-20,churned,Missing features
+S00896,Quantum Health 0896,Basic,2,monthly,30.0,North America,2023-08-23,,active,
+S00897,Orbit Capital 0897,Enterprise,113,monthly,10735.0,North America,2024-08-27,,active,
+S00898,Bright Systems 0898,Pro,11,annual,327.25,North America,2025-10-26,,active,
+S00899,Maple Energy 0899,Business,15,monthly,900.0,North America,2023-03-24,,active,
+S00900,Blue Foods 0900,Basic,5,monthly,75.0,North America,2024-05-08,2025-03-15,churned,Missing features
+S00901,Quantum Retail 0901,Pro,9,monthly,315.0,North America,2023-04-09,,active,
+S00902,Orbit Media 0902,Basic,2,annual,25.5,North America,2025-11-14,,active,
+S00903,Green Analytics 0903,Basic,2,annual,25.5,EMEA,2025-01-22,,active,
+S00904,Harbor Labs 0904,Business,41,monthly,2460.0,North America,2025-05-24,,active,
+S00905,Bright Works 0905,Basic,4,monthly,60.0,North America,2023-04-10,2023-09-08,churned,Switched to competitor
+S00906,Harbor Works 0906,Pro,12,monthly,420.0,North America,2025-09-25,,active,
+S00907,Lumen Logistics 0907,Pro,11,monthly,385.0,EMEA,2024-08-03,,active,
+S00908,North Systems 0908,Pro,10,monthly,350.0,North America,2024-01-28,,active,
+S00909,Lumen Analytics 0909,Business,46,monthly,2760.0,EMEA,2025-09-04,,active,
+S00910,Pioneer Media 0910,Business,23,monthly,1380.0,North America,2023-11-05,,active,
+S00911,Bright Systems 0911,Basic,4,monthly,60.0,North America,2024-07-07,2025-04-02,churned,Poor support
+S00912,Maple Works 0912,Enterprise,190,monthly,18050.0,APAC,2024-03-03,,active,
+S00913,Quantum Partners 0913,Enterprise,218,monthly,20710.0,North America,2024-09-06,,active,
+S00914,Lumen Works 0914,Pro,15,monthly,525.0,North America,2025-11-23,2025-12-07,churned,Missing features
+S00915,Quantum Foods 0915,Basic,1,monthly,15.0,North America,2023-12-20,2025-02-10,churned,Budget cuts
+S00916,North Studios 0916,Basic,4,monthly,60.0,North America,2024-11-30,,active,
+S00917,Maple Health 0917,Enterprise,203,monthly,19285.0,APAC,2025-11-19,,active,
+S00918,Maple Foods 0918,Basic,2,monthly,30.0,APAC,2024-09-04,2024-09-13,churned,Budget cuts
+S00919,Quantum Works 0919,Business,23,annual,1173.0,North America,2025-05-24,,active,
+S00920,Quantum Partners 0920,Basic,5,monthly,75.0,North America,2024-07-19,2025-11-11,churned,Price
+S00921,Atlas Energy 0921,Basic,4,annual,51.0,EMEA,2023-10-03,2023-12-30,churned,Price
+S00922,Summit Media 0922,Pro,13,monthly,455.0,EMEA,2023-07-07,2024-11-24,churned,Budget cuts
+S00923,Acme Robotics 0923,Basic,2,monthly,30.0,LATAM,2025-07-04,,active,
+S00924,Maple Foods 0924,Pro,17,monthly,595.0,North America,2025-07-22,,active,
+S00925,Iron Capital 0925,Basic,4,monthly,60.0,North America,2025-04-14,,active,
+S00926,Vertex Robotics 0926,Business,54,monthly,3240.0,LATAM,2025-06-06,,active,
+S00927,Acme Health 0927,Pro,7,annual,208.25,APAC,2023-01-31,2024-10-18,churned,Budget cuts
+S00928,North Media 0928,Pro,18,annual,535.5,North America,2023-08-24,2024-07-02,churned,Price
+S00929,Blue Analytics 0929,Basic,2,monthly,30.0,EMEA,2023-10-16,2024-07-20,churned,Price
+S00930,Blue Capital 0930,Business,26,annual,1326.0,North America,2024-06-12,,active,
+S00931,Cedar Studios 0931,Business,32,monthly,1920.0,LATAM,2025-06-23,2025-08-08,churned,Missing features
+S00932,Pioneer Works 0932,Pro,3,annual,89.25,EMEA,2025-08-12,,active,
+S00933,Green Logistics 0933,Basic,2,monthly,30.0,North America,2024-01-13,2024-10-06,churned,Missing features
+S00934,Falcon Robotics 0934,Basic,2,monthly,30.0,North America,2023-08-20,2025-03-02,churned,Missing features
+S00935,Quantum Logistics 0935,Basic,3,monthly,45.0,EMEA,2023-08-30,2023-12-11,churned,Switched to competitor
+S00936,Silver Robotics 0936,Business,51,annual,2601.0,EMEA,2025-10-06,,active,
+S00937,Cedar Foods 0937,Basic,2,annual,25.5,EMEA,2025-02-19,2025-11-05,churned,Missing features
+S00938,Vertex Analytics 0938,Enterprise,212,annual,17119.0,APAC,2025-10-06,,active,
+S00939,Falcon Works 0939,Basic,2,monthly,30.0,North America,2023-08-28,2024-03-19,churned,Price
+S00940,Iron Robotics 0940,Basic,4,annual,51.0,APAC,2023-07-27,,active,
+S00941,Quantum Foods 0941,Enterprise,282,annual,22771.5,North America,2023-06-20,,active,
+S00942,Nimbus Partners 0942,Enterprise,172,monthly,16340.0,North America,2025-02-03,,active,
+S00943,Falcon Health 0943,Pro,19,monthly,665.0,LATAM,2025-11-26,,active,
+S00944,Maple Analytics 0944,Basic,5,monthly,75.0,North America,2025-09-26,,active,
+S00945,Acme Capital 0945,Business,41,monthly,2460.0,APAC,2023-02-17,,active,
+S00946,Green Systems 0946,Business,21,annual,1071.0,LATAM,2023-03-16,,active,
+S00947,Bright Capital 0947,Pro,9,annual,267.75,APAC,2023-09-01,,active,
+S00948,Bright Robotics 0948,Basic,5,annual,63.75,LATAM,2025-08-31,,active,
+S00949,Cedar Works 0949,Pro,11,monthly,385.0,APAC,2023-07-11,2024-05-16,churned,Price
+S00950,Blue Analytics 0950,Pro,18,annual,535.5,EMEA,2024-11-26,,active,
+S00951,Pioneer Logistics 0951,Basic,1,monthly,15.0,North America,2023-02-23,2025-01-08,churned,Poor support
+S00952,Iron Labs 0952,Pro,8,annual,238.0,North America,2023-03-04,,active,
+S00953,Green Capital 0953,Pro,14,monthly,490.0,APAC,2024-01-19,,active,
+S00954,Rapid Robotics 0954,Pro,8,monthly,280.0,EMEA,2024-10-02,,active,
+S00955,Acme Health 0955,Pro,4,annual,119.0,APAC,2023-03-28,,active,
+S00956,Cedar Works 0956,Basic,5,annual,63.75,APAC,2025-08-17,,active,
+S00957,Lumen Energy 0957,Pro,5,monthly,175.0,EMEA,2024-04-29,2025-10-10,churned,Switched to competitor
+S00958,Orbit Foods 0958,Pro,19,monthly,665.0,EMEA,2024-09-17,,active,
+S00959,Falcon Capital 0959,Basic,1,annual,12.75,LATAM,2023-10-22,2023-12-12,churned,Price
+S00960,Iron Foods 0960,Pro,9,monthly,315.0,North America,2025-01-19,,active,
+S00961,Bright Works 0961,Pro,6,monthly,210.0,LATAM,2025-07-29,,active,
+S00962,Rapid Labs 0962,Basic,2,monthly,30.0,North America,2025-06-09,,active,
+S00963,Harbor Energy 0963,Basic,1,monthly,15.0,North America,2025-07-18,,active,
+S00964,Falcon Works 0964,Basic,2,monthly,30.0,EMEA,2024-08-05,2025-11-10,churned,Switched to competitor
+S00965,Green Retail 0965,Business,40,monthly,2400.0,LATAM,2025-09-13,,active,
+S00966,Vertex Analytics 0966,Basic,2,monthly,30.0,EMEA,2025-06-10,,active,
+S00967,Falcon Retail 0967,Enterprise,234,monthly,22230.0,LATAM,2023-12-16,2024-05-12,churned,Missing features
+S00968,Nimbus Partners 0968,Enterprise,299,monthly,28405.0,EMEA,2025-03-03,,active,
+S00969,Acme Analytics 0969,Pro,18,monthly,630.0,North America,2024-04-19,,active,
+S00970,Silver Systems 0970,Enterprise,213,monthly,20235.0,North America,2025-11-12,,active,
+S00971,Falcon Analytics 0971,Basic,5,annual,63.75,LATAM,2025-06-17,,active,
+S00972,Nimbus Studios 0972,Basic,3,annual,38.25,North America,2024-09-17,,active,
+S00973,Iron Systems 0973,Basic,2,annual,25.5,APAC,2025-07-29,,active,
+S00974,Pioneer Analytics 0974,Basic,1,monthly,15.0,EMEA,2023-07-25,2024-07-10,churned,Price
+S00975,Harbor Studios 0975,Pro,6,monthly,210.0,North America,2023-05-16,,active,
+S00976,Lumen Media 0976,Basic,5,annual,63.75,North America,2023-07-01,,active,
+S00977,Nimbus Capital 0977,Basic,5,annual,63.75,EMEA,2023-07-25,2024-06-16,churned,Missing features
+S00978,Acme Media 0978,Basic,4,annual,51.0,EMEA,2025-01-20,,active,
+S00979,Silver Systems 0979,Enterprise,95,monthly,9025.0,LATAM,2024-07-12,,active,
+S00980,Bright Studios 0980,Basic,3,annual,38.25,North America,2024-10-25,,active,
+S00981,Blue Partners 0981,Basic,3,annual,38.25,EMEA,2023-01-11,2023-11-30,churned,Budget cuts
+S00982,Maple Robotics 0982,Business,39,annual,1989.0,North America,2023-04-22,,active,
+S00983,Summit Foods 0983,Business,42,annual,2142.0,EMEA,2024-03-16,,active,
+S00984,Maple Works 0984,Business,22,monthly,1320.0,APAC,2023-08-10,2024-05-28,churned,Price
+S00985,Bright Retail 0985,Pro,12,monthly,420.0,APAC,2024-10-10,2024-11-03,churned,Price
+S00986,North Foods 0986,Basic,4,monthly,60.0,EMEA,2025-06-25,2025-07-24,churned,Switched to competitor
+S00987,Blue Capital 0987,Pro,17,monthly,595.0,EMEA,2024-03-14,2024-03-21,churned,Missing features
+S00988,Orbit Labs 0988,Pro,6,monthly,210.0,North America,2025-08-28,,active,
+S00989,Maple Works 0989,Business,16,monthly,960.0,EMEA,2024-04-27,,active,
+S00990,Maple Systems 0990,Enterprise,246,monthly,23370.0,North America,2023-05-08,,active,
+S00991,Iron Health 0991,Pro,18,monthly,630.0,EMEA,2023-04-01,,active,
+S00992,Green Analytics 0992,Pro,10,annual,297.5,North America,2025-02-07,,active,
+S00993,Acme Works 0993,Pro,7,annual,208.25,APAC,2025-08-20,,active,
+S00994,Summit Health 0994,Basic,3,annual,38.25,North America,2023-07-29,,active,
+S00995,Orbit Works 0995,Business,44,annual,2244.0,North America,2025-09-21,,active,
+S00996,Cedar Works 0996,Pro,8,monthly,280.0,EMEA,2024-09-06,,active,
+S00997,Green Health 0997,Basic,5,monthly,75.0,LATAM,2023-12-15,2024-03-01,churned,Price
+S00998,Falcon Foods 0998,Pro,19,monthly,665.0,LATAM,2023-05-07,,active,
+S00999,Green Energy 0999,Pro,4,monthly,140.0,North America,2024-12-25,,active,
+S01000,Bright Logistics 1000,Pro,13,annual,386.75,APAC,2024-10-16,,active,
+S01001,Silver Systems 1001,Enterprise,260,annual,20995.0,North America,2023-08-29,,active,
+S01002,Blue Works 1002,Basic,4,monthly,60.0,North America,2024-05-18,2024-07-13,churned,Price
+S01003,Quantum Works 1003,Enterprise,266,monthly,25270.0,EMEA,2023-02-27,2024-01-21,churned,Missing features
+S01004,Vertex Labs 1004,Basic,2,monthly,30.0,North America,2025-03-28,2025-05-06,churned,Price
+S01005,North Studios 1005,Pro,20,annual,595.0,North America,2025-04-05,,active,
+S01006,Silver Robotics 1006,Pro,3,monthly,105.0,APAC,2023-05-21,,active,
+S01007,Orbit Works 1007,Basic,5,annual,63.75,APAC,2025-02-10,2025-03-17,churned,Price
+S01008,Falcon Robotics 1008,Basic,5,monthly,75.0,North America,2024-12-15,,active,
+S01009,Quantum Partners 1009,Basic,1,monthly,15.0,APAC,2023-04-04,2024-05-23,churned,Poor support
+S01010,Pioneer Analytics 1010,Pro,5,monthly,175.0,APAC,2025-06-06,,active,
+S01011,Silver Analytics 1011,Business,55,monthly,3300.0,North America,2025-08-10,,active,
+S01012,Green Health 1012,Pro,9,monthly,315.0,APAC,2025-11-08,,active,
+S01013,Atlas Systems 1013,Pro,10,annual,297.5,North America,2023-04-26,,active,
+S01014,Quantum Media 1014,Basic,1,annual,12.75,EMEA,2023-12-05,,active,
+S01015,Vertex Energy 1015,Basic,4,monthly,60.0,EMEA,2023-04-04,2024-06-13,churned,Price
+S01016,Nimbus Labs 1016,Basic,1,monthly,15.0,EMEA,2025-08-29,,active,
+S01017,Blue Robotics 1017,Business,53,annual,2703.0,LATAM,2024-04-16,,active,
+S01018,Nimbus Analytics 1018,Pro,20,annual,595.0,EMEA,2024-06-30,,active,
+S01019,Maple Capital 1019,Enterprise,254,annual,20510.5,LATAM,2025-04-05,,active,
+S01020,Cedar Logistics 1020,Basic,3,monthly,45.0,EMEA,2023-05-05,2023-10-25,churned,Switched to competitor
+S01021,Falcon Media 1021,Business,32,monthly,1920.0,EMEA,2024-03-14,,active,
+S01022,Quantum Studios 1022,Pro,5,annual,148.75,APAC,2025-08-19,,active,
+S01023,Quantum Labs 1023,Basic,2,annual,25.5,North America,2023-02-02,,active,
+S01024,Green Analytics 1024,Basic,2,annual,25.5,EMEA,2023-12-07,,active,
+S01025,Silver Labs 1025,Business,13,annual,663.0,North America,2023-09-15,,active,
+S01026,Cedar Robotics 1026,Pro,20,monthly,700.0,LATAM,2023-02-24,,active,
+S01027,Lumen Partners 1027,Basic,3,annual,38.25,APAC,2024-08-13,,active,
+S01028,Lumen Retail 1028,Pro,14,monthly,490.0,LATAM,2025-02-15,,active,
+S01029,Pioneer Logistics 1029,Basic,1,monthly,15.0,North America,2025-08-28,,active,
+S01030,Bright Works 1030,Pro,14,monthly,490.0,North America,2025-06-06,,active,
+S01031,Falcon Studios 1031,Business,41,monthly,2460.0,EMEA,2024-04-24,,active,
+S01032,North Health 1032,Pro,16,annual,476.0,North America,2025-02-28,,active,
+S01033,Rapid Logistics 1033,Basic,2,monthly,30.0,APAC,2023-01-29,2023-09-09,churned,Switched to competitor
+S01034,Falcon Health 1034,Pro,15,annual,446.25,EMEA,2024-02-19,,active,
+S01035,Bright Logistics 1035,Basic,1,monthly,15.0,EMEA,2025-09-08,2025-09-21,churned,Price
+S01036,Rapid Media 1036,Basic,1,monthly,15.0,North America,2025-10-02,,active,
+S01037,Rapid Logistics 1037,Basic,2,monthly,30.0,EMEA,2023-10-27,,active,
+S01038,Bright Energy 1038,Basic,4,monthly,60.0,North America,2024-01-27,2025-02-18,churned,Missing features
+S01039,Summit Systems 1039,Business,56,monthly,3360.0,North America,2024-06-19,,active,
+S01040,Orbit Robotics 1040,Basic,5,monthly,75.0,APAC,2025-09-07,,active,
+S01041,Bright Systems 1041,Business,43,annual,2193.0,North America,2023-10-07,,active,
+S01042,Lumen Capital 1042,Business,21,annual,1071.0,North America,2023-09-19,,active,
+S01043,Nimbus Systems 1043,Basic,2,monthly,30.0,North America,2024-10-03,,active,
+S01044,Atlas Media 1044,Pro,20,annual,595.0,APAC,2025-07-02,,active,
+S01045,Nimbus Capital 1045,Pro,20,monthly,700.0,EMEA,2023-09-02,2025-02-18,churned,Price
+S01046,Maple Foods 1046,Basic,1,annual,12.75,EMEA,2024-01-28,,active,
+S01047,Nimbus Capital 1047,Basic,1,annual,12.75,North America,2024-07-27,2025-05-13,churned,Budget cuts
+S01048,Vertex Capital 1048,Business,56,annual,2856.0,EMEA,2025-04-20,,active,
+S01049,Orbit Retail 1049,Basic,5,annual,63.75,APAC,2023-09-11,,active,
+S01050,Summit Foods 1050,Pro,11,monthly,385.0,North America,2024-05-06,2024-10-13,churned,Price
+S01051,Vertex Systems 1051,Basic,4,monthly,60.0,LATAM,2023-01-12,2023-08-27,churned,Price
+S01052,Green Media 1052,Basic,4,annual,51.0,EMEA,2023-06-21,2024-02-29,churned,Price
+S01053,Blue Media 1053,Basic,4,monthly,60.0,North America,2023-08-11,,active,
+S01054,Harbor Capital 1054,Basic,2,monthly,30.0,EMEA,2025-05-10,,active,
+S01055,Nimbus Media 1055,Basic,1,monthly,15.0,LATAM,2024-12-22,2025-12-03,churned,Switched to competitor
+S01056,Harbor Retail 1056,Pro,8,monthly,280.0,EMEA,2023-09-15,2025-03-09,churned,Price
+S01057,Rapid Energy 1057,Basic,2,monthly,30.0,APAC,2023-02-01,2023-05-15,churned,Switched to competitor
+S01058,North Systems 1058,Basic,3,monthly,45.0,North America,2023-10-18,2023-11-18,churned,Switched to competitor
+S01059,Nimbus Media 1059,Pro,4,monthly,140.0,North America,2023-10-11,2025-02-08,churned,Price
+S01060,Cedar Partners 1060,Basic,4,annual,51.0,North America,2025-11-29,,active,
+S01061,Lumen Capital 1061,Basic,3,annual,38.25,EMEA,2023-04-02,,active,
+S01062,Vertex Health 1062,Business,21,annual,1071.0,LATAM,2025-04-06,,active,
+S01063,Silver Robotics 1063,Business,38,annual,1938.0,North America,2023-11-20,,active,
+S01064,Silver Robotics 1064,Basic,4,monthly,60.0,North America,2024-03-06,2024-12-26,churned,Price
+S01065,Lumen Health 1065,Pro,5,monthly,175.0,EMEA,2025-09-16,,active,
+S01066,Rapid Works 1066,Enterprise,213,monthly,20235.0,North America,2025-04-02,2025-11-10,churned,Missing features
+S01067,Summit Systems 1067,Pro,7,monthly,245.0,North America,2025-10-23,,active,
+S01068,Harbor Studios 1068,Pro,11,monthly,385.0,EMEA,2024-08-28,,active,
+S01069,Summit Analytics 1069,Pro,8,annual,238.0,North America,2024-07-05,2025-05-22,churned,Switched to competitor
+S01070,Cedar Robotics 1070,Pro,13,annual,386.75,EMEA,2024-08-10,,active,
+S01071,Cedar Partners 1071,Pro,20,monthly,700.0,EMEA,2024-10-28,,active,
+S01072,Maple Energy 1072,Basic,5,monthly,75.0,APAC,2025-03-08,2025-10-04,churned,Switched to competitor
+S01073,Pioneer Foods 1073,Basic,3,monthly,45.0,North America,2024-02-06,,active,
+S01074,Pioneer Health 1074,Business,33,monthly,1980.0,North America,2024-10-17,,active,
+S01075,Summit Works 1075,Basic,4,monthly,60.0,LATAM,2023-07-27,,active,
+S01076,Green Systems 1076,Business,12,annual,612.0,North America,2024-01-04,,active,
+S01077,Harbor Partners 1077,Business,60,annual,3060.0,EMEA,2023-03-04,,active,
+S01078,Bright Works 1078,Pro,12,annual,357.0,LATAM,2024-06-10,,active,
+S01079,Lumen Works 1079,Basic,5,monthly,75.0,North America,2024-09-02,,active,
+S01080,Vertex Robotics 1080,Business,50,annual,2550.0,EMEA,2024-01-18,,active,
+S01081,Vertex Studios 1081,Basic,3,annual,38.25,LATAM,2024-01-19,,active,
+S01082,Green Foods 1082,Pro,20,annual,595.0,EMEA,2025-11-12,,active,
+S01083,Harbor Analytics 1083,Pro,13,annual,386.75,North America,2023-08-31,,active,
+S01084,Acme Foods 1084,Basic,1,annual,12.75,EMEA,2023-02-13,2025-01-04,churned,Switched to competitor
+S01085,Rapid Analytics 1085,Pro,10,monthly,350.0,North America,2023-11-19,,active,
+S01086,Rapid Labs 1086,Pro,20,monthly,700.0,EMEA,2025-06-29,,active,
+S01087,Silver Media 1087,Business,55,annual,2805.0,EMEA,2023-10-20,,active,
+S01088,Quantum Studios 1088,Business,56,monthly,3360.0,APAC,2025-03-17,,active,
+S01089,Lumen Works 1089,Pro,13,monthly,455.0,North America,2025-10-14,,active,
+S01090,Green Foods 1090,Business,17,annual,867.0,North America,2023-11-06,,active,
+S01091,Atlas Logistics 1091,Business,53,monthly,3180.0,APAC,2025-01-30,,active,
+S01092,Silver Media 1092,Basic,1,annual,12.75,EMEA,2023-05-20,2024-05-28,churned,Missing features
+S01093,Acme Analytics 1093,Business,60,monthly,3600.0,EMEA,2025-04-09,,active,
+S01094,Harbor Logistics 1094,Basic,4,monthly,60.0,EMEA,2024-05-17,,active,
+S01095,Rapid Logistics 1095,Enterprise,218,monthly,20710.0,EMEA,2025-07-31,,active,
+S01096,Acme Capital 1096,Pro,11,monthly,385.0,North America,2025-09-01,,active,
+S01097,Silver Partners 1097,Pro,15,annual,446.25,APAC,2023-04-18,,active,
+S01098,Iron Logistics 1098,Basic,3,monthly,45.0,EMEA,2024-02-15,2024-05-15,churned,Missing features
+S01099,Orbit Labs 1099,Enterprise,116,monthly,11020.0,North America,2025-04-06,,active,
+S01100,Maple Capital 1100,Business,32,annual,1632.0,APAC,2024-10-16,2025-06-04,churned,Poor support
+S01101,Summit Partners 1101,Pro,6,annual,178.5,EMEA,2024-09-03,,active,
+S01102,Iron Energy 1102,Business,60,monthly,3600.0,North America,2025-07-23,,active,
+S01103,Green Capital 1103,Basic,5,monthly,75.0,North America,2023-02-02,,active,
+S01104,Cedar Capital 1104,Basic,1,annual,12.75,EMEA,2024-12-22,2025-09-26,churned,Price
+S01105,Lumen Health 1105,Business,17,annual,867.0,North America,2023-07-23,,active,
+S01106,Bright Media 1106,Basic,1,monthly,15.0,North America,2024-04-15,2024-05-28,churned,Budget cuts
+S01107,Falcon Energy 1107,Basic,3,annual,38.25,APAC,2023-02-16,2025-06-15,churned,Switched to competitor
+S01108,Iron Systems 1108,Pro,19,monthly,665.0,LATAM,2023-01-31,2024-04-18,churned,Price
+S01109,Green Energy 1109,Business,21,annual,1071.0,EMEA,2023-12-09,,active,
+S01110,Summit Energy 1110,Basic,3,monthly,45.0,North America,2024-11-22,2025-02-25,churned,Missing features
+S01111,Falcon Media 1111,Enterprise,134,monthly,12730.0,LATAM,2023-11-14,,active,
+S01112,North Health 1112,Basic,1,annual,12.75,EMEA,2024-04-03,,active,
+S01113,North Energy 1113,Basic,4,monthly,60.0,North America,2024-07-31,,active,
+S01114,Rapid Health 1114,Basic,1,annual,12.75,North America,2023-07-26,,active,
+S01115,North Logistics 1115,Pro,7,annual,208.25,APAC,2025-09-26,,active,
+S01116,Harbor Foods 1116,Pro,16,monthly,560.0,EMEA,2023-04-10,,active,
+S01117,Quantum Foods 1117,Pro,6,monthly,210.0,EMEA,2024-02-21,2024-05-31,churned,Budget cuts
+S01118,Blue Partners 1118,Pro,10,annual,297.5,EMEA,2024-06-25,,active,
+S01119,Pioneer Health 1119,Business,28,monthly,1680.0,EMEA,2023-02-17,,active,
+S01120,Atlas Capital 1120,Basic,2,monthly,30.0,North America,2025-09-01,,active,
+S01121,Acme Health 1121,Enterprise,165,monthly,15675.0,North America,2023-09-11,,active,
+S01122,Blue Capital 1122,Basic,5,monthly,75.0,APAC,2025-01-12,,active,
+S01123,Lumen Partners 1123,Enterprise,43,annual,3472.25,North America,2023-05-10,,active,
+S01124,Iron Partners 1124,Basic,3,monthly,45.0,APAC,2023-11-09,,active,
+S01125,Maple Works 1125,Business,27,monthly,1620.0,EMEA,2023-12-05,,active,
+S01126,Rapid Logistics 1126,Basic,5,monthly,75.0,LATAM,2025-10-07,,active,
+S01127,Quantum Logistics 1127,Business,50,monthly,3000.0,North America,2023-10-04,2025-10-28,churned,Price
+S01128,Falcon Analytics 1128,Basic,4,annual,51.0,APAC,2025-06-08,,active,
+S01129,Pioneer Capital 1129,Basic,5,monthly,75.0,EMEA,2023-01-07,2024-04-04,churned,Missing features
+S01130,Atlas Robotics 1130,Business,11,annual,561.0,EMEA,2025-11-16,,active,
+S01131,Harbor Partners 1131,Basic,5,monthly,75.0,EMEA,2024-04-28,2024-07-06,churned,Budget cuts
+S01132,Nimbus Media 1132,Enterprise,130,monthly,12350.0,EMEA,2023-01-20,2024-06-16,churned,Price
+S01133,Cedar Works 1133,Basic,3,annual,38.25,EMEA,2024-06-11,2025-06-11,churned,Budget cuts
+S01134,North Robotics 1134,Basic,5,monthly,75.0,LATAM,2024-07-15,2025-11-07,churned,Missing features
+S01135,Nimbus Robotics 1135,Pro,17,monthly,595.0,EMEA,2025-05-08,,active,
+S01136,Falcon Logistics 1136,Pro,11,annual,327.25,EMEA,2024-04-01,,active,
+S01137,Orbit Health 1137,Basic,3,annual,38.25,North America,2024-06-20,,active,
+S01138,Quantum Capital 1138,Basic,5,annual,63.75,LATAM,2025-07-17,,active,
+S01139,Iron Energy 1139,Basic,1,annual,12.75,North America,2025-01-30,,active,
+S01140,Blue Partners 1140,Pro,11,annual,327.25,North America,2025-06-15,,active,
+S01141,Iron Retail 1141,Pro,18,annual,535.5,North America,2023-05-26,2025-12-08,churned,Budget cuts
+S01142,North Systems 1142,Basic,2,annual,25.5,LATAM,2023-02-21,,active,
+S01143,Rapid Studios 1143,Basic,4,monthly,60.0,North America,2023-12-31,2025-04-15,churned,Missing features
+S01144,Pioneer Works 1144,Basic,4,monthly,60.0,LATAM,2024-01-13,2024-08-07,churned,Missing features
+S01145,Vertex Partners 1145,Pro,15,monthly,525.0,EMEA,2023-07-16,2024-03-16,churned,Switched to competitor
+S01146,Maple Retail 1146,Basic,4,annual,51.0,LATAM,2025-10-12,,active,
+S01147,Quantum Energy 1147,Pro,8,monthly,280.0,LATAM,2025-11-02,,active,
+S01148,Lumen Robotics 1148,Pro,19,monthly,665.0,North America,2025-03-10,,active,
+S01149,Atlas Media 1149,Business,39,annual,1989.0,North America,2023-10-19,2024-10-17,churned,Price
+S01150,Blue Robotics 1150,Business,35,monthly,2100.0,EMEA,2023-12-04,,active,
+S01151,Silver Systems 1151,Pro,12,monthly,420.0,EMEA,2023-08-05,,active,
+S01152,Falcon Retail 1152,Basic,2,monthly,30.0,EMEA,2024-05-15,2025-09-20,churned,Price
+S01153,Nimbus Health 1153,Pro,4,monthly,140.0,APAC,2025-07-17,,active,
+S01154,Lumen Capital 1154,Business,56,monthly,3360.0,North America,2023-02-17,2023-12-15,churned,Switched to competitor
+S01155,Acme Logistics 1155,Basic,5,annual,63.75,North America,2025-06-27,,active,
+S01156,North Robotics 1156,Basic,5,monthly,75.0,North America,2023-03-16,2023-11-13,churned,Missing features
+S01157,Atlas Health 1157,Enterprise,51,annual,4118.25,EMEA,2025-02-21,,active,
+S01158,Lumen Energy 1158,Business,22,monthly,1320.0,EMEA,2024-07-22,,active,
+S01159,Cedar Analytics 1159,Business,43,annual,2193.0,North America,2023-08-23,2025-03-31,churned,Price
+S01160,Green Partners 1160,Pro,17,annual,505.75,APAC,2025-09-28,,active,
+S01161,Iron Media 1161,Pro,3,annual,89.25,EMEA,2023-04-22,,active,
+S01162,Green Retail 1162,Basic,3,monthly,45.0,North America,2023-06-06,,active,
+S01163,Rapid Robotics 1163,Pro,6,monthly,210.0,EMEA,2023-11-14,,active,
+S01164,Blue Analytics 1164,Business,36,monthly,2160.0,North America,2023-02-14,,active,
+S01165,Pioneer Logistics 1165,Basic,1,annual,12.75,APAC,2025-02-02,2025-06-01,churned,Price
+S01166,Orbit Robotics 1166,Pro,11,annual,327.25,North America,2024-11-01,,active,
+S01167,Iron Robotics 1167,Pro,9,monthly,315.0,North America,2024-03-08,,active,
+S01168,Pioneer Works 1168,Basic,2,annual,25.5,North America,2024-01-31,,active,
+S01169,Blue Energy 1169,Pro,11,monthly,385.0,EMEA,2024-04-02,,active,
+S01170,Nimbus Robotics 1170,Basic,3,monthly,45.0,EMEA,2024-08-25,,active,
+S01171,Bright Health 1171,Pro,14,monthly,490.0,North America,2023-12-24,2025-06-19,churned,Budget cuts
+S01172,Rapid Logistics 1172,Pro,6,monthly,210.0,North America,2024-08-11,,active,
+S01173,Rapid Analytics 1173,Enterprise,202,monthly,19190.0,North America,2023-03-20,,active,
+S01174,North Systems 1174,Pro,6,monthly,210.0,North America,2024-12-06,,active,
+S01175,Iron Media 1175,Pro,9,monthly,315.0,EMEA,2024-02-02,,active,
+S01176,Lumen Logistics 1176,Basic,3,annual,38.25,APAC,2025-05-13,,active,
+S01177,Cedar Health 1177,Business,22,monthly,1320.0,EMEA,2025-10-10,,active,
+S01178,Rapid Studios 1178,Pro,18,monthly,630.0,North America,2024-05-29,2025-07-04,churned,Price
+S01179,Maple Energy 1179,Enterprise,111,annual,8963.25,LATAM,2024-05-19,,active,
+S01180,Acme Capital 1180,Business,42,annual,2142.0,EMEA,2023-06-26,,active,
+S01181,Green Partners 1181,Business,29,annual,1479.0,APAC,2025-04-08,,active,
+S01182,Falcon Systems 1182,Basic,3,monthly,45.0,EMEA,2024-04-15,,active,
+S01183,Blue Retail 1183,Basic,2,annual,25.5,EMEA,2024-03-22,,active,
+S01184,Green Health 1184,Pro,18,monthly,630.0,North America,2023-12-06,2025-10-24,churned,Price
+S01185,Vertex Robotics 1185,Basic,1,monthly,15.0,North America,2025-02-13,,active,
+S01186,Silver Retail 1186,Pro,12,monthly,420.0,North America,2023-01-16,2025-06-12,churned,Budget cuts
+S01187,Pioneer Studios 1187,Business,12,monthly,720.0,North America,2024-09-01,,active,
+S01188,Bright Media 1188,Basic,4,monthly,60.0,North America,2023-05-05,,active,
+S01189,Rapid Health 1189,Business,56,monthly,3360.0,EMEA,2025-04-09,,active,
+S01190,Quantum Foods 1190,Pro,6,monthly,210.0,EMEA,2024-03-08,,active,
+S01191,Atlas Partners 1191,Pro,14,annual,416.5,North America,2024-04-17,,active,
+S01192,Harbor Logistics 1192,Basic,4,annual,51.0,EMEA,2025-07-21,,active,
+S01193,Lumen Robotics 1193,Pro,5,monthly,175.0,EMEA,2023-02-05,,active,
+S01194,Cedar Labs 1194,Basic,3,monthly,45.0,North America,2024-02-19,2025-08-01,churned,Poor support
+S01195,Atlas Logistics 1195,Basic,1,annual,12.75,North America,2024-08-16,,active,
+S01196,Iron Robotics 1196,Basic,1,annual,12.75,EMEA,2025-02-12,,active,
+S01197,Harbor Energy 1197,Basic,4,annual,51.0,EMEA,2025-10-30,,active,
+S01198,Summit Works 1198,Pro,17,monthly,595.0,EMEA,2023-08-31,2024-03-20,churned,Budget cuts
+S01199,Bright Media 1199,Basic,5,monthly,75.0,EMEA,2024-05-05,,active,
+S01200,Blue Robotics 1200,Pro,12,monthly,420.0,North America,2023-06-17,2025-05-25,churned,Price
+S01201,Atlas Labs 1201,Pro,5,monthly,175.0,EMEA,2024-10-03,,active,
+S01202,Bright Works 1202,Pro,13,monthly,455.0,North America,2025-06-07,,active,
+S01203,Lumen Robotics 1203,Basic,3,annual,38.25,LATAM,2024-11-07,,active,
+S01204,Acme Studios 1204,Basic,2,monthly,30.0,North America,2025-01-16,,active,
+S01205,Harbor Systems 1205,Basic,2,annual,25.5,North America,2024-10-27,,active,
+S01206,Vertex Analytics 1206,Pro,14,annual,416.5,North America,2025-11-03,,active,
+S01207,North Systems 1207,Pro,9,annual,267.75,EMEA,2025-02-28,,active,
+S01208,Falcon Health 1208,Pro,11,annual,327.25,North America,2023-08-12,,active,
+S01209,Summit Labs 1209,Basic,5,annual,63.75,EMEA,2023-11-04,,active,
+S01210,Iron Energy 1210,Pro,10,annual,297.5,EMEA,2024-03-19,,active,
+S01211,Bright Analytics 1211,Pro,4,monthly,140.0,North America,2023-12-22,2025-11-30,churned,Price
+S01212,Vertex Media 1212,Pro,10,monthly,350.0,APAC,2024-10-23,,active,
+S01213,Green Media 1213,Basic,2,annual,25.5,APAC,2024-04-02,,active,
+S01214,North Works 1214,Pro,7,monthly,245.0,APAC,2024-03-09,2024-05-29,churned,Price
+S01215,Vertex Systems 1215,Enterprise,171,monthly,16245.0,EMEA,2024-03-08,,active,
+S01216,Vertex Capital 1216,Business,50,annual,2550.0,EMEA,2025-10-09,,active,
+S01217,Nimbus Studios 1217,Enterprise,103,annual,8317.25,EMEA,2024-07-23,,active,
+S01218,Bright Studios 1218,Basic,1,monthly,15.0,EMEA,2025-10-02,,active,
+S01219,Orbit Partners 1219,Basic,1,annual,12.75,EMEA,2024-05-13,2025-03-17,churned,Poor support
+S01220,Cedar Studios 1220,Pro,11,monthly,385.0,EMEA,2023-03-31,,active,
+S01221,Silver Analytics 1221,Basic,3,monthly,45.0,North America,2025-04-14,2025-07-31,churned,Missing features
+S01222,Lumen Partners 1222,Business,57,monthly,3420.0,EMEA,2025-08-15,,active,
+S01223,Harbor Retail 1223,Pro,14,monthly,490.0,North America,2025-09-07,,active,
+S01224,Maple Works 1224,Business,58,annual,2958.0,APAC,2023-03-08,,active,
+S01225,Falcon Works 1225,Pro,14,annual,416.5,North America,2025-11-03,2025-11-20,churned,Switched to competitor
+S01226,Rapid Logistics 1226,Pro,5,monthly,175.0,LATAM,2025-02-25,,active,
+S01227,Acme Media 1227,Enterprise,160,annual,12920.0,EMEA,2023-06-12,,active,
+S01228,Summit Retail 1228,Pro,7,monthly,245.0,EMEA,2025-06-03,,active,
+S01229,Lumen Works 1229,Pro,18,monthly,630.0,North America,2024-12-08,2025-06-14,churned,Price
+S01230,Vertex Labs 1230,Basic,3,monthly,45.0,APAC,2025-06-02,,active,
+S01231,Bright Media 1231,Pro,6,monthly,210.0,APAC,2023-02-16,,active,
+S01232,Orbit Systems 1232,Pro,14,monthly,490.0,EMEA,2025-05-29,,active,
+S01233,North Health 1233,Basic,4,monthly,60.0,North America,2025-01-21,,active,
+S01234,Acme Energy 1234,Pro,13,annual,386.75,EMEA,2025-03-09,,active,
+S01235,Iron Analytics 1235,Pro,16,monthly,560.0,North America,2025-01-27,,active,
+S01236,Vertex Health 1236,Basic,4,monthly,60.0,North America,2023-02-03,,active,
+S01237,Summit Analytics 1237,Basic,5,monthly,75.0,North America,2023-07-26,,active,
+S01238,Quantum Works 1238,Business,16,monthly,960.0,EMEA,2025-02-02,,active,
+S01239,Falcon Systems 1239,Basic,2,monthly,30.0,LATAM,2023-07-28,2024-08-19,churned,Switched to competitor
+S01240,Orbit Partners 1240,Basic,1,monthly,15.0,North America,2023-08-27,2023-10-01,churned,Price
+S01241,Harbor Logistics 1241,Pro,6,monthly,210.0,North America,2025-02-16,,active,
+S01242,Rapid Partners 1242,Pro,4,annual,119.0,EMEA,2025-07-04,,active,
+S01243,Bright Works 1243,Pro,11,annual,327.25,North America,2025-05-05,,active,
+S01244,Vertex Logistics 1244,Business,54,monthly,3240.0,North America,2025-01-05,,active,
+S01245,Blue Logistics 1245,Business,12,monthly,720.0,EMEA,2025-03-26,2025-06-03,churned,Switched to competitor
+S01246,Summit Capital 1246,Business,56,monthly,3360.0,North America,2025-04-20,2025-06-29,churned,Price
+S01247,Lumen Works 1247,Pro,10,monthly,350.0,EMEA,2023-06-13,,active,
+S01248,Blue Foods 1248,Pro,12,monthly,420.0,EMEA,2024-11-08,,active,
+S01249,Bright Logistics 1249,Basic,4,monthly,60.0,North America,2023-05-06,2024-03-23,churned,Missing features
+S01250,Quantum Foods 1250,Business,42,annual,2142.0,EMEA,2023-10-01,,active,
+S01251,Vertex Media 1251,Enterprise,84,annual,6783.0,APAC,2024-12-04,,active,
+S01252,Nimbus Logistics 1252,Basic,3,annual,38.25,EMEA,2025-03-22,,active,
+S01253,Lumen Retail 1253,Pro,7,annual,208.25,LATAM,2025-11-03,,active,
+S01254,Maple Capital 1254,Business,31,annual,1581.0,North America,2025-11-04,,active,
+S01255,Pioneer Health 1255,Business,23,monthly,1380.0,EMEA,2025-08-26,,active,
+S01256,Green Systems 1256,Business,16,annual,816.0,North America,2025-11-05,,active,
+S01257,North Energy 1257,Basic,1,monthly,15.0,APAC,2024-04-22,2025-10-04,churned,Missing features
+S01258,Harbor Energy 1258,Basic,5,monthly,75.0,EMEA,2025-03-24,,active,
+S01259,Quantum Robotics 1259,Pro,9,annual,267.75,North America,2024-07-23,,active,
+S01260,Lumen Logistics 1260,Basic,2,annual,25.5,EMEA,2023-04-10,2023-08-23,churned,Missing features
+S01261,Summit Works 1261,Enterprise,223,monthly,21185.0,North America,2023-10-05,,active,
+S01262,Cedar Health 1262,Business,45,monthly,2700.0,North America,2024-10-06,,active,
+S01263,Orbit Retail 1263,Basic,2,annual,25.5,LATAM,2025-08-21,,active,
+S01264,Atlas Health 1264,Basic,4,annual,51.0,North America,2025-09-02,,active,
+S01265,Falcon Robotics 1265,Basic,4,monthly,60.0,EMEA,2025-02-21,,active,
+S01266,Vertex Capital 1266,Business,25,monthly,1500.0,LATAM,2025-08-02,,active,
+S01267,Quantum Robotics 1267,Pro,17,monthly,595.0,EMEA,2024-01-06,,active,
+S01268,Falcon Foods 1268,Basic,5,annual,63.75,EMEA,2025-11-29,,active,
+S01269,Atlas Studios 1269,Basic,1,monthly,15.0,EMEA,2024-12-14,,active,
+S01270,Atlas Works 1270,Basic,5,monthly,75.0,EMEA,2025-10-24,,active,
+S01271,Green Labs 1271,Pro,17,monthly,595.0,EMEA,2025-09-09,,active,
+S01272,Pioneer Retail 1272,Business,21,annual,1071.0,North America,2025-01-21,,active,
+S01273,Vertex Foods 1273,Pro,8,monthly,280.0,LATAM,2023-05-21,,active,
+S01274,Summit Capital 1274,Business,42,annual,2142.0,North America,2025-07-28,,active,
+S01275,Pioneer Analytics 1275,Basic,5,annual,63.75,North America,2024-10-16,,active,
+S01276,Blue Health 1276,Enterprise,134,annual,10820.5,EMEA,2025-10-08,2025-10-25,churned,Switched to competitor
+S01277,Cedar Media 1277,Pro,18,annual,535.5,North America,2024-02-22,,active,
+S01278,Maple Partners 1278,Pro,20,annual,595.0,EMEA,2024-09-25,,active,
+S01279,Cedar Analytics 1279,Business,10,monthly,600.0,APAC,2025-03-12,,active,
+S01280,Orbit Health 1280,Basic,4,monthly,60.0,North America,2023-10-30,,active,
+S01281,Pioneer Energy 1281,Basic,5,annual,63.75,APAC,2023-08-30,2025-12-05,churned,Budget cuts
+S01282,Orbit Works 1282,Pro,8,annual,238.0,EMEA,2023-01-12,,active,
+S01283,Silver Analytics 1283,Enterprise,231,annual,18653.25,EMEA,2023-02-12,,active,
+S01284,Blue Partners 1284,Basic,2,monthly,30.0,APAC,2025-08-23,,active,
+S01285,Rapid Foods 1285,Basic,2,annual,25.5,APAC,2024-05-13,2024-10-17,churned,Poor support
+S01286,Quantum Retail 1286,Business,50,monthly,3000.0,North America,2025-03-30,,active,
+S01287,Falcon Analytics 1287,Basic,3,annual,38.25,North America,2025-05-15,,active,
+S01288,Cedar Foods 1288,Pro,5,monthly,175.0,North America,2023-09-13,2024-10-13,churned,Price
+S01289,Falcon Robotics 1289,Pro,16,annual,476.0,North America,2023-08-11,,active,
+S01290,North Retail 1290,Pro,6,annual,178.5,North America,2025-01-25,,active,
+S01291,Quantum Robotics 1291,Basic,4,annual,51.0,EMEA,2023-12-13,2024-03-02,churned,Missing features
+S01292,Green Logistics 1292,Business,27,monthly,1620.0,EMEA,2025-06-02,,active,
+S01293,Atlas Studios 1293,Pro,20,monthly,700.0,EMEA,2025-04-24,,active,
+S01294,Atlas Health 1294,Basic,1,annual,12.75,North America,2023-01-11,,active,
+S01295,Summit Analytics 1295,Basic,5,monthly,75.0,North America,2025-08-29,2025-09-09,churned,Missing features
+S01296,Bright Robotics 1296,Enterprise,52,monthly,4940.0,LATAM,2025-11-01,,active,
+S01297,Bright Labs 1297,Basic,4,annual,51.0,EMEA,2023-02-28,,active,
+S01298,Vertex Logistics 1298,Business,29,monthly,1740.0,EMEA,2025-02-19,,active,
+S01299,Bright Retail 1299,Basic,3,annual,38.25,EMEA,2023-11-01,2025-11-19,churned,Missing features
+S01300,North Studios 1300,Basic,4,monthly,60.0,APAC,2025-08-08,,active,
+S01301,Silver Labs 1301,Basic,3,monthly,45.0,North America,2023-06-14,2023-11-05,churned,Price
+S01302,Harbor Systems 1302,Pro,4,monthly,140.0,APAC,2025-06-19,,active,
+S01303,Lumen Works 1303,Basic,1,annual,12.75,North America,2025-08-22,,active,
+S01304,Pioneer Studios 1304,Basic,1,monthly,15.0,EMEA,2024-04-17,2025-03-10,churned,Price
+S01305,Harbor Partners 1305,Basic,3,annual,38.25,North America,2024-04-15,2025-05-03,churned,Missing features
+S01306,Vertex Labs 1306,Business,27,annual,1377.0,APAC,2025-03-25,2025-06-24,churned,Missing features
+S01307,Harbor Analytics 1307,Pro,17,monthly,595.0,North America,2023-06-06,,active,
+S01308,Pioneer Media 1308,Business,17,monthly,1020.0,EMEA,2023-11-24,,active,
+S01309,Summit Studios 1309,Pro,5,monthly,175.0,North America,2023-10-20,,active,
+S01310,Acme Logistics 1310,Pro,4,annual,119.0,North America,2023-07-18,2024-07-14,churned,Switched to competitor
+S01311,Pioneer Works 1311,Pro,12,monthly,420.0,EMEA,2025-02-17,,active,
+S01312,Blue Studios 1312,Business,36,monthly,2160.0,EMEA,2025-11-07,,active,
+S01313,Vertex Health 1313,Basic,5,annual,63.75,North America,2024-06-01,,active,
+S01314,Pioneer Works 1314,Basic,5,annual,63.75,North America,2023-03-07,,active,
+S01315,Silver Retail 1315,Basic,4,annual,51.0,APAC,2024-09-10,,active,
+S01316,Blue Works 1316,Basic,1,monthly,15.0,APAC,2024-07-17,,active,
+S01317,Nimbus Health 1317,Basic,5,annual,63.75,LATAM,2023-03-17,2023-11-05,churned,Poor support
+S01318,Quantum Works 1318,Basic,1,annual,12.75,APAC,2024-08-27,,active,
+S01319,Green Energy 1319,Enterprise,51,monthly,4845.0,LATAM,2024-09-10,,active,
+S01320,Summit Foods 1320,Basic,5,monthly,75.0,APAC,2025-07-27,,active,
+S01321,Falcon Logistics 1321,Pro,18,annual,535.5,North America,2023-02-18,,active,
+S01322,Quantum Media 1322,Basic,2,monthly,30.0,North America,2025-07-09,,active,
+S01323,Quantum Media 1323,Basic,1,monthly,15.0,EMEA,2024-05-03,,active,
+S01324,Atlas Logistics 1324,Basic,5,monthly,75.0,EMEA,2024-06-13,2024-12-21,churned,Switched to competitor
+S01325,Iron Logistics 1325,Business,56,monthly,3360.0,North America,2024-09-04,2025-02-10,churned,Poor support
+S01326,Vertex Energy 1326,Pro,7,annual,208.25,North America,2025-08-15,,active,
+S01327,Falcon Systems 1327,Pro,5,annual,148.75,North America,2023-03-11,,active,
+S01328,Silver Analytics 1328,Business,13,monthly,780.0,LATAM,2025-03-17,,active,
+S01329,Cedar Robotics 1329,Enterprise,281,monthly,26695.0,EMEA,2023-10-23,,active,
+S01330,Green Logistics 1330,Pro,20,annual,595.0,EMEA,2023-02-23,,active,
+S01331,Silver Works 1331,Basic,5,monthly,75.0,North America,2023-02-11,2024-09-15,churned,Missing features
+S01332,Green Works 1332,Enterprise,205,annual,16553.75,North America,2023-10-13,,active,
+S01333,Blue Foods 1333,Basic,5,monthly,75.0,APAC,2023-04-06,2025-10-28,churned,Missing features
+S01334,Falcon Media 1334,Basic,5,monthly,75.0,EMEA,2024-02-14,2024-10-25,churned,Budget cuts
+S01335,Cedar Energy 1335,Basic,4,annual,51.0,EMEA,2023-11-12,,active,
+S01336,Maple Health 1336,Pro,20,monthly,700.0,North America,2025-10-31,,active,
+S01337,Green Retail 1337,Basic,2,annual,25.5,North America,2025-03-29,,active,
+S01338,Acme Media 1338,Pro,6,monthly,210.0,North America,2023-09-19,,active,
+S01339,Iron Partners 1339,Basic,3,annual,38.25,APAC,2023-04-04,,active,
+S01340,Falcon Robotics 1340,Business,49,monthly,2940.0,North America,2024-04-20,,active,
+S01341,Silver Energy 1341,Basic,1,annual,12.75,North America,2023-11-26,,active,
+S01342,Nimbus Partners 1342,Pro,4,annual,119.0,APAC,2025-02-01,,active,
+S01343,Silver Capital 1343,Basic,1,annual,12.75,North America,2025-03-15,,active,
+S01344,North Robotics 1344,Pro,7,monthly,245.0,EMEA,2024-04-10,2024-07-02,churned,Price
+S01345,Cedar Works 1345,Basic,5,monthly,75.0,North America,2023-05-16,2023-10-20,churned,Missing features
+S01346,Blue Robotics 1346,Enterprise,147,monthly,13965.0,LATAM,2023-06-25,,active,
+S01347,Iron Robotics 1347,Pro,4,monthly,140.0,EMEA,2023-06-23,2024-02-02,churned,Budget cuts
+S01348,Atlas Systems 1348,Enterprise,225,monthly,21375.0,North America,2025-01-14,,active,
+S01349,North Media 1349,Pro,20,monthly,700.0,APAC,2025-06-14,,active,
+S01350,Cedar Logistics 1350,Enterprise,65,annual,5248.75,North America,2024-10-26,,active,
+S01351,Rapid Systems 1351,Business,49,monthly,2940.0,North America,2023-10-28,,active,
+S01352,Vertex Health 1352,Basic,2,monthly,30.0,APAC,2024-03-01,2024-12-31,churned,Missing features
+S01353,Falcon Studios 1353,Business,38,monthly,2280.0,North America,2025-10-03,,active,
+S01354,Nimbus Works 1354,Pro,3,monthly,105.0,North America,2023-12-21,,active,
+S01355,Falcon Logistics 1355,Enterprise,123,monthly,11685.0,North America,2023-11-14,2024-04-25,churned,Switched to competitor
+S01356,Acme Partners 1356,Enterprise,58,monthly,5510.0,North America,2023-03-13,,active,
+S01357,Vertex Logistics 1357,Enterprise,122,monthly,11590.0,North America,2025-01-15,2025-03-25,churned,Price
+S01358,North Systems 1358,Pro,11,annual,327.25,North America,2025-03-20,,active,
+S01359,Pioneer Robotics 1359,Pro,13,monthly,455.0,North America,2023-10-03,,active,
+S01360,Rapid Energy 1360,Pro,3,annual,89.25,EMEA,2024-12-06,,active,
+S01361,North Capital 1361,Basic,1,annual,12.75,North America,2025-09-16,,active,
+S01362,Silver Systems 1362,Pro,4,annual,119.0,APAC,2024-05-10,,active,
+S01363,Bright Logistics 1363,Basic,2,monthly,30.0,EMEA,2025-08-21,,active,
+S01364,Acme Robotics 1364,Enterprise,229,monthly,21755.0,North America,2024-05-03,,active,
+S01365,North Health 1365,Business,52,annual,2652.0,North America,2023-11-20,2023-12-03,churned,Price
+S01366,Lumen Systems 1366,Pro,7,monthly,245.0,EMEA,2024-05-05,,active,
+S01367,Maple Capital 1367,Basic,4,monthly,60.0,EMEA,2024-12-12,,active,
+S01368,Silver Capital 1368,Basic,3,annual,38.25,EMEA,2023-02-15,,active,
+S01369,Maple Studios 1369,Basic,4,monthly,60.0,APAC,2023-12-03,2025-11-16,churned,Missing features
+S01370,Falcon Media 1370,Basic,1,monthly,15.0,North America,2023-11-25,2024-12-23,churned,Price
+S01371,Lumen Studios 1371,Basic,3,monthly,45.0,North America,2024-10-12,2025-06-08,churned,Switched to competitor
+S01372,Summit Works 1372,Basic,5,monthly,75.0,North America,2025-11-11,,active,
+S01373,Bright Energy 1373,Basic,4,monthly,60.0,North America,2023-09-28,2025-01-25,churned,Switched to competitor
+S01374,Vertex Studios 1374,Basic,3,annual,38.25,LATAM,2024-02-15,2025-01-25,churned,Price
+S01375,Quantum Labs 1375,Basic,1,monthly,15.0,North America,2023-05-24,2025-05-20,churned,Budget cuts
+S01376,Pioneer Foods 1376,Basic,1,monthly,15.0,LATAM,2023-11-18,2023-12-15,churned,Missing features
+S01377,Rapid Labs 1377,Pro,11,annual,327.25,EMEA,2024-07-22,,active,
+S01378,North Systems 1378,Basic,2,monthly,30.0,North America,2025-06-15,,active,
+S01379,Nimbus Retail 1379,Basic,4,monthly,60.0,North America,2023-03-06,2024-04-25,churned,Price
+S01380,Cedar Retail 1380,Basic,3,annual,38.25,EMEA,2025-04-03,,active,
+S01381,Nimbus Logistics 1381,Business,15,monthly,900.0,EMEA,2024-05-01,,active,
+S01382,Iron Energy 1382,Enterprise,102,annual,8236.5,North America,2024-04-15,,active,
+S01383,Quantum Analytics 1383,Basic,3,monthly,45.0,APAC,2024-04-23,2024-04-27,churned,Price
+S01384,Harbor Works 1384,Enterprise,64,monthly,6080.0,North America,2024-03-20,,active,
+S01385,Atlas Health 1385,Pro,13,monthly,455.0,North America,2025-03-29,,active,
+S01386,Atlas Health 1386,Basic,2,monthly,30.0,APAC,2024-07-05,,active,
+S01387,Bright Capital 1387,Basic,5,annual,63.75,North America,2024-10-08,2025-04-16,churned,Price
+S01388,Falcon Robotics 1388,Basic,5,monthly,75.0,EMEA,2024-02-29,2024-07-11,churned,Switched to competitor
+S01389,Green Labs 1389,Pro,9,annual,267.75,North America,2024-05-21,,active,
+S01390,Maple Systems 1390,Pro,16,monthly,560.0,North America,2023-01-06,2024-01-24,churned,Price
+S01391,North Analytics 1391,Business,34,annual,1734.0,EMEA,2025-08-21,,active,
+S01392,Pioneer Energy 1392,Business,19,annual,969.0,North America,2025-06-18,,active,
+S01393,Maple Systems 1393,Pro,14,monthly,490.0,North America,2024-11-21,,active,
+S01394,Bright Works 1394,Pro,5,monthly,175.0,North America,2024-12-12,2025-06-25,churned,Price
+S01395,Bright Capital 1395,Basic,1,monthly,15.0,North America,2025-01-04,,active,
+S01396,Silver Systems 1396,Pro,4,annual,119.0,EMEA,2025-10-22,,active,
+S01397,Cedar Analytics 1397,Business,58,monthly,3480.0,EMEA,2024-08-11,,active,
+S01398,Falcon Labs 1398,Basic,4,monthly,60.0,LATAM,2025-11-23,,active,
+S01399,Acme Health 1399,Pro,4,monthly,140.0,North America,2024-11-15,,active,
+S01400,Harbor Labs 1400,Basic,3,annual,38.25,LATAM,2024-07-28,,active,
+S01401,Quantum Energy 1401,Pro,19,annual,565.25,LATAM,2023-12-31,,active,
+S01402,Pioneer Energy 1402,Enterprise,272,annual,21964.0,EMEA,2025-07-21,,active,
+S01403,Rapid Energy 1403,Basic,5,monthly,75.0,North America,2024-06-27,2025-01-11,churned,Budget cuts
+S01404,Orbit Partners 1404,Basic,4,monthly,60.0,North America,2025-06-25,,active,
+S01405,Rapid Works 1405,Business,22,monthly,1320.0,North America,2024-02-11,2025-04-10,churned,Price
+S01406,Cedar Foods 1406,Basic,5,annual,63.75,North America,2025-11-25,,active,
+S01407,Atlas Media 1407,Pro,11,annual,327.25,North America,2023-01-07,,active,
+S01408,Falcon Foods 1408,Basic,2,monthly,30.0,LATAM,2025-03-22,,active,
+S01409,Blue Health 1409,Basic,1,annual,12.75,North America,2025-06-08,,active,
+S01410,Silver Logistics 1410,Business,44,monthly,2640.0,EMEA,2024-02-19,,active,
+S01411,Atlas Logistics 1411,Pro,14,monthly,490.0,APAC,2025-05-12,,active,
+S01412,Rapid Studios 1412,Business,37,monthly,2220.0,North America,2024-02-09,,active,
+S01413,Falcon Labs 1413,Pro,18,annual,535.5,North America,2024-01-28,2025-10-12,churned,Missing features
+S01414,Maple Health 1414,Pro,10,annual,297.5,EMEA,2024-05-22,2025-01-22,churned,Missing features
+S01415,Pioneer Capital 1415,Pro,10,monthly,350.0,North America,2023-03-29,,active,
+S01416,Vertex Health 1416,Pro,4,monthly,140.0,North America,2025-09-16,,active,
+S01417,North Retail 1417,Basic,1,annual,12.75,APAC,2024-02-04,,active,
+S01418,Silver Energy 1418,Basic,5,monthly,75.0,EMEA,2023-11-17,2024-12-22,churned,Price
+S01419,Atlas Energy 1419,Basic,3,annual,38.25,North America,2025-02-17,,active,
+S01420,Harbor Health 1420,Pro,13,monthly,455.0,APAC,2024-11-07,2025-01-01,churned,Price
+S01421,Iron Works 1421,Business,31,monthly,1860.0,North America,2023-07-10,2024-01-05,churned,Price
+S01422,Bright Analytics 1422,Pro,13,annual,386.75,North America,2025-02-17,,active,
+S01423,Blue Logistics 1423,Business,32,monthly,1920.0,APAC,2023-05-28,,active,
+S01424,Silver Robotics 1424,Basic,5,monthly,75.0,EMEA,2025-02-15,,active,
+S01425,Acme Logistics 1425,Enterprise,52,annual,4199.0,North America,2024-11-09,,active,
+S01426,Iron Health 1426,Basic,5,monthly,75.0,EMEA,2024-07-05,,active,
+S01427,Nimbus Labs 1427,Business,18,monthly,1080.0,LATAM,2023-05-22,2024-01-22,churned,Price
+S01428,Harbor Retail 1428,Basic,4,monthly,60.0,APAC,2024-12-15,,active,
+S01429,Maple Studios 1429,Business,49,monthly,2940.0,EMEA,2025-08-28,,active,
+S01430,Quantum Systems 1430,Pro,18,monthly,630.0,North America,2025-08-04,,active,
+S01431,Vertex Health 1431,Basic,5,annual,63.75,North America,2024-04-11,,active,
+S01432,Green Partners 1432,Basic,5,monthly,75.0,North America,2025-02-22,2025-11-15,churned,Poor support
+S01433,Pioneer Works 1433,Business,32,annual,1632.0,APAC,2025-01-20,,active,
+S01434,Blue Partners 1434,Basic,2,annual,25.5,North America,2023-01-30,2025-08-13,churned,Poor support
+S01435,Quantum Analytics 1435,Enterprise,51,monthly,4845.0,North America,2023-12-05,,active,
+S01436,Summit Systems 1436,Pro,7,monthly,245.0,North America,2025-08-24,,active,
+S01437,North Labs 1437,Basic,2,monthly,30.0,EMEA,2024-07-26,,active,
+S01438,Bright Health 1438,Business,11,annual,561.0,North America,2024-07-25,,active,
+S01439,Cedar Analytics 1439,Pro,3,monthly,105.0,North America,2023-05-29,,active,
+S01440,Pioneer Media 1440,Business,35,annual,1785.0,EMEA,2023-11-08,,active,
+S01441,Iron Media 1441,Basic,4,monthly,60.0,North America,2023-04-04,2025-05-18,churned,Missing features
+S01442,Blue Logistics 1442,Business,22,monthly,1320.0,EMEA,2024-07-05,,active,
+S01443,Quantum Studios 1443,Pro,3,monthly,105.0,EMEA,2023-08-16,,active,
+S01444,Silver Systems 1444,Business,55,annual,2805.0,EMEA,2024-04-20,,active,
+S01445,Lumen Works 1445,Basic,1,monthly,15.0,EMEA,2025-08-26,,active,
+S01446,Summit Health 1446,Basic,2,monthly,30.0,EMEA,2023-12-13,,active,
+S01447,Bright Retail 1447,Basic,5,monthly,75.0,APAC,2024-11-16,,active,
+S01448,Green Labs 1448,Basic,3,annual,38.25,North America,2024-10-02,,active,
+S01449,Summit Works 1449,Basic,2,monthly,30.0,APAC,2024-11-10,,active,
+S01450,Nimbus Works 1450,Pro,13,annual,386.75,North America,2023-09-07,,active,
+S01451,Summit Logistics 1451,Business,56,annual,2856.0,APAC,2024-12-19,,active,
+S01452,Rapid Labs 1452,Pro,9,monthly,315.0,North America,2024-11-16,,active,
+S01453,Atlas Partners 1453,Enterprise,221,annual,17845.75,EMEA,2023-06-16,,active,
+S01454,Orbit Works 1454,Basic,4,annual,51.0,EMEA,2023-12-19,,active,
+S01455,Lumen Energy 1455,Basic,5,monthly,75.0,APAC,2025-10-05,,active,
+S01456,Nimbus Media 1456,Business,29,monthly,1740.0,EMEA,2025-11-03,,active,
+S01457,North Partners 1457,Pro,8,annual,238.0,EMEA,2024-11-25,,active,
+S01458,Lumen Robotics 1458,Business,60,monthly,3600.0,North America,2025-03-19,,active,
+S01459,Falcon Health 1459,Basic,2,monthly,30.0,North America,2025-03-13,,active,
+S01460,Pioneer Studios 1460,Pro,14,monthly,490.0,North America,2023-09-19,,active,
+S01461,Maple Systems 1461,Basic,2,monthly,30.0,North America,2023-09-28,,active,
+S01462,Iron Logistics 1462,Pro,19,monthly,665.0,North America,2025-11-13,,active,
+S01463,Lumen Analytics 1463,Basic,1,monthly,15.0,North America,2024-07-26,,active,
+S01464,Green Logistics 1464,Basic,1,monthly,15.0,EMEA,2025-10-17,,active,
+S01465,Summit Systems 1465,Pro,18,monthly,630.0,North America,2024-12-14,2025-02-15,churned,Poor support
+S01466,Cedar Partners 1466,Pro,3,monthly,105.0,North America,2025-07-01,,active,
+S01467,Iron Energy 1467,Basic,2,annual,25.5,LATAM,2024-06-05,,active,
+S01468,Silver Analytics 1468,Business,57,annual,2907.0,North America,2025-05-06,,active,
+S01469,Orbit Media 1469,Pro,20,monthly,700.0,EMEA,2025-09-03,,active,
+S01470,Iron Systems 1470,Basic,1,monthly,15.0,North America,2023-09-22,2024-06-12,churned,Switched to competitor
+S01471,Vertex Capital 1471,Pro,12,annual,357.0,EMEA,2023-07-14,,active,
+S01472,Blue Analytics 1472,Business,34,monthly,2040.0,APAC,2025-04-26,2025-07-02,churned,Price
+S01473,Falcon Analytics 1473,Pro,16,monthly,560.0,North America,2023-03-09,2024-09-30,churned,Poor support
+S01474,Silver Works 1474,Basic,3,annual,38.25,North America,2025-11-26,,active,
+S01475,Cedar Logistics 1475,Pro,17,monthly,595.0,EMEA,2025-03-23,,active,
+S01476,Silver Systems 1476,Business,60,monthly,3600.0,APAC,2023-04-10,,active,
+S01477,Vertex Capital 1477,Pro,8,monthly,280.0,North America,2024-10-30,2025-08-29,churned,Budget cuts
+S01478,Nimbus Studios 1478,Basic,5,annual,63.75,LATAM,2023-08-22,,active,
+S01479,Lumen Capital 1479,Enterprise,137,monthly,13015.0,North America,2025-11-01,,active,
+S01480,North Energy 1480,Business,33,monthly,1980.0,North America,2023-10-26,,active,
+S01481,Atlas Labs 1481,Basic,4,monthly,60.0,North America,2024-11-18,,active,
+S01482,Maple Media 1482,Basic,1,monthly,15.0,APAC,2023-08-01,,active,
+S01483,Iron Partners 1483,Pro,18,monthly,630.0,LATAM,2023-02-17,2024-03-01,churned,Switched to competitor
+S01484,Acme Energy 1484,Business,36,annual,1836.0,EMEA,2025-03-11,,active,
+S01485,Lumen Retail 1485,Business,24,monthly,1440.0,EMEA,2023-02-15,2025-10-09,churned,Price
+S01486,Vertex Labs 1486,Business,53,monthly,3180.0,EMEA,2025-08-25,,active,
+S01487,Pioneer Foods 1487,Basic,2,monthly,30.0,APAC,2024-01-11,2024-10-01,churned,Budget cuts
+S01488,Silver Retail 1488,Business,37,monthly,2220.0,North America,2023-12-17,,active,
+S01489,Cedar Labs 1489,Pro,5,monthly,175.0,North America,2024-07-23,2025-06-05,churned,Price
+S01490,Quantum Health 1490,Pro,13,annual,386.75,EMEA,2025-05-08,,active,
+S01491,Nimbus Retail 1491,Pro,8,annual,238.0,APAC,2023-11-20,,active,
+S01492,Lumen Logistics 1492,Pro,5,annual,148.75,APAC,2024-04-10,2024-09-07,churned,Poor support
+S01493,Maple Systems 1493,Business,19,monthly,1140.0,EMEA,2024-12-03,,active,
+S01494,Nimbus Partners 1494,Pro,3,annual,89.25,EMEA,2024-05-30,,active,
+S01495,Summit Partners 1495,Basic,1,annual,12.75,LATAM,2024-08-08,,active,
+S01496,Blue Health 1496,Basic,3,annual,38.25,North America,2023-01-02,,active,
+S01497,Bright Partners 1497,Pro,11,annual,327.25,EMEA,2023-12-07,,active,
+S01498,Iron Capital 1498,Basic,5,monthly,75.0,EMEA,2023-10-28,2025-01-13,churned,Switched to competitor
+S01499,Blue Labs 1499,Basic,1,monthly,15.0,North America,2023-01-30,,active,
+S01500,Nimbus Energy 1500,Business,16,annual,816.0,EMEA,2023-07-18,,active,

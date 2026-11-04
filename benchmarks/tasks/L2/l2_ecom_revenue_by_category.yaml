@@ -1,0 +1,29 @@
+id: l2_ecom_revenue_by_category
+difficulty: L2
+dataset:
+- data/ecommerce/orders.csv
+- data/ecommerce/customers.csv
+- data/ecommerce/products.csv
+question: What is the net revenue by product category? Net revenue = quantity * unit_price * (1 - discount_pct),
+  counting only orders with status 'completed'.
+expected:
+  expected_rows:
+  - category: Electronics
+    net_revenue: 387173.12
+  - category: Home
+    net_revenue: 148128.83
+  - category: Apparel
+    net_revenue: 106608.47
+  - category: Sports
+    net_revenue: 99977.62
+  - category: Beauty
+    net_revenue: 62115.64
+  - category: Books
+    net_revenue: 50030.03
+  tolerance: 0.005
+  order_matters: false
+tags:
+- ecommerce
+- revenue
+- join
+- group-by

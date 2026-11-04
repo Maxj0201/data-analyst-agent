@@ -1,0 +1,12 @@
+id: l1_hr_gross_pay_march_2025
+difficulty: L1
+dataset: data/hr/payroll.csv
+question: What is the total gross_pay in the payroll table for pay_period '2025-03'? Round to 2 decimals.
+expected:
+  expected_value: 3691973.18
+  tolerance: 0.001
+  abs_tolerance: 0.0
+tags:
+- hr
+- aggregate
+- filter

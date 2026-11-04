@@ -1,0 +1,12 @@
+id: l1_hr_engineering_headcount
+difficulty: L1
+dataset: data/hr/employees.csv
+question: How many current employees (no termination_date) work in Engineering?
+expected:
+  expected_value: 91.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- hr
+- count
+- filter

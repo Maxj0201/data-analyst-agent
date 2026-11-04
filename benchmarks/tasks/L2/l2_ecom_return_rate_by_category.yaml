@@ -1,0 +1,29 @@
+id: l2_ecom_return_rate_by_category
+difficulty: L2
+dataset:
+- data/ecommerce/orders.csv
+- data/ecommerce/customers.csv
+- data/ecommerce/products.csv
+question: For each product category, what percentage of orders (all statuses in the denominator) have
+  status 'returned'? Report percentages on a 0-100 scale.
+expected:
+  expected_rows:
+  - category: Apparel
+    return_rate_pct: 15.46
+  - category: Beauty
+    return_rate_pct: 6.19
+  - category: Books
+    return_rate_pct: 5.59
+  - category: Electronics
+    return_rate_pct: 5.91
+  - category: Home
+    return_rate_pct: 5.39
+  - category: Sports
+    return_rate_pct: 5.59
+  tolerance: 0.01
+  order_matters: false
+tags:
+- ecommerce
+- join
+- group-by
+- ratio

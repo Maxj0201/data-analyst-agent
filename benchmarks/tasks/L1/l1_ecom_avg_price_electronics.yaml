@@ -1,0 +1,11 @@
+id: l1_ecom_avg_price_electronics
+difficulty: L1
+dataset: data/ecommerce/products.csv
+question: What is the average list_price of products in the Electronics category? Round to 2 decimals.
+expected:
+  expected_value: 130.1529
+  tolerance: 0.01
+  abs_tolerance: 0.0
+tags:
+- ecommerce
+- aggregate

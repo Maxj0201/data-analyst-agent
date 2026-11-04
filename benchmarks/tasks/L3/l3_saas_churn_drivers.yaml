@@ -1,0 +1,18 @@
+id: l3_saas_churn_drivers
+difficulty: L3
+dataset: data/saas/subscriptions.csv
+question: What are the main drivers of subscription churn, and what should the company do about it?
+expected:
+  rubric:
+  - States that roughly 28% of all subscriptions have churned.
+  - Identifies the Basic plan as having the highest churn rate, with churn falling on higher tiers.
+  - Notes that monthly billing churns more than annual billing (about 34% vs 18%).
+  - Identifies APAC as the region with the highest churn rate.
+  - Mentions 'Price' as the most common churn reason.
+  - Recommends concrete retention actions tied to these drivers.
+  pass_threshold: 0.67
+tags:
+- saas
+- churn
+- open-ended
+- root-cause

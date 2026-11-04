@@ -1,0 +1,12 @@
+id: l1_saas_active_subscriptions
+difficulty: L1
+dataset: data/saas/subscriptions.csv
+question: How many subscriptions currently have status 'active'?
+expected:
+  expected_value: 1083.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- saas
+- count
+- filter
