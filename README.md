@@ -87,7 +87,7 @@ tool output contains.
 rubric) and 16 ADV, over seeded synthetic data whose ground truth is computed by the generator.
 Each task runs in its own child process, and on timeout the whole process group is killed.
 `report` and `compare` cover accuracy by tier and tag, cost, p50/p95 latency, critic correction
-rate, routing and prompt diffs. CI makes no API calls. It runs lint, the format check and 898
+rate, routing and prompt diffs. CI makes no API calls. It runs lint, the format check and 915
 tests (Hypothesis property tests included) under a branch-coverage gate, then the oracle agent
 (must score 100%), then a dry run of the real loop and sandbox with a scripted LLM, and then the
 same dry run with **every** feature flag on. A headless-browser UI e2e test runs on API/UI PRs,

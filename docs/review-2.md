@@ -213,7 +213,7 @@ checked against the code. Fixed statements, by file:
     not exist
   - the ADV data
 - **`README.md`**
-  - sandbox test count
+  - test counts (915 overall, 265 in `tests/sandbox`)
   - the retrieval row names the 33 *benchmark-task* cases
 - **`sandbox.md`**
   - `SandboxSetupError`
