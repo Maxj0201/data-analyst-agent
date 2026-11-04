@@ -536,3 +536,10 @@ def test_loop_budget_gate_denied_is_asked_again(ctx, gated_settings):
     assert [a.tool for a in asked] == ["inspect_schema", "run_sql"]
     assert all(r.is_error for r in result.state.tool_results[:2])
     assert result.report == "# Partial"
+
+
+def test_sql_parenthesised_query_is_still_estimated():
+    ctx, sb = stub_ctx()
+    policy = ApprovalPolicy(**{**ON, "row_threshold": 1_000})
+    assert evaluate(policy, "run_sql", {"query": f"({SQL})"}, ctx) is not None
+    assert sb.queries == [f"EXPLAIN ({SQL})"]
