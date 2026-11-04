@@ -206,8 +206,8 @@ The offline numbers that *are* measured:
 | Unit, integration and property tests | 898 passed, 0 skipped (1 slow test deselected) | `make test` |
 | Branch coverage (CI gate) | 93.7% overall (floor 92) · `sandbox/` 99.4% (floor 97) · `core/loop.py` 100% (floor 98) | `make coverage` |
 | Oracle on all 80 tasks (harness self-check) | 100% on the 64 gradable tasks (L3 needs a judge) | `uv run python -m analyst_agent.eval run --agent oracle --no-judge` |
-| Semantic retrieval, BM25, 33 scored cases | top-1 0.848 · top-3 0.909 · MRR 0.896 | `uv run python -m analyst_agent.semantic eval` |
-| Sandbox escape and unit tests | 264 passed | `uv run pytest tests/sandbox` |
+| Semantic retrieval, BM25, 33 scored benchmark-task cases | top-1 0.848 · top-3 0.909 · MRR 0.896 | `uv run python -m analyst_agent.semantic eval` |
+| Sandbox escape and unit tests | 265 passed | `uv run pytest tests/sandbox` |
 | Sandbox escape fuzzer (default seed, nightly) | 500 of 500 snippets blocked or killed | `uv run pytest -m slow tests/sandbox/test_fuzz_escape.py` |
 | UI e2e (approve and deny flows) | 24 checks per run | `make e2e` |
 

@@ -28,7 +28,9 @@ answer.
 - **Results**: the text content is wrapped by `wrap_untrusted(...)` (the agent loop's prompt
   injection guard: data in the table cannot pose as instructions or close the wrapper);
   `structuredContent` carries the handler's `data` dict (rows, columns, paths, …); a handler error
-  becomes `isError: true`. PNG/JPEG files from `make_chart` and `run_python` are also inlined as
+  becomes `isError: true`. `structuredContent` is **not** fenced: it holds raw
+  query rows, so a client that shows it to its model should treat it as untrusted data
+  ([review-2 L2](review-2.md#low)). PNG/JPEG files from `make_chart` and `run_python` are also inlined as
   image content so the client can see the chart (disable with `--no-inline-images`).
 
 ## Install
@@ -53,7 +55,7 @@ uv run --extra mcp analyst-agent-mcp --data /abs/path/to/orders.csv --log-level 
 
 | Flag | Meaning |
 |---|---|
-| `--data [NAME=]PATH`, `-d` | CSV, Parquet or SQLite file, repeatable. Bare paths are named after the file (`Sales 2024.csv` → `sales_2024`); `NAME=PATH` picks the table name. A SQLite file contributes one table per SQLite table. |
+| `--data [NAME=]PATH`, `-d` | CSV, Parquet, SQLite or DuckDB file, repeatable. Bare paths are named after the file (`Sales 2024.csv` → `sales_2024`); `NAME=PATH` picks the table name. A SQLite or DuckDB file contributes one table per table in it, named after those tables (`NAME` is ignored). |
 | `--artifacts-dir DIR` | Where charts and `run_python` files go. Default `$AGENT_ARTIFACTS_DIR` or `./artifacts`, resolved to an absolute path at startup. |
 | `--no-inline-images` | Return chart paths only, without embedded PNGs. |
 | `--log-level LEVEL` | stderr logging (stdout is the protocol channel). |

@@ -45,8 +45,8 @@ Then paste `runs/summary.md` into the README (see [Results template](#results-te
 
 ## Before you start
 
-- **API key.** Set `ANTHROPIC_API_KEY` in the shell or in `.env`. Without it `eval run` silently
-  turns the judge off and **skips every L3 task**; `run_experiments.sh --agent core` refuses to
+- **API key.** Set `ANTHROPIC_API_KEY` in the shell or in `.env`. Without it `eval run` turns the
+  judge off with only a warning on stderr, **skips every L3 task** and scores ADV by rules only; `run_experiments.sh --agent core` refuses to
   start instead.
 - **Clean tree.** Every run records `git_sha` in `meta.json`. Commit first so the summary points
   at the code that produced it.
@@ -88,6 +88,8 @@ already in flight finish, so a run can overshoot by up to `--concurrency` tasks.
 started are written to `results.jsonl` with `status: over_budget`, excluded from accuracy, shown
 as *Not started (--budget-usd)* in `eval report`, and flagged in the summary's *Notes* column.
 `meta.json` records `spend_usd` and `budget: {usd, exhausted, tasks_not_started}`.
+Tasks that time out or crash count too: the core agents report each LLM call's cost as it happens,
+and the runner records what a killed task had spent as its `cost_usd` (tokens stay 0).
 
 `run_experiments.sh` sets each arm's cap to its estimate × `--cap-factor` (default 1.5) and, by
 default, stops starting new arms once the total spend reaches the sum of those caps

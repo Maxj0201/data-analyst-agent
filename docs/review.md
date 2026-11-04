@@ -31,6 +31,11 @@ and the API with small exploit scripts. "Confirmed" below means the exploit ran.
 > itself, scheduler, metadata and host-wide syscalls; 115 instructions on x86_64), and
 > `tests/sandbox/test_oslock_unit.py` now checks each rule of the filter program.
 
+> **Second review:** [review-2.md](review-2.md) reviews what was merged after this one (round 4
+> `main`, `0f2a5cd`). It found no High, and four Medium findings, all fixed with regression
+> tests on `fix/review-2`. One of them, M4, is this review's M2 at a new surface: `st.metric`
+> renders images in the value as well as the label.
+
 ## Summary
 
 | ID | Sev | Area | Finding | Status |
@@ -155,6 +160,10 @@ with no click. The report did strip `![..](..)` with a regex, but reference-styl
 makes every image inert. `describe()`, the report, errors, reasons and column names (now
 `code_span()`) all go through it. **Test:** `tests/test_frontend_render.py` parses the output
 with markdown-it and asserts there are no image tokens.
+
+> **Later:** the UI rewrite (#14) removed `describe()`; the step timeline is escaped HTML
+> (`frontend/ui_helpers.step_html`), `safe_md()` now lives in `frontend/ui_helpers.py` and is
+> re-exported by `frontend/render.py`, and report images go through `render.report_parts`.
 
 ### M3 — Upload size limit enforced too late
 

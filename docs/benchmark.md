@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Tasks | 80: 24 L1, 24 L2, 16 L3, 16 ADV |
-| Data | 19 synthetic CSV tables in 5 domains (ecommerce, saas, hr, support, finance), ~1.8 MB |
+| Data | 19 synthetic CSV tables in 5 domains (ecommerce, saas, hr, support, finance), ~1.5 MB |
 | Ground truth | computed with pandas from the CSVs as written to disk |
 | Scoring | numeric / row-set match (L1, L2), LLM-judge rubric (L3), rule checks + LLM judge + legitimate answer (ADV) |
 | Source | `benchmarks/data/generate.py` (seeded, deterministic); task YAML in `benchmarks/tasks/` |
