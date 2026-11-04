@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     semantic_layer_enabled: bool = False
     semantic_metrics_dir: Path = Path("benchmarks/metrics")
     semantic_top_k: int = 4
+    # Scoring backend; embedding / hybrid need the optional ``embeddings`` extra.
+    semantic_backend: Literal["bm25", "embedding", "hybrid"] = "bm25"
+    semantic_hybrid_weight: float = Field(default=0.5, ge=0.0, le=1.0)  # embedding share
+    semantic_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    semantic_embedding_cache_dir: Path = Path("data/embeddings")
 
     # Human-in-the-loop approval (see core/approval.py). Off unless approval_enabled is set.
     approval_enabled: bool = False

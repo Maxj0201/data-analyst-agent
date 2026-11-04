@@ -22,7 +22,7 @@ jobs:
           python-version: "3.11"
           enable-cache: true
       - name: Install dependencies
-        run: uv sync --locked --all-extras
+        run: uv sync --locked --all-extras --no-extra embeddings
       - name: Ruff lint
         run: uv run ruff check .
       - name: Ruff format
@@ -46,7 +46,7 @@ jobs:
           python-version: "3.11"
           enable-cache: true
       - name: Install dependencies
-        run: uv sync --locked --all-extras
+        run: uv sync --locked --all-extras --no-extra embeddings
       - name: Harness smoke (oracle agent must score 100%)
         # Without a judge, L3 rubric tasks are reported as skipped and excluded from accuracy.
         run: >-
