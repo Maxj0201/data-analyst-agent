@@ -98,3 +98,64 @@ def test_backend_is_swappable() -> None:
 def test_min_score() -> None:
     r = MetricRetriever(METRICS, min_score=1e9)
     assert r.retrieve("churn") == []
+
+
+COMPOSITE = [
+    metric(
+        "net_revenue",
+        "Sum of quantity * unit_price * (1 - discount_pct) for completed orders.",
+        ["revenue", "sales"],
+        ["orders"],
+    ),
+    metric(
+        "average_order_value",
+        "Mean net revenue per completed order.",
+        ["aov", "basket size"],
+        ["orders"],
+    ),
+    metric(
+        "net_revenue_retention",
+        "MRR retained from existing accounts.",
+        ["nrr"],
+        ["subscriptions"],
+    ),
+    metric("active_mrr", "MRR of active subs.", ["run rate", "recurring revenue"], ["subs"]),
+    metric("arr", "Annual MRR.", ["annual run rate", "annual recurring revenue"], ["subs"]),
+]
+
+# The l2_ecom_aov_by_segment question: names AOV but restates net revenue's formula.
+AOV_Q = (
+    "What is the average order value (mean net revenue per completed order) for each customer "
+    "segment? Net revenue = quantity * unit_price * (1 - discount_pct), counting only orders "
+    "with status 'completed'."
+)
+
+
+def test_mention_rerank_ranks_composite_above_component() -> None:
+    raw = MetricRetriever(COMPOSITE, rerank_mentions=False).retrieve(AOV_Q, k=2)
+    assert raw[0].metric.name == "net_revenue"  # the bug being fixed
+    hits = MetricRetriever(COMPOSITE).retrieve(AOV_Q, k=2)
+    assert [h.metric.name for h in hits] == ["average_order_value", "net_revenue"]
+    assert all(h.mentioned for h in hits)
+    assert hits[0].score < hits[1].score  # backend scores are reported unchanged
+
+
+def test_mention_rerank_leaves_plain_component_questions_alone() -> None:
+    q = "What is the total net revenue? Net revenue = quantity * unit_price, completed orders."
+    assert MetricRetriever(COMPOSITE).retrieve(q, k=1)[0].metric.name == "net_revenue"
+
+
+def test_mention_longest_match_and_distinctive_phrases() -> None:
+    r = MetricRetriever(COMPOSITE)
+    nrr = r.retrieve("net revenue retention in 2025", k=3)
+    assert nrr[0].metric.name == "net_revenue_retention" and nrr[0].mentioned
+    # "net revenue" is inside "net revenue retention": not a mention of net_revenue here.
+    assert not any(h.mentioned for h in nrr if h.metric.name == "net_revenue")
+    # "run rate" is also part of ARR's "annual run rate", so it does not single out active_mrr.
+    hits = r.retrieve("what is our run rate", k=2)
+    assert not any(h.mentioned for h in hits)
+
+
+def test_mention_rerank_respects_table_filter() -> None:
+    hits = MetricRetriever(COMPOSITE).retrieve(AOV_Q, k=5, tables=["subscriptions"])
+    assert [h.metric.name for h in hits] == ["net_revenue_retention"]

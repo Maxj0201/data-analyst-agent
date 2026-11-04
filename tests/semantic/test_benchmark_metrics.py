@@ -76,6 +76,13 @@ def test_fragments_match_benchmark_ground_truth(sb: sandbox.Sandbox) -> None:
         ("What is NRR for 2025?", ["subscriptions"], "net_revenue_retention"),
         ("How many customers are repeat buyers?", ["orders", "customers"], "repeat_purchase_rate"),
         ("What is the AOV?", ["orders", "customers", "products"], "average_order_value"),
+        (  # l2_ecom_aov_by_segment: restates net revenue's formula, used to rank net_revenue 1st
+            "What is the average order value (mean net revenue per completed order) for each "
+            "customer segment? Net revenue = quantity * unit_price * (1 - discount_pct), "
+            "counting only orders with status 'completed'.",
+            ["orders", "customers", "products"],
+            "average_order_value",
+        ),
         ("Return rate by category", ["orders", "products"], "return_rate"),
         ("What was employee turnover last year?", ["employees"], "attrition_rate"),
         ("Which department has the biggest pay band premium?", ["employees"], "pay_band_premium"),
