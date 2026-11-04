@@ -33,7 +33,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from .agent import AgentRunner, core_runner
 from .datasets import DatasetStore
 from .jobs import JobManager
-from .models import AskRequest, AskResponse, DatasetInfo, JobEvent, JobStatus, JobView
+from .models import AskRequest, AskResponse, DatasetInfo, Job, JobEvent, JobStatus, JobView
 from .observability import TracerFactory, make_tracer_factory
 from .settings import ApiSettings
 from .store import JobStore
@@ -96,7 +96,7 @@ def create_app(
             allow_headers=["*"],
         )
 
-    def get_job_or_404(job_id: str):
+    def get_job_or_404(job_id: str) -> Job:
         job = store.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Job not found.")
