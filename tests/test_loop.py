@@ -308,3 +308,31 @@ def test_text_only_turn_is_nudged_and_refusal_stops(ctx, settings):
     result = make_loop(llm, ctx, settings).run("q")
     assert result.status is RunStatus.REFUSED
     assert llm.calls_for("agent")[1]["messages"][-1]["content"].startswith("Continue the analysis")
+
+
+def test_two_final_reports_in_one_response_each_get_a_tool_result(ctx, settings):
+    """Review M5: the second final_report's tool_use id was left unanswered, so the next API
+    request would be rejected (400) and the run would end in ERROR."""
+    first = tool_use("final_report", markdown="# A\nnorth 150", key_numbers={"north": 150})
+    second = tool_use("final_report", markdown="# B\nnorth 999", key_numbers={"north": 999})
+    llm = FakeLLM(
+        agent=[
+            resp(tool_use("run_sql", query=SQL)),
+            resp(first, second),
+            resp(tool_use("final_report", markdown="# C\nnorth 150", key_numbers={"north": 150})),
+        ],
+        critic=[critic_json("revise", issues=["say more"]), critic_json("pass")],
+    )
+    result = make_loop(llm, ctx, settings).run("Revenue by region?")
+
+    assert result.status is RunStatus.COMPLETED
+    assert result.report == "# C\nnorth 150"
+    # The message after the double submission answers *both* tool_use ids.
+    third_call = llm.calls_for("agent")[2]["messages"]
+    answered = {b["tool_use_id"] for b in tool_results_in(third_call[-1])}
+    assert answered == {first["id"], second["id"]}
+    dup = next(b for b in tool_results_in(third_call[-1]) if b["tool_use_id"] == second["id"])
+    assert dup["is_error"] is True
+    # Only the first submission went to the critic.
+    assert "north 150" in llm.calls_for("critic")[0]["messages"][0]["content"]
+    assert "north 999" not in llm.calls_for("critic")[0]["messages"][0]["content"]

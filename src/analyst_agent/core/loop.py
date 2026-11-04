@@ -407,8 +407,17 @@ class AgentLoop:
                 state.artifacts.extend(res.data.get("artifacts", []))
 
                 if name == TERMINAL_TOOL and res.terminate and not res.is_error:
-                    submitted = (tu, res.data)
-                    continue  # its tool_result depends on the critic verdict
+                    if submitted is None:
+                        submitted = (tu, res.data)
+                        continue  # its tool_result depends on the critic verdict
+                    # A second submission in the same response still needs a tool_result,
+                    # or the next request is rejected for an unanswered tool_use id.
+                    res = ToolResult(
+                        "final_report was already called in this response; only the first "
+                        "submission is reviewed.",
+                        is_error=True,
+                    )
+                    record.output, record.is_error = res.content, True
                 result_blocks.append(
                     {
                         "type": "tool_result",
