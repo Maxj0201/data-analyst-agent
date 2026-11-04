@@ -13,7 +13,14 @@ from analyst_agent.eval.agent import load_agent
 from analyst_agent.eval.judge import LLMJudge
 from analyst_agent.eval.report import compare_runs, report_run, summarize
 from analyst_agent.eval.runner import RunConfig, load_results, new_run_dir, run_tasks
-from analyst_agent.eval.schema import DEFAULT_BENCHMARK_ROOT, load_tasks
+from analyst_agent.eval.schema import (
+    DEFAULT_BENCHMARK_ROOT,
+    DESCRIPTOR_TAGS,
+    DOMAIN_TAGS,
+    TAXONOMY,
+    Task,
+    load_tasks,
+)
 
 SETTINGS = Settings()
 
@@ -22,8 +29,28 @@ app = typer.Typer(help="Benchmark evaluation harness for the analyst agent.", no
 Difficulty = Annotated[
     list[str] | None, typer.Option("--difficulty", "-d", help="L1/L2/L3/ADV; repeatable")
 ]
-Tag = Annotated[list[str] | None, typer.Option("--tag", "-t", help="any-of match; repeatable")]
+Tag = Annotated[
+    list[str] | None,
+    typer.Option("--tag", "-t", help="task tag (see `eval tags`); repeatable, any-of match"),
+]
+AllTags = Annotated[
+    bool, typer.Option("--all-tags", help="require every --tag instead of any of them")
+]
 TaskId = Annotated[list[str] | None, typer.Option("--task", help="task id; repeatable")]
+
+
+def _select(
+    benchmarks: Path,
+    difficulty: list[str] | None,
+    tag: list[str] | None,
+    task: list[str] | None,
+    limit: int | None,
+    all_tags: bool,
+) -> list[Task]:
+    try:
+        return load_tasks(benchmarks, difficulty, tag, task, limit, match_all_tags=all_tags)
+    except ValueError as e:
+        raise typer.BadParameter(str(e), param_hint="--tag") from e
 
 
 @app.command("list")
@@ -32,11 +59,30 @@ def list_tasks(
     tag: Tag = None,
     task: TaskId = None,
     limit: Annotated[int | None, typer.Option(help="stratified sample of N tasks")] = None,
+    all_tags: AllTags = False,
     benchmarks: Path = DEFAULT_BENCHMARK_ROOT,
 ) -> None:
     """List tasks matching the filters."""
-    for t in load_tasks(benchmarks, difficulty, tag, task, limit):
+    for t in _select(benchmarks, difficulty, tag, task, limit, all_tags):
         typer.echo(f"{t.difficulty:4} {t.id:40} {','.join(t.tags)}")
+
+
+@app.command("tags")
+def list_tags(benchmarks: Path = DEFAULT_BENCHMARK_ROOT) -> None:
+    """Show the tag vocabulary with task counts per difficulty."""
+    tasks = load_tasks(benchmarks)
+    levels = ("L1", "L2", "L3", "ADV")
+    typer.echo(f"{'tag':16} {'total':>5} " + " ".join(f"{d:>4}" for d in levels))
+    for title, group in (
+        ("taxonomy", TAXONOMY),
+        ("domain", DOMAIN_TAGS),
+        ("descriptor", DESCRIPTOR_TAGS),
+    ):
+        typer.echo(f"-- {title}")
+        for tag in group:
+            hits = [t for t in tasks if tag in t.tags]
+            per = " ".join(f"{sum(t.difficulty == d for t in hits):>4}" for d in levels)
+            typer.echo(f"{tag:16} {len(hits):>5} {per}")
 
 
 @app.command()
@@ -45,6 +91,7 @@ def run(
     tag: Tag = None,
     task: TaskId = None,
     limit: Annotated[int | None, typer.Option(help="stratified sample of N tasks")] = None,
+    all_tags: AllTags = False,
     agent: Annotated[str, typer.Option(help="core | dry-run | oracle | module:callable")] = "core",
     concurrency: Annotated[int, typer.Option(min=1)] = SETTINGS.eval_concurrency,
     timeout: Annotated[
@@ -93,7 +140,7 @@ def run(
     """Run the agent over the selected tasks and write runs/<timestamp>/."""
     if isolation not in ("process", "inline"):
         raise typer.BadParameter("--isolation must be 'process' or 'inline'")
-    tasks = load_tasks(benchmarks, difficulty, tag, task, limit)
+    tasks = _select(benchmarks, difficulty, tag, task, limit, all_tags)
     if not tasks:
         raise typer.BadParameter("no tasks match the filters")
     agent_fn = load_agent(agent, tasks, routing_enabled=routing, auto_approve=auto_approve)
@@ -111,7 +158,13 @@ def run(
         judge_model=None if judge is None else (judge_model or "AGENT_MODEL"),
         routing_enabled=routing,
         auto_approve=auto_approve,
-        filters={"difficulty": difficulty, "tag": tag, "task": task, "limit": limit},
+        filters={
+            "difficulty": difficulty,
+            "tag": tag,
+            "all_tags": all_tags,
+            "task": task,
+            "limit": limit,
+        },
     )
     run_dir = new_run_dir(runs_dir)
     typer.echo(f"running {len(tasks)} tasks -> {run_dir}")

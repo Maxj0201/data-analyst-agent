@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from analyst_agent.eval.runner import load_results
-from analyst_agent.eval.schema import DIFFICULTIES
+from analyst_agent.eval.schema import DIFFICULTIES, TAXONOMY
 from analyst_agent.eval.scorers import TEXT_FALLBACK_PATH, numeric_path
 
 
@@ -102,6 +102,23 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
         "semantic_layer_rate": _rate(len(sem_on), n),
         "mean_metrics_retrieved": sum(len(m) for m in sem_on) / len(sem_on) if sem_on else None,
     }
+
+
+def summarize_by_tag(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Accuracy per taxonomy tag (benchmark tag vocabulary), for tags present in the run."""
+    out: dict[str, dict[str, Any]] = {}
+    for tag in TAXONOMY:
+        rs = [r for r in results if tag in (r.get("tags") or [])]
+        if not rs:
+            continue
+        scored = [r for r in rs if not is_skipped(r)]
+        out[tag] = {
+            "n": len(rs),
+            "passed": sum(r["passed"] for r in rs),
+            "skipped": len(rs) - len(scored),
+            "accuracy": _rate(sum(r["passed"] for r in scored), len(scored)),
+        }
+    return out
 
 
 def semantic_retrieval(result: dict[str, Any]) -> list[str] | None:
@@ -328,6 +345,19 @@ def render_report(
             f"| {d} | {b['n']} | {b['passed']} | {b['skipped']} | {_pct(b['accuracy'])} | "
             f"{_num(b['mean_score'])} | {b['errors']} | {b['timeouts']} |"
         )
+    by_tag = summarize_by_tag(results)
+    if by_tag:
+        lines += [
+            "",
+            "## Accuracy by tag",
+            "",
+            "| Tag | Tasks | Passed | Skipped | Accuracy |",
+            "|---|---|---|---|---|",
+        ]
+        for tag, b in by_tag.items():
+            lines.append(
+                f"| {tag} | {b['n']} | {b['passed']} | {b['skipped']} | {_pct(b['accuracy'])} |"
+            )
     rt = summarize_routing(results)
     if rt is not None:
         lines += _routing_lines(rt)

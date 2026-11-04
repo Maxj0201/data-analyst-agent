@@ -12,6 +12,7 @@ A task is one YAML file::
 
 from __future__ import annotations
 
+import difflib
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Literal
@@ -23,6 +24,44 @@ Difficulty = Literal["L1", "L2", "L3", "ADV"]
 DIFFICULTIES: tuple[Difficulty, ...] = ("L1", "L2", "L3", "ADV")
 
 DEFAULT_BENCHMARK_ROOT = Path(__file__).resolve().parents[3] / "benchmarks"
+
+# Tag vocabulary (see docs/benchmark.md). Benchmark task files may only use these tags.
+# TAXONOMY is the controlled set of capability tags reported in "Accuracy by tag"; DOMAIN_TAGS
+# name the dataset (exactly one per task); DESCRIPTOR_TAGS are finer-grained, informal labels.
+TAXONOMY: tuple[str, ...] = (
+    "join",  # answer needs two or more tables
+    "window",  # running totals, LAG/LEAD, rank-within-group
+    "time-series",  # trend / period-over-period / per-period series
+    "outlier",  # finding anomalies, data errors or planted spikes/drops
+    "cohort",  # grouping entities by a start event and tracking them
+    "injection",  # instructions planted in data or metadata (indirect prompt injection)
+    "pii",  # personal data must not be dumped or exfiltrated
+    "write-attempt",  # the request or the data pushes the agent to modify data
+)
+DOMAIN_TAGS: tuple[str, ...] = ("ecommerce", "saas", "hr", "support", "finance")
+DESCRIPTOR_TAGS: tuple[str, ...] = (
+    "aggregate",
+    "churn",
+    "column-name",
+    "count",
+    "dates",
+    "derived-metric",
+    "exfiltration",
+    "file-name",
+    "filter",
+    "free-text",
+    "group-by",
+    "missing-data",
+    "mrr",
+    "open-ended",
+    "prompt-leak",
+    "ratio",
+    "revenue",
+    "root-cause",
+    "top-n",
+)
+KNOWN_TAGS: frozenset[str] = frozenset(TAXONOMY + DOMAIN_TAGS + DESCRIPTOR_TAGS)
+ADV_TAXONOMY: frozenset[str] = frozenset({"injection", "pii", "write-attempt"})
 
 
 class Expected(BaseModel):
@@ -100,6 +139,32 @@ def load_task(path: Path, root: Path | None = None) -> Task:
     return task
 
 
+def tag_problems(task: Task) -> list[str]:
+    """Violations of the tag vocabulary rules for a benchmark task (empty if none)."""
+    problems = [f"unknown tag {t!r}" for t in task.tags if t not in KNOWN_TAGS]
+    domains = [t for t in task.tags if t in DOMAIN_TAGS]
+    if len(domains) != 1:
+        problems.append(f"needs exactly one domain tag from {DOMAIN_TAGS}, got {domains}")
+    if len(set(task.tags)) != len(task.tags):
+        problems.append("duplicate tags")
+    if task.difficulty == "ADV" and not ADV_TAXONOMY.intersection(task.tags):
+        problems.append(f"ADV tasks need at least one of {sorted(ADV_TAXONOMY)}")
+    return problems
+
+
+def check_tag_filter(tags: Iterable[str], available: Iterable[str]) -> None:
+    """Raise ValueError for a ``--tag`` value no task could match (typo protection)."""
+    known = set(KNOWN_TAGS) | set(available)
+    for t in tags:
+        if t not in known:
+            close = difflib.get_close_matches(t, sorted(known), n=3)
+            hint = f"; did you mean {', '.join(close)}?" if close else ""
+            raise ValueError(
+                f"unknown tag {t!r}{hint} (taxonomy: {', '.join(TAXONOMY)}; "
+                "run `eval tags` for the full list)"
+            )
+
+
 def _infer_root(path: Path) -> Path:
     # benchmarks/tasks/<LEVEL>/<id>.yaml -> benchmarks/
     for parent in path.resolve().parents:
@@ -114,11 +179,14 @@ def load_tasks(
     tags: Iterable[str] | None = None,
     ids: Iterable[str] | None = None,
     limit: int | None = None,
+    match_all_tags: bool = False,
 ) -> list[Task]:
-    """Load tasks under ``root/tasks`` filtered by difficulty, tag (any-of) and id.
+    """Load tasks under ``root/tasks`` filtered by difficulty, tag and id.
 
-    Results are sorted by (difficulty order, id). ``limit`` picks tasks round-robin across
-    difficulty levels, so a small dev run still covers every level, and is deterministic.
+    Tags match any-of by default, all-of with ``match_all_tags``; an unknown tag raises
+    ``ValueError`` instead of silently selecting nothing. Results are sorted by (difficulty
+    order, id). ``limit`` picks tasks round-robin across difficulty levels, so a small dev run
+    still covers every level, and is deterministic.
     """
     tasks_dir = root / "tasks"
     if not tasks_dir.is_dir():
@@ -133,12 +201,19 @@ def load_tasks(
         if t.id in seen:
             raise ValueError(f"duplicate task id {t.id}")
         seen.add(t.id)
+    if tagset:
+        check_tag_filter(tagset, (tag for t in tasks for tag in t.tags))
+
+    def tag_ok(t: Task) -> bool:
+        if tagset is None:
+            return True
+        return tagset.issubset(t.tags) if match_all_tags else bool(tagset.intersection(t.tags))
 
     out = [
         t
         for t in tasks
         if (diffs is None or t.difficulty in diffs)
-        and (tagset is None or tagset.intersection(t.tags))
+        and tag_ok(t)
         and (idset is None or t.id in idset)
     ]
     out.sort(key=lambda t: (DIFFICULTIES.index(t.difficulty), t.id))

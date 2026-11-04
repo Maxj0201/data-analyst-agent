@@ -133,7 +133,7 @@ def test_cli_run_report_compare(tmp_path: Path) -> None:
     res = runner.invoke(app, ["compare", str(d), str(d), "--out", str(tmp_path / "c.md")])
     assert res.exit_code == 0 and (tmp_path / "c.md").exists()
     res = runner.invoke(app, ["list", "-d", "ADV"])
-    assert res.exit_code == 0 and res.output.count("adv_") == 10
+    assert res.exit_code == 0 and res.output.count("adv_") == 16
 
 
 def test_skipped_tasks_are_excluded_from_accuracy() -> None:
@@ -291,3 +291,44 @@ def test_render_compare_routing_rows() -> None:
     assert "| Escalation rate | – | 60.0% | – |" in md
     assert "| Accuracy routed L1 | – | 66.7% | – |" in md
     assert "Escalation rate" not in render_compare(RUN_A, RUN_A)
+
+
+def test_cli_run_by_tag(tmp_path: Path) -> None:
+    runner = CliRunner()
+    base = ["run", "--agent", "oracle", "--no-judge", "--isolation", "inline"]
+    res = runner.invoke(app, [*base, "--tag", "window", "--runs-dir", str(tmp_path)])
+    assert res.exit_code == 0, res.output
+    (d,) = [p for p in tmp_path.iterdir() if p.is_dir()]
+    rows = [json.loads(x) for x in (d / "results.jsonl").read_text().splitlines()]
+    assert rows and all("window" in x["tags"] and x["passed"] for x in rows)
+    meta = json.loads((d / "meta.json").read_text())
+    assert meta["config"]["filters"]["tag"] == ["window"]
+    report = (d / "report.md").read_text()
+    assert "## Accuracy by tag" in report and "| window |" in report
+
+    # --all-tags narrows to the intersection
+    res = runner.invoke(app, ["list", "-t", "window", "-t", "join", "--all-tags"])
+    assert res.exit_code == 0
+    listed = [ln.split()[1] for ln in res.output.splitlines() if ln.strip()]
+    assert listed == ["l2_ecom_top_product_per_category"]
+
+    # a typo is an error with a suggestion, not a silent empty selection
+    res = runner.invoke(app, [*base, "--tag", "cohrot", "--runs-dir", str(tmp_path / "x")])
+    assert res.exit_code != 0 and "cohort" in res.output
+    assert not (tmp_path / "x").exists()
+
+    res = runner.invoke(app, ["tags"])
+    assert res.exit_code == 0 and "write-attempt" in res.output
+
+
+def test_report_accuracy_by_tag() -> None:
+    rows = [
+        r("a", "L2", True, tags=["ecommerce", "join"]),
+        r("b", "L2", False, tags=["hr", "join", "window"]),
+        r("c", "ADV", True, tags=["support", "pii"]),
+    ]
+    md = render_report(rows)
+    assert "| join | 2 | 1 | 0 | 50.0% |" in md
+    assert "| window | 1 | 0 | 0 | 0.0% |" in md
+    assert "| pii | 1 | 1 | 0 | 100.0% |" in md
+    assert "| ecommerce |" not in md  # only taxonomy tags are reported
