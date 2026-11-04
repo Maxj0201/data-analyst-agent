@@ -74,7 +74,7 @@ Landlock closed both. A grammar-based escape fuzzer (500 snippets, nightly) then
 classes of gap, among them `AF_UNIX` connects that Landlock does not mediate and `chmod`/`utimes` on
 readable files; the filter now closes them too. Regression tests keep all of them closed
 ([review H1/H2](docs/review.md#high), [threat model](docs/sandbox.md),
-[fuzzing](docs/sandbox.md#fuzzing)).
+[fuzzing](docs/sandbox.md#escape-fuzzing)).
 
 **Critic.** A separate LLM call reviews the draft. It has its own prompt and sees only the
 answer, the executed SQL/code and the result tables, not the planner's reasoning. It returns

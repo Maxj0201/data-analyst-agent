@@ -24,6 +24,12 @@ and the API with small exploit scripts. "Confirmed" below means the exploit ran.
 > [integration-notes.md](integration-notes.md#audit-of-docsreviewmd-after-the-merges). M4 now
 > lives in `tools/make_chart.py`, and M2 was re-applied to the rewritten UI (#14) via
 > `frontend/render.report_parts`.
+>
+> **Post-merge status (round 4):** re-checked again after merging #20, #21, #19 and #18; see
+> [integration-notes.md](integration-notes.md#audit-of-docsreviewmd-round-4). Nothing
+> regressed. #21's fuzzer widened the H1 seccomp filter (every `socket`, signals only to
+> itself, scheduler, metadata and host-wide syscalls; 115 instructions on x86_64), and
+> `tests/sandbox/test_oslock_unit.py` now checks each rule of the filter program.
 
 ## Summary
 
@@ -217,7 +223,7 @@ from a `ThreadPoolExecutor`, alongside SSE, SQLite and approval-broker threads.
 
 **Fix.** The limits are passed in the child's config and applied by `sitecustomize` before
 anything else runs. Hard equals soft, and seccomp blocks raising them. **Test:**
-`::test_rlimits_applied_without_preexec_fn` checks `Popen` gets no `preexec_fn` and reads the
+`tests/sandbox/test_python_security.py::test_rlimits_applied_without_preexec_fn` checks `Popen` gets no `preexec_fn` and reads the
 limits from `/proc/self/limits`.
 
 ### M8 — Jobs stranded in `running` (and SSE streams that never end)
@@ -265,7 +271,7 @@ module's docstring already said: "in-memory primary". **Tests:**
 | L17 | Reliability | `ApprovalBroker.close()` racing with a new `request()` can block that worker until `timeout + 5` s. | Only during shutdown. |
 | L18 | Reliability | `JobManager.submit` after `shutdown()` raises and leaves a `queued` record. | Only during shutdown; the next start marks it interrupted. |
 | L19 | Reliability | `eval/cli.py` builds `Settings()` at import, so a malformed `AGENT_*` variable breaks even `--help`. | Fails loudly and early, which is acceptable for a dev tool. |
-| L20 | Performance | `run_python` reloads and re-pickles the full dataset on every call. | Correct, and cheap at benchmark sizes. |
+| L20 | Performance | `run_python` reloads and re-pickles the full dataset on every call. | Correct, and cheap at benchmark sizes: 60–200 ms of a 1–1.6 s call ([sandbox-performance.md](sandbox-performance.md)). |
 | L21 | Code quality | Duplicated logic: `tools.table_name_for` vs `sandbox._loaders.safe_identifier` (same rule, two copies); four copies of identifier quoting (`handlers`, `router`, `_loaders`, inline in `datasets`); two Markdown table renderers (`tools/formatting.rows_to_markdown`, `duckdb_runner.to_markdown`); three "extract JSON from model text" parsers (`critic.parse_verdict`, `router.parse_route`, `judge.parse_json_object`); the schema query in both `inspect_schema` and `router.schema_summary`; `ModelUsage` and `CostTracker` duplicate fields; `_ms_since` twice. | Behaviour is identical today; consolidating means a refactor across package boundaries that parallel branches own. |
 | L22 | Code quality | Dead code: `sandbox.current_tables` alias, `Sandbox.datasets`, `_read_roots(work_dir)`'s unused parameter, `DuckDBRunner.run_sql`'s `timeout_s`/`row_limit` overrides (no caller), `EventType.progress` (never emitted by the core), the `semantic_layer_rules`/`router` prompt versions reported when off (see integration notes). | Harmless; removing public names needs a deprecation pass. |
 | L23 | Code quality | Missing type hints: `ruff --select ANN` reports 74, mostly `Any` (ANN401) and untyped closures in `sandbox/_child/*`, `api/agent.py`, `api/observability.py` and `eval/agent.py`. ANN is not in the ruff config. | Not enforced today; enabling ANN is a repo-wide change. |
