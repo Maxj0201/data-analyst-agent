@@ -1,0 +1,12 @@
+id: l1_ecom_customers_germany
+difficulty: L1
+dataset: data/ecommerce/customers.csv
+question: How many customers are located in Germany?
+expected:
+  expected_value: 75.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- ecommerce
+- count
+- filter

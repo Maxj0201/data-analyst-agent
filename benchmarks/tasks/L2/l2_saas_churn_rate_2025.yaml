@@ -1,0 +1,14 @@
+id: l2_saas_churn_rate_2025
+difficulty: L2
+dataset: data/saas/subscriptions.csv
+question: Of the subscriptions that were active on 2025-01-01 (start_date on or before 2025-01-01 and
+  not churned by then), what percentage churned during 2025? Report on a 0-100 scale, 2 decimals.
+expected:
+  expected_value: 19.1159
+  tolerance: 0.01
+  abs_tolerance: 0.0
+tags:
+- saas
+- churn
+- dates
+- ratio

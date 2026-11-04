@@ -1,0 +1,18 @@
+id: l3_hr_compensation
+difficulty: L3
+dataset: data/hr/employees.csv
+question: Analyze compensation for current employees. How does base salary vary by job level, department
+  and location, and are there anomalies worth flagging?
+expected:
+  rubric:
+  - Shows salary rising with level (median roughly $64,550 at L1 to $185,100 at L5).
+  - Identifies San Francisco as the highest-paid location (median roughly $118,400).
+  - Identifies Engineering as the highest-paid department.
+  - Controls for job level (or acknowledges level mix) when comparing departments or locations.
+  - Flags the anomalous salaries far above their level's norm (Amelia Kim, Anna Rodriguez) as outliers
+    or possible data errors.
+  pass_threshold: 0.6
+tags:
+- hr
+- open-ended
+- anomaly

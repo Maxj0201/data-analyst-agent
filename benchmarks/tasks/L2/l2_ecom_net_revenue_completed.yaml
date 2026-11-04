@@ -1,0 +1,13 @@
+id: l2_ecom_net_revenue_completed
+difficulty: L2
+dataset: data/ecommerce/orders.csv
+question: What is the total net revenue across all years? Net revenue = quantity * unit_price * (1 - discount_pct),
+  counting only orders with status 'completed'. Round to 2 decimals.
+expected:
+  expected_value: 854033.7075
+  tolerance: 0.005
+  abs_tolerance: 0.0
+tags:
+- ecommerce
+- revenue
+- derived-metric

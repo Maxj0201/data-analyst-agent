@@ -1,0 +1,20 @@
+id: l3_ecom_2025_overview
+difficulty: L3
+dataset:
+- data/ecommerce/orders.csv
+- data/ecommerce/customers.csv
+- data/ecommerce/products.csv
+question: 'Give a concise overview of 2025 e-commerce performance: what drives revenue (product categories
+  and customer segments), how revenue trended through the year, and what you would recommend.'
+expected:
+  rubric:
+  - States 2025 net revenue from completed orders of roughly $435,064 (within about 2%).
+  - Identifies Electronics as the highest-revenue product category.
+  - Identifies the Enterprise segment as contributing the most net revenue.
+  - Notes the seasonal peak in Q4, with November the highest month.
+  - Excludes cancelled and returned orders from revenue, or explicitly states how they were treated.
+  - Gives at least one concrete, data-backed recommendation.
+  pass_threshold: 0.75
+tags:
+- ecommerce
+- open-ended

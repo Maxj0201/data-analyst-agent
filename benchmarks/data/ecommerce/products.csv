@@ -1,0 +1,81 @@
+product_id,product_name,category,list_price,unit_cost
+P001,Wireless Earbuds,Electronics,138.56,87.56
+P002,4K Monitor,Electronics,104.06,56.12
+P003,Mechanical Keyboard,Electronics,143.87,92.66
+P004,USB-C Hub,Electronics,175.98,103.95
+P005,Smart Speaker,Electronics,136.08,87.04
+P006,Webcam,Electronics,148.7,66.93
+P007,Portable SSD,Electronics,103.3,55.06
+P008,Fitness Tracker,Electronics,204.96,120.12
+P009,Noise-Cancelling Headphones,Electronics,87.75,40.02
+P010,Tablet Stand,Electronics,101.34,65.62
+P011,Gaming Mouse,Electronics,111.26,72.13
+P012,E-Reader,Electronics,109.2,61.54
+P013,Power Bank,Electronics,133.12,90.43
+P014,Smartwatch,Electronics,123.96,63.48
+P015,Ceramic Vase,Home,101.49,40.71
+P016,Linen Throw,Home,32.92,17.36
+P017,Cast Iron Skillet,Home,62.4,28.82
+P018,Desk Lamp,Home,31.02,18.28
+P019,Air Purifier,Home,90.29,54.11
+P020,Coffee Grinder,Home,55.69,24.11
+P021,Bath Towel Set,Home,55.19,37.32
+P022,Storage Baskets,Home,44.36,26.98
+P023,Scented Candle,Home,40.9,22.71
+P024,Knife Block,Home,19.33,11.77
+P025,French Press,Home,37.56,24.04
+P026,Wall Clock,Home,87.68,45.79
+P027,Duvet Cover,Home,59.11,28.01
+P028,Plant Pot,Home,73.14,38.0
+P029,Merino Sweater,Apparel,41.56,17.06
+P030,Rain Jacket,Apparel,21.49,12.47
+P031,Denim Jeans,Apparel,75.16,49.59
+P032,Running Shorts,Apparel,37.49,17.19
+P033,Wool Socks,Apparel,47.75,26.59
+P034,Leather Belt,Apparel,43.76,21.31
+P035,Linen Shirt,Apparel,34.21,16.14
+P036,Puffer Vest,Apparel,57.75,31.02
+P037,Chino Pants,Apparel,48.93,25.97
+P038,Graphic Tee,Apparel,32.2,20.05
+P039,Sun Hat,Apparel,71.74,39.16
+P040,Hoodie,Apparel,77.45,53.8
+P041,Trench Coat,Apparel,51.08,23.97
+P042,Vitamin C Serum,Beauty,23.26,14.16
+P043,Moisturizer,Beauty,22.48,11.62
+P044,Lip Balm Set,Beauty,15.31,9.15
+P045,Clay Mask,Beauty,31.42,15.46
+P046,Hair Oil,Beauty,16.36,7.69
+P047,Sunscreen SPF50,Beauty,15.81,8.85
+P048,Eye Cream,Beauty,11.48,4.71
+P049,Body Wash,Beauty,27.44,14.9
+P050,Face Cleanser,Beauty,15.79,8.68
+P051,Perfume Sample Kit,Beauty,22.51,12.15
+P052,Nail Kit,Beauty,21.13,8.74
+P053,Shampoo Bar,Beauty,21.68,10.46
+P054,Toner,Beauty,58.58,26.43
+P055,Yoga Mat,Sports,18.74,9.28
+P056,Resistance Bands,Sports,30.23,20.4
+P057,Dumbbell Pair,Sports,25.3,10.18
+P058,Water Bottle,Sports,51.75,34.47
+P059,Cycling Gloves,Sports,54.1,34.19
+P060,Tennis Racket,Sports,49.71,25.03
+P061,Foam Roller,Sports,15.51,8.33
+P062,Jump Rope,Sports,75.07,37.59
+P063,Hiking Backpack,Sports,26.19,11.13
+P064,Climbing Chalk,Sports,38.21,17.4
+P065,Swim Goggles,Sports,37.47,22.64
+P066,Kettlebell,Sports,35.76,15.54
+P067,Trail Running Shoes,Sports,33.26,21.46
+P068,Data Science Handbook,Books,27.86,16.45
+P069,Mystery Novel,Books,25.21,17.34
+P070,Cookbook,Books,19.16,13.07
+P071,Travel Guide,Books,17.02,10.03
+P072,Children's Picture Book,Books,14.67,9.37
+P073,History of Rome,Books,21.78,12.06
+P074,Poetry Collection,Books,13.53,5.93
+P075,Business Strategy,Books,6.62,3.19
+P076,Sci-Fi Anthology,Books,28.61,18.74
+P077,Gardening Guide,Books,12.59,7.62
+P078,Biography,Books,16.05,7.92
+P079,Language Workbook,Books,23.9,14.97
+P080,Graphic Novel,Books,9.35,4.87

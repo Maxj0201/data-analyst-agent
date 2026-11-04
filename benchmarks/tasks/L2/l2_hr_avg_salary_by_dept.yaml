@@ -1,0 +1,25 @@
+id: l2_hr_avg_salary_by_dept
+difficulty: L2
+dataset: data/hr/employees.csv
+question: What is the average base_salary of current employees (no termination_date) in each department?
+expected:
+  expected_rows:
+  - department: Engineering
+    avg_base_salary: 123675.82
+  - department: Finance
+    avg_base_salary: 107975.76
+  - department: HR
+    avg_base_salary: 90488.89
+  - department: Marketing
+    avg_base_salary: 99331.43
+  - department: Operations
+    avg_base_salary: 94887.93
+  - department: Sales
+    avg_base_salary: 105798.04
+  - department: Support
+    avg_base_salary: 79941.67
+  tolerance: 0.005
+  order_matters: false
+tags:
+- hr
+- group-by

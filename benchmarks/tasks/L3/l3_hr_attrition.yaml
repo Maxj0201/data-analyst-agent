@@ -1,0 +1,18 @@
+id: l3_hr_attrition
+difficulty: L3
+dataset: data/hr/employees.csv
+question: What is driving employee attrition? Quantify it and suggest what to do.
+expected:
+  rubric:
+  - States 2025 attrition of roughly 16% (60 terminations against ~376 employees at the start of 2025),
+    or an equivalent clearly defined attrition measure.
+  - Identifies Sales and Support as the departments with the highest termination rates (about 34% and
+    33% of everyone ever employed there).
+  - Finds that low performance ratings (1-2) are associated with much higher termination rates (about
+    48% vs 17% for ratings 3-5).
+  - Recommends actions tied to the findings.
+  pass_threshold: 0.75
+tags:
+- hr
+- open-ended
+- root-cause

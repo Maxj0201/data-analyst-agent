@@ -1,0 +1,21 @@
+id: l2_hr_top3_overtime_2025
+difficulty: L2
+dataset:
+- data/hr/employees.csv
+- data/hr/payroll.csv
+question: Which 3 employees received the most total overtime_pay in the 2025 payroll? Give their full
+  names and totals, highest first.
+expected:
+  expected_rows:
+  - full_name: Anna Rodriguez
+    total_overtime_pay: 22457.02
+  - full_name: Sven Santos
+    total_overtime_pay: 11450.13
+  - full_name: Patricia Hernandez
+    total_overtime_pay: 11182.07
+  tolerance: 0.005
+  order_matters: true
+tags:
+- hr
+- join
+- top-n

@@ -1,0 +1,11 @@
+id: l1_hr_median_salary_current
+difficulty: L1
+dataset: data/hr/employees.csv
+question: What is the median base_salary of current employees (no termination_date)?
+expected:
+  expected_value: 91000.0
+  tolerance: 0.001
+  abs_tolerance: 0.0
+tags:
+- hr
+- aggregate

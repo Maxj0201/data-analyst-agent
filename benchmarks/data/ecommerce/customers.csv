@@ -1,0 +1,601 @@
+customer_id,name,email,country,segment,signup_date,signup_channel
+C0001,Mei Moreau,mei.moreau1@shop.example.net,United States,Consumer,2024-01-30,
+C0002,Barbara Jones,barbara.jones2@shop.example.net,United States,Consumer,2022-11-15,
+C0003,Noah Suzuki,noah.suzuki3@mail.example.org,Germany,Consumer,2023-03-02,social
+C0004,Omar Martin,omar.martin4@example.com,Japan,SMB,2024-06-12,organic
+C0005,Robert Smith,robert.smith5@shop.example.net,Canada,SMB,2022-05-27,referral
+C0006,Anna Dubois,anna.dubois6@mail.example.org,Germany,Consumer,2023-05-24,organic
+C0007,Hiroshi Okafor,hiroshi.okafor7@mail.example.org,United States,Enterprise,2025-01-05,paid_search
+C0008,Sven Garcia,sven.garcia8@shop.example.net,United Kingdom,Consumer,2022-11-22,
+C0009,Charles Silva,charles.silva9@example.com,United States,SMB,2023-06-17,organic
+C0010,David Young,david.young10@shop.example.net,United Kingdom,Enterprise,2022-09-11,paid_search
+C0011,Joseph Kim,joseph.kim11@shop.example.net,United States,Consumer,2022-01-22,referral
+C0012,Lucas Walker,lucas.walker12@example.com,Canada,Consumer,2023-07-10,
+C0013,James Clark,james.clark13@shop.example.net,Japan,SMB,2025-03-16,paid_search
+C0014,Sven Johnson,sven.johnson14@example.com,United States,SMB,2022-08-08,paid_search
+C0015,Hana Rossi,hana.rossi15@shop.example.net,United Kingdom,SMB,2024-05-27,
+C0016,Sarah Hernandez,sarah.hernandez16@shop.example.net,United States,SMB,2023-07-21,organic
+C0017,Kofi Walker,kofi.walker17@shop.example.net,United Kingdom,Consumer,2022-06-21,referral
+C0018,Omar Smith,omar.smith18@shop.example.net,France,SMB,2023-06-24,
+C0019,Robert Tanaka,robert.tanaka19@mail.example.org,United Kingdom,SMB,2023-03-07,social
+C0020,Noah Suzuki,noah.suzuki20@mail.example.org,Japan,SMB,2022-10-27,organic
+C0021,Omar Young,omar.young21@mail.example.org,France,SMB,2022-10-06,paid_search
+C0022,Barbara Clark,barbara.clark22@example.com,France,SMB,2025-01-02,organic
+C0023,Liam Wang,liam.wang23@shop.example.net,United Kingdom,Consumer,2022-11-25,social
+C0024,Felix Taylor,felix.taylor24@shop.example.net,United States,Consumer,2024-04-17,
+C0025,Yuki Schneider,yuki.schneider25@mail.example.org,United Kingdom,SMB,2024-12-12,organic
+C0026,Felix Thompson,felix.thompson26@example.com,United States,Consumer,2023-08-31,referral
+C0027,Amelia Chen,amelia.chen27@mail.example.org,United Kingdom,Enterprise,2025-05-08,
+C0028,Yuki Brown,yuki.brown28@mail.example.org,United States,Consumer,2024-09-03,referral
+C0029,Ama Kim,ama.kim29@shop.example.net,Germany,Consumer,2022-10-20,organic
+C0030,Arjun Santos,arjun.santos30@mail.example.org,France,Consumer,2023-05-11,paid_search
+C0031,Richard Suzuki,richard.suzuki31@shop.example.net,United States,Consumer,2022-10-05,paid_search
+C0032,Olivia Schneider,olivia.schneider32@mail.example.org,United States,Consumer,2022-08-04,organic
+C0033,James Jones,james.jones33@mail.example.org,United Kingdom,SMB,2023-09-26,organic
+C0034,Lukas Bianchi,lukas.bianchi34@mail.example.org,United States,Consumer,2022-11-17,paid_search
+C0035,Karen Wilson,karen.wilson35@example.com,Japan,Consumer,2024-09-09,paid_search
+C0036,Hiroshi Mensah,hiroshi.mensah36@example.com,Germany,SMB,2024-07-20,organic
+C0037,Charles Clark,charles.clark37@example.com,Canada,Enterprise,2024-01-01,paid_search
+C0038,Felix Tanaka,felix.tanaka38@shop.example.net,United States,Consumer,2022-06-25,paid_search
+C0039,Mei Harris,mei.harris39@mail.example.org,United Kingdom,Consumer,2022-11-29,paid_search
+C0040,Jessica Moreau,jessica.moreau40@shop.example.net,Australia,Consumer,2022-08-15,referral
+C0041,Robert Garcia,robert.garcia41@shop.example.net,United States,Consumer,2024-10-27,referral
+C0042,Jessica Thompson,jessica.thompson42@shop.example.net,Germany,Enterprise,2023-07-06,referral
+C0043,Noah Rodriguez,noah.rodriguez43@example.com,United States,Enterprise,2023-11-04,organic
+C0044,Priya Taylor,priya.taylor44@mail.example.org,France,Consumer,2024-07-19,paid_search
+C0045,Hiroshi Rossi,hiroshi.rossi45@example.com,United States,Consumer,2024-12-12,
+C0046,Emma Miller,emma.miller46@mail.example.org,Germany,Consumer,2023-12-18,organic
+C0047,Chloe Wang,chloe.wang47@mail.example.org,United States,SMB,2024-02-05,paid_search
+C0048,Richard Miller,richard.miller48@shop.example.net,United States,Consumer,2024-10-02,organic
+C0049,Lucas Muller,lucas.muller49@shop.example.net,United States,Consumer,2023-03-29,paid_search
+C0050,Wei Rossi,wei.rossi50@mail.example.org,Japan,Consumer,2022-03-31,organic
+C0051,Robert Rodriguez,robert.rodriguez51@shop.example.net,Canada,SMB,2022-11-17,paid_search
+C0052,David Singh,david.singh52@shop.example.net,Germany,Consumer,2023-02-03,organic
+C0053,Jessica Patel,jessica.patel53@shop.example.net,Australia,Consumer,2024-02-05,social
+C0054,David Garcia,david.garcia54@mail.example.org,United Kingdom,SMB,2023-10-20,referral
+C0055,Sarah Jones,sarah.jones55@mail.example.org,United States,Consumer,2023-10-02,paid_search
+C0056,Valentina Santos,valentina.santos56@mail.example.org,France,Consumer,2022-04-23,organic
+C0057,Patricia Hernandez,patricia.hernandez57@mail.example.org,France,Consumer,2022-05-08,paid_search
+C0058,Kofi King,kofi.king58@example.com,United States,Consumer,2022-04-16,organic
+C0059,Mary Suzuki,mary.suzuki59@shop.example.net,United States,Consumer,2024-03-14,
+C0060,Diego Brown,diego.brown60@shop.example.net,United Kingdom,Enterprise,2022-05-23,referral
+C0061,Emma Brown,emma.brown61@example.com,France,Consumer,2024-08-27,referral
+C0062,Arjun Patel,arjun.patel62@mail.example.org,United States,SMB,2023-06-10,referral
+C0063,Karen Singh,karen.singh63@mail.example.org,France,SMB,2024-11-07,paid_search
+C0064,Mei Hernandez,mei.hernandez64@shop.example.net,United States,Consumer,2023-11-09,social
+C0065,Michael Williams,michael.williams65@example.com,Japan,Consumer,2023-11-27,referral
+C0066,Michael Li,michael.li66@mail.example.org,France,SMB,2024-12-03,referral
+C0067,Ingrid Clark,ingrid.clark67@mail.example.org,United States,SMB,2023-01-14,paid_search
+C0068,Sofia Wilson,sofia.wilson68@example.com,Australia,Consumer,2023-06-15,paid_search
+C0069,Mei Thompson,mei.thompson69@shop.example.net,Japan,Consumer,2023-05-17,social
+C0070,Joseph Rodriguez,joseph.rodriguez70@example.com,Canada,Consumer,2025-03-08,organic
+C0071,Robert Park,robert.park71@example.com,Canada,Consumer,2024-07-23,paid_search
+C0072,Charles Okafor,charles.okafor72@example.com,United States,SMB,2024-04-08,organic
+C0073,Jennifer Hernandez,jennifer.hernandez73@example.com,Germany,SMB,2025-05-27,paid_search
+C0074,Kofi Lewis,kofi.lewis74@example.com,Japan,Consumer,2023-02-20,paid_search
+C0075,Fatima Thompson,fatima.thompson75@shop.example.net,Japan,Enterprise,2025-04-03,paid_search
+C0076,Kofi Wilson,kofi.wilson76@mail.example.org,Australia,SMB,2024-06-29,social
+C0077,Wei Anderson,wei.anderson77@shop.example.net,Japan,Consumer,2022-03-03,paid_search
+C0078,James Garcia,james.garcia78@mail.example.org,Canada,SMB,2025-03-23,organic
+C0079,Diego Moreau,diego.moreau79@shop.example.net,United States,SMB,2023-05-21,organic
+C0080,Sven Brown,sven.brown80@mail.example.org,Germany,SMB,2022-10-17,organic
+C0081,Arjun Young,arjun.young81@example.com,United States,Consumer,2024-10-24,paid_search
+C0082,Felix Mensah,felix.mensah82@mail.example.org,Germany,Enterprise,2024-09-20,organic
+C0083,Liam Davis,liam.davis83@shop.example.net,Australia,Consumer,2024-09-28,organic
+C0084,Mateo Moore,mateo.moore84@mail.example.org,Japan,Consumer,2023-02-20,organic
+C0085,Hana Wilson,hana.wilson85@mail.example.org,Germany,Enterprise,2024-11-01,organic
+C0086,Mei Harris,mei.harris86@mail.example.org,United States,Consumer,2024-03-27,paid_search
+C0087,Fatima Silva,fatima.silva87@example.com,Japan,Consumer,2023-09-07,paid_search
+C0088,Linda Lopez,linda.lopez88@example.com,Australia,Consumer,2023-02-20,organic
+C0089,Olivia Larsen,olivia.larsen89@mail.example.org,United Kingdom,SMB,2022-12-06,social
+C0090,Sofia Sato,sofia.sato90@shop.example.net,United Kingdom,Consumer,2024-05-14,paid_search
+C0091,Jennifer Kim,jennifer.kim91@shop.example.net,United States,SMB,2022-01-14,
+C0092,Priya Suzuki,priya.suzuki92@mail.example.org,Canada,SMB,2023-08-22,organic
+C0093,Robert Moore,robert.moore93@mail.example.org,United Kingdom,Consumer,2023-11-20,referral
+C0094,Joseph Moore,joseph.moore94@mail.example.org,United States,Consumer,2023-03-29,organic
+C0095,Thomas Jackson,thomas.jackson95@mail.example.org,United States,Enterprise,2022-12-15,referral
+C0096,Anna Johnson,anna.johnson96@example.com,Australia,Consumer,2023-05-07,organic
+C0097,Elizabeth Martin,elizabeth.martin97@mail.example.org,France,SMB,2023-08-13,paid_search
+C0098,Elizabeth Tanaka,elizabeth.tanaka98@example.com,Canada,Consumer,2022-09-08,organic
+C0099,Susan Rodriguez,susan.rodriguez99@mail.example.org,United Kingdom,Consumer,2025-02-27,social
+C0100,Jennifer Santos,jennifer.santos100@example.com,France,SMB,2022-07-21,organic
+C0101,Charles Johnson,charles.johnson101@example.com,Japan,SMB,2024-11-10,paid_search
+C0102,Fatima Davis,fatima.davis102@shop.example.net,United Kingdom,Consumer,2024-08-14,social
+C0103,William Harris,william.harris103@shop.example.net,France,SMB,2022-04-05,referral
+C0104,Hana Lee,hana.lee104@example.com,Canada,Consumer,2023-09-04,social
+C0105,Olivia Mensah,olivia.mensah105@example.com,Australia,SMB,2024-07-09,
+C0106,Valentina Park,valentina.park106@example.com,United States,Consumer,2024-03-12,organic
+C0107,Diego Lewis,diego.lewis107@shop.example.net,Germany,Consumer,2025-06-02,organic
+C0108,Sarah Suzuki,sarah.suzuki108@example.com,United States,Consumer,2023-02-09,organic
+C0109,Noah Li,noah.li109@example.com,Germany,SMB,2023-03-22,social
+C0110,Mary Jones,mary.jones110@mail.example.org,United Kingdom,Consumer,2025-01-22,referral
+C0111,Mei Walker,mei.walker111@mail.example.org,France,Consumer,2025-03-15,organic
+C0112,Valentina Clark,valentina.clark112@mail.example.org,Japan,Consumer,2022-02-13,referral
+C0113,Kofi Okafor,kofi.okafor113@example.com,United States,Consumer,2022-08-09,organic
+C0114,Omar Lopez,omar.lopez114@example.com,Germany,Consumer,2024-02-15,organic
+C0115,Anna Miller,anna.miller115@shop.example.net,Germany,Consumer,2023-02-17,referral
+C0116,Charles Nielsen,charles.nielsen116@shop.example.net,Australia,Consumer,2024-10-23,paid_search
+C0117,Kofi Williams,kofi.williams117@shop.example.net,United States,Enterprise,2022-01-25,referral
+C0118,David Hernandez,david.hernandez118@mail.example.org,Germany,Consumer,2024-04-03,social
+C0119,Sven Williams,sven.williams119@example.com,Germany,Enterprise,2023-09-08,organic
+C0120,Joseph Suzuki,joseph.suzuki120@example.com,United States,Consumer,2023-04-27,
+C0121,Ines Dubois,ines.dubois121@example.com,United States,Consumer,2025-06-19,social
+C0122,Charles Larsen,charles.larsen122@example.com,France,Enterprise,2023-04-29,referral
+C0123,Patricia Kim,patricia.kim123@mail.example.org,France,Consumer,2022-02-16,paid_search
+C0124,Ama Schneider,ama.schneider124@mail.example.org,United States,Consumer,2022-03-23,social
+C0125,Jessica Clark,jessica.clark125@example.com,United States,SMB,2022-04-17,organic
+C0126,Mateo Lee,mateo.lee126@example.com,Canada,Consumer,2022-03-25,organic
+C0127,Kofi Brown,kofi.brown127@shop.example.net,United States,Consumer,2022-06-17,organic
+C0128,Chloe Clark,chloe.clark128@shop.example.net,France,Consumer,2024-02-29,referral
+C0129,Ines Rodriguez,ines.rodriguez129@mail.example.org,Japan,SMB,2023-07-19,organic
+C0130,Charles Moreau,charles.moreau130@shop.example.net,United Kingdom,Consumer,2024-12-23,organic
+C0131,Karen Smith,karen.smith131@example.com,Japan,Consumer,2022-06-08,paid_search
+C0132,Ingrid Dubois,ingrid.dubois132@mail.example.org,Japan,Enterprise,2023-12-30,social
+C0133,Robert Moore,robert.moore133@shop.example.net,United Kingdom,Enterprise,2024-04-29,paid_search
+C0134,Valentina Thompson,valentina.thompson134@mail.example.org,United States,Consumer,2022-07-24,social
+C0135,Patricia Williams,patricia.williams135@example.com,United States,Consumer,2022-03-16,organic
+C0136,Robert Dubois,robert.dubois136@mail.example.org,United States,SMB,2022-11-26,
+C0137,Lukas Santos,lukas.santos137@example.com,United Kingdom,SMB,2025-04-02,paid_search
+C0138,Liam Young,liam.young138@shop.example.net,France,SMB,2025-04-07,
+C0139,Diego Chen,diego.chen139@shop.example.net,United States,Consumer,2023-08-31,organic
+C0140,Emma Miller,emma.miller140@shop.example.net,United States,SMB,2022-08-30,referral
+C0141,Lukas Lee,lukas.lee141@shop.example.net,United Kingdom,Consumer,2023-04-12,organic
+C0142,Sofia Miller,sofia.miller142@example.com,Australia,SMB,2025-03-08,organic
+C0143,Liam Sato,liam.sato143@shop.example.net,Germany,Consumer,2022-12-15,organic
+C0144,Sofia Silva,sofia.silva144@shop.example.net,United States,Consumer,2022-07-07,referral
+C0145,Elizabeth Young,elizabeth.young145@example.com,United States,Consumer,2022-10-25,organic
+C0146,Ingrid Muller,ingrid.muller146@mail.example.org,Canada,Consumer,2023-07-12,
+C0147,Hiroshi Lewis,hiroshi.lewis147@mail.example.org,France,Consumer,2024-04-14,paid_search
+C0148,Yuki Wang,yuki.wang148@shop.example.net,Canada,Consumer,2023-11-23,organic
+C0149,Wei Silva,wei.silva149@shop.example.net,Japan,Consumer,2025-03-07,organic
+C0150,Susan Walker,susan.walker150@example.com,France,SMB,2023-04-04,social
+C0151,Anna Dubois,anna.dubois151@shop.example.net,Australia,SMB,2025-06-02,social
+C0152,Robert Young,robert.young152@example.com,Japan,Consumer,2023-01-27,organic
+C0153,Omar Santos,omar.santos153@mail.example.org,United States,Consumer,2024-05-17,paid_search
+C0154,Elizabeth Davis,elizabeth.davis154@shop.example.net,Germany,Consumer,2024-05-29,organic
+C0155,Kofi Schneider,kofi.schneider155@example.com,United States,Consumer,2022-11-05,referral
+C0156,Valentina Clark,valentina.clark156@mail.example.org,Germany,Consumer,2023-12-11,paid_search
+C0157,William Martin,william.martin157@example.com,United States,SMB,2024-12-15,
+C0158,Hana Bianchi,hana.bianchi158@example.com,United Kingdom,SMB,2024-02-11,social
+C0159,Jessica Chen,jessica.chen159@mail.example.org,United Kingdom,Enterprise,2023-11-04,paid_search
+C0160,Fatima Williams,fatima.williams160@example.com,United Kingdom,Consumer,2023-05-26,social
+C0161,Kofi Okafor,kofi.okafor161@shop.example.net,Australia,SMB,2023-02-24,paid_search
+C0162,William Young,william.young162@shop.example.net,United States,Consumer,2024-05-20,organic
+C0163,Omar Lopez,omar.lopez163@example.com,Germany,SMB,2023-11-23,social
+C0164,Kofi Johnson,kofi.johnson164@shop.example.net,United States,Consumer,2023-12-11,organic
+C0165,Wei Moreau,wei.moreau165@example.com,United States,Enterprise,2024-07-31,referral
+C0166,Hana Larsen,hana.larsen166@mail.example.org,Japan,Consumer,2025-02-10,organic
+C0167,Lucas Li,lucas.li167@example.com,United Kingdom,Consumer,2022-01-26,organic
+C0168,Mateo Lopez,mateo.lopez168@mail.example.org,Canada,Enterprise,2023-04-29,referral
+C0169,Charles Lewis,charles.lewis169@example.com,France,Consumer,2022-11-04,organic
+C0170,Elizabeth Martinez,elizabeth.martinez170@example.com,United States,SMB,2024-08-20,social
+C0171,Susan Brown,susan.brown171@example.com,United States,Consumer,2024-05-27,paid_search
+C0172,Barbara Harris,barbara.harris172@example.com,Japan,Consumer,2025-02-07,organic
+C0173,Hiroshi Lee,hiroshi.lee173@example.com,United States,SMB,2024-07-26,social
+C0174,Liam Harris,liam.harris174@mail.example.org,Japan,Consumer,2024-03-10,social
+C0175,William Martinez,william.martinez175@mail.example.org,United States,Consumer,2022-04-19,
+C0176,Karen Mensah,karen.mensah176@mail.example.org,Canada,Consumer,2022-09-12,
+C0177,Chloe Brown,chloe.brown177@shop.example.net,Germany,Consumer,2024-03-11,social
+C0178,Lucas Okafor,lucas.okafor178@example.com,United States,Consumer,2022-09-04,organic
+C0179,Elizabeth Nielsen,elizabeth.nielsen179@mail.example.org,France,SMB,2022-04-26,organic
+C0180,Omar Silva,omar.silva180@shop.example.net,France,Consumer,2023-03-15,organic
+C0181,Elizabeth Hernandez,elizabeth.hernandez181@shop.example.net,United States,Consumer,2023-12-05,paid_search
+C0182,Chloe Nielsen,chloe.nielsen182@mail.example.org,France,Consumer,2023-12-11,referral
+C0183,Valentina Rossi,valentina.rossi183@mail.example.org,Japan,SMB,2025-03-12,paid_search
+C0184,William Young,william.young184@shop.example.net,Canada,SMB,2024-08-09,organic
+C0185,Mary Lewis,mary.lewis185@shop.example.net,Australia,Consumer,2025-05-26,organic
+C0186,Lukas Walker,lukas.walker186@mail.example.org,United States,Consumer,2023-12-09,organic
+C0187,Lucas Martin,lucas.martin187@shop.example.net,Australia,SMB,2025-01-02,referral
+C0188,Michael Moore,michael.moore188@example.com,Australia,Consumer,2024-11-27,organic
+C0189,Felix Lopez,felix.lopez189@example.com,Germany,Consumer,2024-12-10,paid_search
+C0190,David Miller,david.miller190@mail.example.org,United States,Consumer,2022-03-20,organic
+C0191,Emma Sato,emma.sato191@shop.example.net,United States,Enterprise,2024-11-24,paid_search
+C0192,Robert Moreau,robert.moreau192@shop.example.net,United States,SMB,2022-03-24,paid_search
+C0193,Karen Rossi,karen.rossi193@mail.example.org,Canada,SMB,2024-09-04,paid_search
+C0194,Michael White,michael.white194@mail.example.org,Japan,Enterprise,2022-04-14,
+C0195,Ines Singh,ines.singh195@shop.example.net,United States,Consumer,2024-10-20,referral
+C0196,Ingrid Moreau,ingrid.moreau196@mail.example.org,Germany,Consumer,2024-08-02,referral
+C0197,Richard Jackson,richard.jackson197@mail.example.org,United States,Enterprise,2024-04-07,paid_search
+C0198,Liam Lewis,liam.lewis198@shop.example.net,United States,Consumer,2024-07-28,paid_search
+C0199,Valentina Larsen,valentina.larsen199@mail.example.org,France,Consumer,2022-08-15,organic
+C0200,Jennifer Taylor,jennifer.taylor200@mail.example.org,Japan,Consumer,2024-09-10,paid_search
+C0201,Diego Rossi,diego.rossi201@example.com,United States,Consumer,2023-09-10,organic
+C0202,Linda Martinez,linda.martinez202@mail.example.org,Canada,Consumer,2022-12-07,
+C0203,Patricia Moore,patricia.moore203@mail.example.org,France,Consumer,2022-10-07,referral
+C0204,Amelia White,amelia.white204@example.com,United States,SMB,2023-01-05,organic
+C0205,Valentina Park,valentina.park205@shop.example.net,United States,Consumer,2025-02-07,organic
+C0206,Elizabeth Wang,elizabeth.wang206@shop.example.net,United Kingdom,Consumer,2025-03-25,organic
+C0207,Lucas Moreau,lucas.moreau207@mail.example.org,Canada,SMB,2024-07-23,paid_search
+C0208,Linda Harris,linda.harris208@mail.example.org,Germany,Consumer,2022-06-24,social
+C0209,Mei Schmidt,mei.schmidt209@shop.example.net,United States,Consumer,2022-11-04,organic
+C0210,Omar Lewis,omar.lewis210@shop.example.net,United States,Consumer,2023-07-01,paid_search
+C0211,Emma Brown,emma.brown211@shop.example.net,United States,Consumer,2025-06-06,
+C0212,Anna King,anna.king212@example.com,United States,SMB,2024-01-01,organic
+C0213,Sarah White,sarah.white213@mail.example.org,Japan,Consumer,2023-03-07,paid_search
+C0214,William Chen,william.chen214@mail.example.org,United States,SMB,2022-06-04,paid_search
+C0215,Susan Garcia,susan.garcia215@shop.example.net,United States,Enterprise,2024-09-14,referral
+C0216,Thomas Lee,thomas.lee216@shop.example.net,United States,SMB,2025-02-14,organic
+C0217,Linda Hernandez,linda.hernandez217@example.com,France,Consumer,2022-01-14,
+C0218,Hiroshi Tanaka,hiroshi.tanaka218@example.com,Canada,SMB,2022-06-25,organic
+C0219,William Jones,william.jones219@example.com,United Kingdom,Consumer,2025-04-28,paid_search
+C0220,Noah Taylor,noah.taylor220@example.com,Germany,Consumer,2023-05-16,paid_search
+C0221,Emma Patel,emma.patel221@mail.example.org,Germany,Consumer,2025-02-19,social
+C0222,Amelia Nielsen,amelia.nielsen222@example.com,Australia,SMB,2023-06-18,organic
+C0223,Lucas Nielsen,lucas.nielsen223@example.com,Japan,Enterprise,2022-12-12,referral
+C0224,Patricia Schmidt,patricia.schmidt224@shop.example.net,Germany,Consumer,2024-12-11,
+C0225,Emma King,emma.king225@mail.example.org,United Kingdom,Consumer,2023-12-16,
+C0226,Wei Thompson,wei.thompson226@mail.example.org,France,Consumer,2022-12-16,referral
+C0227,Patricia Wang,patricia.wang227@mail.example.org,Germany,Enterprise,2023-05-20,organic
+C0228,Ines Santos,ines.santos228@mail.example.org,United States,Consumer,2023-06-06,organic
+C0229,Priya Miller,priya.miller229@shop.example.net,United States,Consumer,2024-12-01,organic
+C0230,Mateo Jackson,mateo.jackson230@example.com,France,Consumer,2024-04-08,organic
+C0231,Sarah Martinez,sarah.martinez231@shop.example.net,United States,Consumer,2023-05-09,referral
+C0232,Olivia Lee,olivia.lee232@mail.example.org,United States,SMB,2022-09-04,organic
+C0233,James Davis,james.davis233@shop.example.net,United States,Consumer,2024-08-28,organic
+C0234,Liam Rodriguez,liam.rodriguez234@mail.example.org,France,SMB,2025-03-25,organic
+C0235,Omar Johnson,omar.johnson235@example.com,United States,Consumer,2025-06-03,organic
+C0236,Barbara Walker,barbara.walker236@mail.example.org,Germany,Consumer,2022-06-20,
+C0237,John Bianchi,john.bianchi237@shop.example.net,United States,SMB,2022-07-13,paid_search
+C0238,Barbara Kim,barbara.kim238@shop.example.net,United Kingdom,Consumer,2024-10-17,organic
+C0239,William Park,william.park239@shop.example.net,United States,Consumer,2023-09-13,
+C0240,Hana Smith,hana.smith240@example.com,France,Consumer,2024-03-13,organic
+C0241,Charles Lee,charles.lee241@shop.example.net,United States,SMB,2024-10-21,organic
+C0242,Karen Rodriguez,karen.rodriguez242@mail.example.org,Canada,Consumer,2024-11-09,organic
+C0243,Hiroshi Walker,hiroshi.walker243@shop.example.net,United States,Consumer,2023-06-04,organic
+C0244,Priya Dubois,priya.dubois244@mail.example.org,United States,Enterprise,2024-06-13,social
+C0245,Sven Brown,sven.brown245@shop.example.net,United States,Consumer,2024-05-16,referral
+C0246,Ama Tanaka,ama.tanaka246@shop.example.net,United Kingdom,SMB,2023-03-12,referral
+C0247,John Lee,john.lee247@example.com,United States,Consumer,2024-06-07,paid_search
+C0248,Kofi Nielsen,kofi.nielsen248@shop.example.net,France,Enterprise,2022-11-16,social
+C0249,Sarah Thompson,sarah.thompson249@example.com,United Kingdom,SMB,2022-10-18,referral
+C0250,Arjun White,arjun.white250@shop.example.net,France,Consumer,2024-01-14,referral
+C0251,David Moore,david.moore251@mail.example.org,United States,SMB,2025-02-17,paid_search
+C0252,Omar Kim,omar.kim252@shop.example.net,United States,Enterprise,2022-05-22,organic
+C0253,Sven Mensah,sven.mensah253@shop.example.net,United States,SMB,2022-01-17,paid_search
+C0254,Mei Hernandez,mei.hernandez254@shop.example.net,United States,SMB,2023-07-27,paid_search
+C0255,Noah Martinez,noah.martinez255@example.com,Australia,Consumer,2024-09-22,social
+C0256,Sofia Brown,sofia.brown256@mail.example.org,Canada,Consumer,2024-11-23,organic
+C0257,Thomas King,thomas.king257@shop.example.net,France,SMB,2022-06-22,referral
+C0258,John Wilson,john.wilson258@shop.example.net,United States,Enterprise,2022-02-19,organic
+C0259,Barbara White,barbara.white259@mail.example.org,Japan,SMB,2025-05-23,organic
+C0260,Elizabeth Jones,elizabeth.jones260@example.com,Japan,SMB,2023-12-01,paid_search
+C0261,John Mensah,john.mensah261@shop.example.net,Japan,Consumer,2022-10-06,paid_search
+C0262,Chloe Wilson,chloe.wilson262@shop.example.net,United States,SMB,2022-10-16,
+C0263,Lucas Anderson,lucas.anderson263@mail.example.org,United Kingdom,Consumer,2022-10-21,organic
+C0264,Thomas Silva,thomas.silva264@mail.example.org,United States,SMB,2022-06-01,paid_search
+C0265,Joseph King,joseph.king265@example.com,United States,Consumer,2023-11-19,organic
+C0266,Omar Hernandez,omar.hernandez266@mail.example.org,Japan,SMB,2024-11-19,organic
+C0267,David Brown,david.brown267@shop.example.net,United States,Consumer,2024-11-30,paid_search
+C0268,Linda Jones,linda.jones268@example.com,United Kingdom,Consumer,2025-02-02,organic
+C0269,Lucas Walker,lucas.walker269@example.com,Canada,Enterprise,2022-05-20,organic
+C0270,William Martinez,william.martinez270@shop.example.net,United Kingdom,Consumer,2024-09-23,organic
+C0271,Sofia Moore,sofia.moore271@example.com,United States,Consumer,2023-07-22,social
+C0272,Sarah Anderson,sarah.anderson272@shop.example.net,United States,Consumer,2022-04-14,paid_search
+C0273,Robert Santos,robert.santos273@shop.example.net,United Kingdom,Consumer,2022-06-29,organic
+C0274,Karen Wang,karen.wang274@example.com,United States,Consumer,2022-09-13,organic
+C0275,Arjun Walker,arjun.walker275@shop.example.net,Australia,Consumer,2023-12-15,
+C0276,Robert Young,robert.young276@example.com,United Kingdom,SMB,2023-02-09,organic
+C0277,Diego Nielsen,diego.nielsen277@mail.example.org,United Kingdom,Consumer,2024-09-07,paid_search
+C0278,William Patel,william.patel278@mail.example.org,France,Consumer,2022-10-06,organic
+C0279,James Thompson,james.thompson279@shop.example.net,Germany,Consumer,2023-01-07,paid_search
+C0280,Linda Harris,linda.harris280@mail.example.org,Japan,SMB,2025-02-21,paid_search
+C0281,Jessica Smith,jessica.smith281@mail.example.org,United States,Consumer,2023-11-23,paid_search
+C0282,Lukas Santos,lukas.santos282@example.com,Japan,Consumer,2023-08-14,paid_search
+C0283,Ingrid Lee,ingrid.lee283@shop.example.net,United States,SMB,2024-01-30,paid_search
+C0284,Kofi Jones,kofi.jones284@shop.example.net,United States,Consumer,2023-09-08,organic
+C0285,Emma Silva,emma.silva285@shop.example.net,France,Consumer,2023-05-10,organic
+C0286,Omar Harris,omar.harris286@mail.example.org,United States,Consumer,2022-11-07,organic
+C0287,Susan Harris,susan.harris287@mail.example.org,Germany,SMB,2023-12-10,organic
+C0288,Emma Lee,emma.lee288@shop.example.net,Germany,Enterprise,2023-01-22,referral
+C0289,Diego Muller,diego.muller289@mail.example.org,United States,SMB,2022-11-25,social
+C0290,Mateo Chen,mateo.chen290@shop.example.net,United States,Consumer,2022-05-03,social
+C0291,Wei Walker,wei.walker291@example.com,Germany,Consumer,2024-01-19,organic
+C0292,David Bianchi,david.bianchi292@mail.example.org,Canada,Consumer,2022-10-12,social
+C0293,Michael Davis,michael.davis293@example.com,United States,Enterprise,2025-06-30,organic
+C0294,Mary Jones,mary.jones294@mail.example.org,United States,Consumer,2025-06-13,organic
+C0295,Chloe Silva,chloe.silva295@shop.example.net,Australia,Consumer,2025-04-28,organic
+C0296,Joseph Rodriguez,joseph.rodriguez296@example.com,Canada,Consumer,2024-03-27,social
+C0297,Noah Larsen,noah.larsen297@mail.example.org,Germany,Enterprise,2024-07-29,organic
+C0298,Thomas Santos,thomas.santos298@example.com,United States,Consumer,2023-01-19,organic
+C0299,Thomas Wang,thomas.wang299@mail.example.org,United States,Consumer,2023-10-29,organic
+C0300,Hana Mensah,hana.mensah300@example.com,United States,Enterprise,2023-03-18,organic
+C0301,Barbara Davis,barbara.davis301@example.com,United States,Enterprise,2023-06-20,organic
+C0302,Linda Moreau,linda.moreau302@example.com,United States,SMB,2022-09-22,organic
+C0303,Arjun Davis,arjun.davis303@example.com,France,Consumer,2023-12-11,paid_search
+C0304,Michael King,michael.king304@example.com,Germany,Consumer,2022-03-29,
+C0305,Lukas Miller,lukas.miller305@mail.example.org,Japan,SMB,2022-10-07,referral
+C0306,Hiroshi Lewis,hiroshi.lewis306@shop.example.net,Canada,Consumer,2023-09-03,social
+C0307,Sarah Silva,sarah.silva307@example.com,United Kingdom,Consumer,2024-08-26,organic
+C0308,Susan Anderson,susan.anderson308@mail.example.org,United States,SMB,2025-06-28,organic
+C0309,Emma White,emma.white309@mail.example.org,Japan,Consumer,2022-12-02,paid_search
+C0310,Chloe Garcia,chloe.garcia310@example.com,United Kingdom,Consumer,2022-02-10,paid_search
+C0311,Susan Bianchi,susan.bianchi311@shop.example.net,Canada,SMB,2023-08-15,social
+C0312,Amelia Bianchi,amelia.bianchi312@mail.example.org,United States,Consumer,2023-07-25,paid_search
+C0313,Lucas Thompson,lucas.thompson313@example.com,Germany,Enterprise,2024-07-02,paid_search
+C0314,Patricia Santos,patricia.santos314@example.com,Japan,SMB,2024-08-05,
+C0315,John Wilson,john.wilson315@shop.example.net,Germany,SMB,2023-02-12,organic
+C0316,Michael Suzuki,michael.suzuki316@mail.example.org,United Kingdom,Consumer,2024-04-01,social
+C0317,James Clark,james.clark317@example.com,Canada,Consumer,2023-05-10,organic
+C0318,Emma Taylor,emma.taylor318@mail.example.org,United States,SMB,2025-02-26,referral
+C0319,Robert Garcia,robert.garcia319@mail.example.org,United Kingdom,Enterprise,2024-11-13,referral
+C0320,Mei Hernandez,mei.hernandez320@shop.example.net,Australia,Consumer,2024-10-17,
+C0321,Jennifer Brown,jennifer.brown321@mail.example.org,Germany,Enterprise,2024-01-18,referral
+C0322,Anna Walker,anna.walker322@mail.example.org,France,Consumer,2022-11-28,organic
+C0323,Kofi Schmidt,kofi.schmidt323@mail.example.org,Germany,SMB,2024-01-29,organic
+C0324,William Nielsen,william.nielsen324@example.com,United States,Consumer,2022-10-29,paid_search
+C0325,Ingrid Bianchi,ingrid.bianchi325@mail.example.org,United States,SMB,2024-01-18,
+C0326,Joseph Bianchi,joseph.bianchi326@example.com,United States,Consumer,2023-11-20,organic
+C0327,Ingrid Lee,ingrid.lee327@mail.example.org,Germany,Consumer,2022-09-12,
+C0328,Amelia Moreau,amelia.moreau328@example.com,Japan,Enterprise,2022-01-29,paid_search
+C0329,Mateo Martinez,mateo.martinez329@mail.example.org,Germany,SMB,2022-11-20,paid_search
+C0330,Hana Nielsen,hana.nielsen330@shop.example.net,United States,SMB,2024-07-03,organic
+C0331,Joseph Mensah,joseph.mensah331@shop.example.net,Australia,Consumer,2025-01-31,
+C0332,Sven Moreau,sven.moreau332@mail.example.org,Australia,SMB,2023-08-01,paid_search
+C0333,Thomas Wilson,thomas.wilson333@shop.example.net,Japan,SMB,2024-04-22,organic
+C0334,Olivia Nielsen,olivia.nielsen334@example.com,Germany,Consumer,2023-01-26,organic
+C0335,Mei Johnson,mei.johnson335@example.com,Australia,Enterprise,2023-02-18,paid_search
+C0336,Arjun Sato,arjun.sato336@shop.example.net,United States,Consumer,2022-04-29,social
+C0337,Hana Garcia,hana.garcia337@mail.example.org,United States,SMB,2022-09-07,organic
+C0338,Joseph Johnson,joseph.johnson338@mail.example.org,United Kingdom,Enterprise,2023-11-02,paid_search
+C0339,Wei Rodriguez,wei.rodriguez339@mail.example.org,Canada,Consumer,2025-05-15,social
+C0340,Sofia Williams,sofia.williams340@mail.example.org,United States,Consumer,2023-05-31,organic
+C0341,Chloe Hernandez,chloe.hernandez341@example.com,Germany,Consumer,2023-06-23,organic
+C0342,Wei Lopez,wei.lopez342@mail.example.org,Canada,Consumer,2022-02-28,social
+C0343,Ingrid Silva,ingrid.silva343@mail.example.org,Germany,Consumer,2023-05-31,paid_search
+C0344,Hana Rossi,hana.rossi344@shop.example.net,United States,SMB,2023-07-08,organic
+C0345,Wei Silva,wei.silva345@mail.example.org,United States,Consumer,2024-03-12,organic
+C0346,Noah King,noah.king346@example.com,United Kingdom,Consumer,2022-05-21,
+C0347,Kofi Rossi,kofi.rossi347@shop.example.net,United Kingdom,Consumer,2023-05-16,organic
+C0348,Yuki King,yuki.king348@mail.example.org,United States,Consumer,2024-12-09,referral
+C0349,Kofi Park,kofi.park349@example.com,France,Consumer,2024-12-08,paid_search
+C0350,Joseph Martinez,joseph.martinez350@shop.example.net,Germany,SMB,2023-04-14,social
+C0351,Joseph Brown,joseph.brown351@shop.example.net,United Kingdom,Consumer,2022-06-29,organic
+C0352,Susan Davis,susan.davis352@example.com,United Kingdom,Consumer,2025-01-31,referral
+C0353,Ingrid Jackson,ingrid.jackson353@example.com,United States,Consumer,2022-11-30,
+C0354,Mei Johnson,mei.johnson354@example.com,Germany,SMB,2024-03-30,paid_search
+C0355,Sarah Martinez,sarah.martinez355@example.com,United States,Consumer,2025-05-06,organic
+C0356,Arjun Li,arjun.li356@shop.example.net,France,Consumer,2022-11-03,organic
+C0357,Karen Bianchi,karen.bianchi357@example.com,United States,Consumer,2022-08-22,paid_search
+C0358,Ingrid Schmidt,ingrid.schmidt358@example.com,France,SMB,2024-08-10,paid_search
+C0359,Joseph Williams,joseph.williams359@mail.example.org,Germany,Consumer,2023-01-17,paid_search
+C0360,Karen Williams,karen.williams360@example.com,Germany,Consumer,2025-02-28,organic
+C0361,Valentina Martinez,valentina.martinez361@example.com,Canada,Consumer,2023-10-10,referral
+C0362,Kofi Okafor,kofi.okafor362@mail.example.org,Australia,Consumer,2023-09-25,social
+C0363,Joseph Williams,joseph.williams363@mail.example.org,United States,Consumer,2024-08-27,referral
+C0364,William Rossi,william.rossi364@shop.example.net,Canada,Consumer,2023-11-03,referral
+C0365,Ingrid Jones,ingrid.jones365@shop.example.net,France,Consumer,2024-07-08,social
+C0366,Sofia Rodriguez,sofia.rodriguez366@shop.example.net,United States,SMB,2023-04-06,organic
+C0367,Felix Dubois,felix.dubois367@example.com,United Kingdom,Consumer,2023-10-31,paid_search
+C0368,Thomas Sato,thomas.sato368@mail.example.org,United Kingdom,Consumer,2022-11-16,referral
+C0369,Sarah Garcia,sarah.garcia369@mail.example.org,Germany,Consumer,2022-12-19,organic
+C0370,Thomas Brown,thomas.brown370@mail.example.org,United States,Consumer,2025-01-20,organic
+C0371,Omar Walker,omar.walker371@example.com,United States,Enterprise,2022-04-27,paid_search
+C0372,Anna Miller,anna.miller372@example.com,United States,SMB,2023-09-19,organic
+C0373,Linda Patel,linda.patel373@example.com,Australia,Enterprise,2024-03-14,organic
+C0374,Jessica Suzuki,jessica.suzuki374@mail.example.org,Canada,Enterprise,2023-12-09,organic
+C0375,Linda King,linda.king375@shop.example.net,United States,Enterprise,2022-10-12,paid_search
+C0376,Liam Muller,liam.muller376@shop.example.net,United States,Consumer,2022-08-29,paid_search
+C0377,Arjun Thompson,arjun.thompson377@example.com,United States,SMB,2024-04-06,paid_search
+C0378,Diego Jones,diego.jones378@shop.example.net,United States,SMB,2024-03-10,referral
+C0379,Lucas Muller,lucas.muller379@example.com,Japan,Enterprise,2022-09-28,social
+C0380,Jennifer Nielsen,jennifer.nielsen380@shop.example.net,United Kingdom,Consumer,2023-03-26,referral
+C0381,Olivia Patel,olivia.patel381@mail.example.org,Canada,SMB,2025-06-24,paid_search
+C0382,Hiroshi Larsen,hiroshi.larsen382@example.com,Canada,Consumer,2022-08-11,paid_search
+C0383,Amelia Park,amelia.park383@example.com,United States,Consumer,2022-12-29,paid_search
+C0384,Thomas Wilson,thomas.wilson384@mail.example.org,France,Consumer,2025-02-07,social
+C0385,Ama Anderson,ama.anderson385@mail.example.org,United States,Consumer,2023-06-28,referral
+C0386,Yuki Chen,yuki.chen386@shop.example.net,United States,Consumer,2022-09-01,paid_search
+C0387,Sofia King,sofia.king387@shop.example.net,Japan,SMB,2022-11-11,referral
+C0388,Wei Martinez,wei.martinez388@shop.example.net,United States,Consumer,2023-10-09,social
+C0389,Yuki Dubois,yuki.dubois389@mail.example.org,United Kingdom,SMB,2022-04-24,paid_search
+C0390,Elizabeth Hernandez,elizabeth.hernandez390@shop.example.net,United States,Consumer,2024-09-09,organic
+C0391,Arjun Garcia,arjun.garcia391@shop.example.net,United States,Consumer,2023-02-08,referral
+C0392,Omar Harris,omar.harris392@example.com,France,Enterprise,2023-10-08,paid_search
+C0393,Joseph Suzuki,joseph.suzuki393@mail.example.org,Japan,Consumer,2024-04-09,organic
+C0394,Anna Garcia,anna.garcia394@mail.example.org,Germany,SMB,2024-08-28,social
+C0395,Ingrid Patel,ingrid.patel395@example.com,United Kingdom,Consumer,2022-12-22,organic
+C0396,Barbara Johnson,barbara.johnson396@shop.example.net,Canada,SMB,2023-11-06,paid_search
+C0397,John Bianchi,john.bianchi397@mail.example.org,United Kingdom,SMB,2024-08-15,paid_search
+C0398,Fatima Martinez,fatima.martinez398@example.com,United States,Consumer,2025-01-11,paid_search
+C0399,Emma Anderson,emma.anderson399@example.com,Germany,Consumer,2024-08-21,paid_search
+C0400,Barbara Silva,barbara.silva400@mail.example.org,United States,Consumer,2024-01-24,organic
+C0401,Liam King,liam.king401@example.com,Germany,SMB,2024-01-05,organic
+C0402,Jennifer Wilson,jennifer.wilson402@mail.example.org,Germany,Consumer,2024-07-27,social
+C0403,Thomas Taylor,thomas.taylor403@mail.example.org,United States,Consumer,2023-12-17,referral
+C0404,Sarah Young,sarah.young404@mail.example.org,United States,SMB,2022-08-11,paid_search
+C0405,John Clark,john.clark405@example.com,United Kingdom,SMB,2025-05-21,paid_search
+C0406,Joseph Larsen,joseph.larsen406@mail.example.org,United States,Consumer,2024-10-08,organic
+C0407,Yuki Wang,yuki.wang407@shop.example.net,United States,Consumer,2024-03-24,social
+C0408,Liam Wang,liam.wang408@example.com,United Kingdom,Consumer,2023-06-16,
+C0409,Sarah Bianchi,sarah.bianchi409@shop.example.net,United States,Consumer,2023-12-15,organic
+C0410,Hana Lewis,hana.lewis410@example.com,United Kingdom,Consumer,2024-09-25,paid_search
+C0411,Yuki Santos,yuki.santos411@example.com,United States,Consumer,2024-06-17,organic
+C0412,Robert White,robert.white412@example.com,Germany,Consumer,2022-07-16,referral
+C0413,Lucas Hernandez,lucas.hernandez413@mail.example.org,Canada,Consumer,2022-01-04,paid_search
+C0414,Sofia Garcia,sofia.garcia414@mail.example.org,United States,Consumer,2024-05-19,referral
+C0415,Lukas Taylor,lukas.taylor415@mail.example.org,United States,SMB,2024-07-19,organic
+C0416,Lucas Tanaka,lucas.tanaka416@example.com,United States,Consumer,2024-02-13,organic
+C0417,Charles Clark,charles.clark417@shop.example.net,Canada,Consumer,2023-07-09,organic
+C0418,Michael Wilson,michael.wilson418@example.com,Japan,SMB,2022-05-30,social
+C0419,Joseph Bianchi,joseph.bianchi419@shop.example.net,Japan,SMB,2022-03-04,paid_search
+C0420,Charles Taylor,charles.taylor420@shop.example.net,United Kingdom,Consumer,2024-01-16,social
+C0421,Barbara Dubois,barbara.dubois421@mail.example.org,Germany,Enterprise,2022-06-04,organic
+C0422,Karen Santos,karen.santos422@example.com,United States,Consumer,2024-02-19,social
+C0423,Sven Johnson,sven.johnson423@example.com,United States,Consumer,2023-07-08,organic
+C0424,Diego Rossi,diego.rossi424@shop.example.net,United States,Consumer,2023-03-19,paid_search
+C0425,Mary Miller,mary.miller425@shop.example.net,Australia,Consumer,2023-07-28,paid_search
+C0426,Hiroshi Singh,hiroshi.singh426@mail.example.org,United Kingdom,SMB,2024-09-18,social
+C0427,Michael Rodriguez,michael.rodriguez427@example.com,Canada,Consumer,2023-12-21,organic
+C0428,James Thompson,james.thompson428@shop.example.net,United Kingdom,SMB,2024-06-02,referral
+C0429,Diego Hernandez,diego.hernandez429@shop.example.net,United States,Consumer,2024-01-15,referral
+C0430,Fatima Moreau,fatima.moreau430@shop.example.net,United States,Consumer,2023-03-02,referral
+C0431,Robert Chen,robert.chen431@shop.example.net,France,SMB,2025-06-20,social
+C0432,Susan Suzuki,susan.suzuki432@example.com,United States,Consumer,2024-03-31,paid_search
+C0433,Mateo Okafor,mateo.okafor433@example.com,United States,SMB,2023-07-13,paid_search
+C0434,Joseph Suzuki,joseph.suzuki434@mail.example.org,United States,SMB,2025-05-04,social
+C0435,Karen Miller,karen.miller435@mail.example.org,Canada,Consumer,2024-01-05,organic
+C0436,Michael Singh,michael.singh436@example.com,United Kingdom,SMB,2024-03-26,referral
+C0437,Noah Clark,noah.clark437@mail.example.org,Japan,SMB,2025-03-01,organic
+C0438,Linda Mensah,linda.mensah438@example.com,Germany,SMB,2022-07-27,organic
+C0439,Olivia Anderson,olivia.anderson439@shop.example.net,Canada,SMB,2024-08-09,referral
+C0440,Sofia Sato,sofia.sato440@mail.example.org,United States,SMB,2023-11-07,paid_search
+C0441,Emma Taylor,emma.taylor441@mail.example.org,United States,Consumer,2022-10-13,paid_search
+C0442,Fatima Kim,fatima.kim442@shop.example.net,Japan,Consumer,2023-03-25,organic
+C0443,David Santos,david.santos443@example.com,United States,Consumer,2025-04-11,organic
+C0444,Olivia Jones,olivia.jones444@example.com,Australia,Consumer,2024-02-25,organic
+C0445,Yuki Silva,yuki.silva445@shop.example.net,Japan,Enterprise,2024-04-08,social
+C0446,Mateo Rossi,mateo.rossi446@example.com,United States,Consumer,2022-06-01,social
+C0447,Sofia Walker,sofia.walker447@mail.example.org,Canada,Consumer,2022-02-08,paid_search
+C0448,Richard Schneider,richard.schneider448@mail.example.org,Canada,Consumer,2024-07-18,organic
+C0449,Olivia Wilson,olivia.wilson449@shop.example.net,United Kingdom,Consumer,2025-04-02,social
+C0450,Jessica Lopez,jessica.lopez450@shop.example.net,United States,Consumer,2022-06-14,organic
+C0451,John Jackson,john.jackson451@shop.example.net,United States,Consumer,2022-10-06,referral
+C0452,Richard Smith,richard.smith452@example.com,Japan,SMB,2023-04-10,organic
+C0453,Michael Larsen,michael.larsen453@example.com,United States,Consumer,2022-03-20,organic
+C0454,Jessica Silva,jessica.silva454@shop.example.net,United States,Consumer,2025-06-19,social
+C0455,James Schneider,james.schneider455@example.com,Germany,Consumer,2023-12-04,
+C0456,Charles Miller,charles.miller456@mail.example.org,United States,Consumer,2023-08-02,referral
+C0457,Olivia King,olivia.king457@mail.example.org,United States,Consumer,2022-03-29,referral
+C0458,Noah Brown,noah.brown458@mail.example.org,Japan,Consumer,2022-07-08,organic
+C0459,Emma Jones,emma.jones459@mail.example.org,United Kingdom,SMB,2023-06-26,organic
+C0460,Michael Clark,michael.clark460@example.com,France,Consumer,2023-12-19,paid_search
+C0461,Linda Rossi,linda.rossi461@shop.example.net,Germany,SMB,2022-06-04,social
+C0462,Linda Martin,linda.martin462@mail.example.org,United States,SMB,2024-09-06,organic
+C0463,Omar Williams,omar.williams463@example.com,United States,Consumer,2024-10-27,organic
+C0464,Robert King,robert.king464@mail.example.org,France,Consumer,2023-04-15,referral
+C0465,Liam Thompson,liam.thompson465@mail.example.org,Japan,Consumer,2025-02-26,organic
+C0466,Omar Johnson,omar.johnson466@shop.example.net,France,SMB,2025-04-27,organic
+C0467,Sofia Larsen,sofia.larsen467@example.com,United States,Consumer,2022-06-18,organic
+C0468,Arjun Jones,arjun.jones468@example.com,United States,Consumer,2022-11-14,referral
+C0469,Sofia Wang,sofia.wang469@shop.example.net,Japan,Consumer,2023-01-22,referral
+C0470,Robert White,robert.white470@shop.example.net,Japan,SMB,2025-04-26,organic
+C0471,Amelia Sato,amelia.sato471@mail.example.org,Germany,Consumer,2023-03-06,social
+C0472,Diego Martinez,diego.martinez472@example.com,France,Enterprise,2023-06-15,paid_search
+C0473,Olivia Moreau,olivia.moreau473@shop.example.net,United States,SMB,2022-04-27,
+C0474,Chloe Schneider,chloe.schneider474@mail.example.org,Germany,SMB,2024-05-22,organic
+C0475,Michael Thompson,michael.thompson475@mail.example.org,Canada,SMB,2024-07-24,social
+C0476,James Singh,james.singh476@mail.example.org,Canada,SMB,2022-01-24,paid_search
+C0477,Patricia Li,patricia.li477@example.com,United Kingdom,SMB,2024-12-27,organic
+C0478,Karen Harris,karen.harris478@example.com,Australia,Consumer,2025-04-11,referral
+C0479,Patricia Silva,patricia.silva479@shop.example.net,United States,Consumer,2023-05-21,organic
+C0480,Olivia Garcia,olivia.garcia480@mail.example.org,Germany,SMB,2022-01-14,organic
+C0481,Yuki Lopez,yuki.lopez481@example.com,United Kingdom,Consumer,2024-04-22,paid_search
+C0482,Lucas Davis,lucas.davis482@shop.example.net,Canada,Consumer,2023-03-25,paid_search
+C0483,Felix Larsen,felix.larsen483@example.com,Japan,Consumer,2022-09-17,organic
+C0484,Ines Okafor,ines.okafor484@shop.example.net,United Kingdom,Consumer,2022-12-17,paid_search
+C0485,Noah Smith,noah.smith485@example.com,United Kingdom,Consumer,2025-05-11,referral
+C0486,William Taylor,william.taylor486@shop.example.net,Japan,Consumer,2022-12-16,referral
+C0487,William Larsen,william.larsen487@shop.example.net,Canada,Consumer,2023-04-01,
+C0488,Karen Lee,karen.lee488@mail.example.org,United States,Consumer,2024-12-25,organic
+C0489,David Park,david.park489@mail.example.org,Japan,Consumer,2023-12-28,
+C0490,Elizabeth Santos,elizabeth.santos490@mail.example.org,United States,Consumer,2024-08-09,paid_search
+C0491,James Dubois,james.dubois491@mail.example.org,Germany,SMB,2022-06-18,paid_search
+C0492,Anna Li,anna.li492@mail.example.org,Japan,Consumer,2023-03-26,social
+C0493,Mary Patel,mary.patel493@mail.example.org,France,SMB,2025-05-02,referral
+C0494,Mei Martin,mei.martin494@mail.example.org,United States,Enterprise,2025-06-14,paid_search
+C0495,Fatima Muller,fatima.muller495@example.com,Canada,SMB,2024-01-05,paid_search
+C0496,Jennifer Suzuki,jennifer.suzuki496@example.com,Germany,Enterprise,2024-07-28,social
+C0497,Sofia Anderson,sofia.anderson497@shop.example.net,France,SMB,2023-06-18,organic
+C0498,Mateo Davis,mateo.davis498@example.com,Germany,SMB,2025-04-15,paid_search
+C0499,Karen Bianchi,karen.bianchi499@shop.example.net,United States,Consumer,2022-06-09,social
+C0500,Olivia Clark,olivia.clark500@example.com,France,Consumer,2023-07-27,organic
+C0501,Joseph Lopez,joseph.lopez501@example.com,United Kingdom,Consumer,2023-04-09,referral
+C0502,Sven Larsen,sven.larsen502@shop.example.net,United Kingdom,Consumer,2023-10-15,paid_search
+C0503,William Rodriguez,william.rodriguez503@shop.example.net,United States,Consumer,2022-03-12,paid_search
+C0504,Yuki Sato,yuki.sato504@example.com,United States,Consumer,2023-02-08,organic
+C0505,Kofi Hernandez,kofi.hernandez505@example.com,United States,Consumer,2024-11-02,organic
+C0506,Felix Patel,felix.patel506@example.com,Canada,Consumer,2022-06-14,organic
+C0507,Noah Chen,noah.chen507@example.com,United Kingdom,SMB,2025-01-20,paid_search
+C0508,Omar Lewis,omar.lewis508@example.com,United States,Consumer,2024-10-24,referral
+C0509,William Schneider,william.schneider509@shop.example.net,United Kingdom,Enterprise,2022-11-04,organic
+C0510,Emma Dubois,emma.dubois510@mail.example.org,Japan,SMB,2024-03-11,paid_search
+C0511,Ingrid Rossi,ingrid.rossi511@mail.example.org,United States,Consumer,2024-11-06,organic
+C0512,Robert Anderson,robert.anderson512@mail.example.org,United States,Consumer,2023-02-27,social
+C0513,Felix Martinez,felix.martinez513@shop.example.net,United Kingdom,Consumer,2023-08-27,paid_search
+C0514,Omar Schneider,omar.schneider514@mail.example.org,Canada,SMB,2022-06-23,organic
+C0515,Chloe Taylor,chloe.taylor515@mail.example.org,United States,SMB,2023-10-31,
+C0516,Hiroshi Lopez,hiroshi.lopez516@example.com,Canada,SMB,2023-07-16,social
+C0517,Karen King,karen.king517@example.com,United States,SMB,2023-07-01,organic
+C0518,Barbara Wilson,barbara.wilson518@example.com,Japan,Consumer,2023-07-02,paid_search
+C0519,Arjun Martin,arjun.martin519@example.com,Japan,Consumer,2024-02-24,organic
+C0520,David Hernandez,david.hernandez520@example.com,Australia,Enterprise,2024-11-20,referral
+C0521,Olivia Nielsen,olivia.nielsen521@mail.example.org,Germany,SMB,2025-06-16,organic
+C0522,Charles Martin,charles.martin522@mail.example.org,United Kingdom,Consumer,2022-12-16,paid_search
+C0523,Valentina Muller,valentina.muller523@example.com,Japan,Consumer,2023-03-16,
+C0524,Arjun Williams,arjun.williams524@mail.example.org,Japan,Consumer,2023-11-15,organic
+C0525,David Larsen,david.larsen525@mail.example.org,United Kingdom,Consumer,2025-01-06,referral
+C0526,Olivia Muller,olivia.muller526@shop.example.net,Germany,Consumer,2022-02-21,social
+C0527,Mateo Taylor,mateo.taylor527@example.com,United States,SMB,2023-10-13,organic
+C0528,Chloe Sato,chloe.sato528@shop.example.net,United States,SMB,2023-11-26,
+C0529,Emma Clark,emma.clark529@shop.example.net,United Kingdom,SMB,2022-10-10,paid_search
+C0530,Liam Muller,liam.muller530@shop.example.net,France,Consumer,2024-01-22,organic
+C0531,Mary Sato,mary.sato531@mail.example.org,United Kingdom,Consumer,2022-06-13,organic
+C0532,Yuki Schneider,yuki.schneider532@mail.example.org,United States,Consumer,2022-05-27,paid_search
+C0533,Olivia Harris,olivia.harris533@example.com,Germany,SMB,2022-12-13,
+C0534,Ingrid Davis,ingrid.davis534@shop.example.net,United States,Consumer,2023-03-07,paid_search
+C0535,Ingrid Chen,ingrid.chen535@mail.example.org,United States,SMB,2025-04-14,paid_search
+C0536,Sofia Lewis,sofia.lewis536@mail.example.org,United States,Consumer,2024-11-14,organic
+C0537,Emma Bianchi,emma.bianchi537@shop.example.net,Japan,Enterprise,2022-05-23,
+C0538,Omar White,omar.white538@example.com,Germany,Enterprise,2025-05-23,
+C0539,Jessica Anderson,jessica.anderson539@shop.example.net,France,SMB,2022-03-24,referral
+C0540,Ama Schneider,ama.schneider540@mail.example.org,United States,Consumer,2024-01-17,
+C0541,David King,david.king541@example.com,Australia,Consumer,2023-12-13,referral
+C0542,Patricia Martin,patricia.martin542@mail.example.org,United States,Consumer,2022-07-09,paid_search
+C0543,Hana Thompson,hana.thompson543@shop.example.net,France,Consumer,2022-08-29,social
+C0544,Liam Lewis,liam.lewis544@shop.example.net,France,Consumer,2025-06-12,organic
+C0545,David Schmidt,david.schmidt545@mail.example.org,France,SMB,2025-05-28,organic
+C0546,Sofia Martin,sofia.martin546@mail.example.org,United States,Consumer,2025-04-18,referral
+C0547,Yuki Brown,yuki.brown547@shop.example.net,United States,Consumer,2023-01-01,paid_search
+C0548,Thomas Singh,thomas.singh548@example.com,Germany,Consumer,2025-04-28,organic
+C0549,Jessica Moreau,jessica.moreau549@shop.example.net,France,Consumer,2024-08-27,referral
+C0550,Liam Garcia,liam.garcia550@mail.example.org,France,SMB,2022-07-28,
+C0551,Chloe Tanaka,chloe.tanaka551@mail.example.org,United States,Consumer,2023-06-09,organic
+C0552,Linda White,linda.white552@mail.example.org,Japan,SMB,2022-03-17,organic
+C0553,Ingrid Wang,ingrid.wang553@example.com,Canada,SMB,2022-12-26,organic
+C0554,Thomas Williams,thomas.williams554@mail.example.org,Germany,Consumer,2023-11-16,
+C0555,Mateo Brown,mateo.brown555@shop.example.net,Germany,Enterprise,2025-01-27,
+C0556,John Wang,john.wang556@example.com,United States,Consumer,2024-09-28,organic
+C0557,Lukas Kim,lukas.kim557@example.com,France,SMB,2024-02-14,
+C0558,Susan Smith,susan.smith558@example.com,Germany,Consumer,2024-11-20,
+C0559,Jennifer Wilson,jennifer.wilson559@example.com,United States,Enterprise,2024-03-12,organic
+C0560,Lucas Silva,lucas.silva560@shop.example.net,United Kingdom,Consumer,2022-11-07,organic
+C0561,Mary Patel,mary.patel561@mail.example.org,Japan,SMB,2024-04-17,referral
+C0562,Felix Singh,felix.singh562@example.com,United States,Consumer,2023-06-02,paid_search
+C0563,Lucas Clark,lucas.clark563@example.com,Australia,SMB,2022-03-16,paid_search
+C0564,Amelia Taylor,amelia.taylor564@mail.example.org,Australia,Consumer,2023-09-03,referral
+C0565,William Anderson,william.anderson565@shop.example.net,United States,Consumer,2024-02-03,paid_search
+C0566,Anna Smith,anna.smith566@shop.example.net,United Kingdom,Enterprise,2023-10-13,organic
+C0567,Chloe Walker,chloe.walker567@mail.example.org,Japan,Enterprise,2025-04-05,social
+C0568,Barbara Walker,barbara.walker568@mail.example.org,Germany,SMB,2023-04-08,paid_search
+C0569,Charles Dubois,charles.dubois569@example.com,United States,Consumer,2022-09-27,organic
+C0570,Omar King,omar.king570@mail.example.org,Australia,Enterprise,2022-12-16,referral
+C0571,Ines Moore,ines.moore571@mail.example.org,United States,SMB,2022-10-28,social
+C0572,Hana Davis,hana.davis572@mail.example.org,United States,Consumer,2023-10-19,referral
+C0573,Ingrid Young,ingrid.young573@shop.example.net,United States,Consumer,2022-01-29,
+C0574,Wei Rossi,wei.rossi574@shop.example.net,Japan,SMB,2025-05-06,organic
+C0575,Thomas Nielsen,thomas.nielsen575@example.com,United States,SMB,2024-02-28,referral
+C0576,Lucas Martinez,lucas.martinez576@mail.example.org,United Kingdom,Consumer,2024-02-12,paid_search
+C0577,James Silva,james.silva577@mail.example.org,United States,SMB,2022-09-26,organic
+C0578,Diego Miller,diego.miller578@example.com,United States,Consumer,2023-03-28,organic
+C0579,John Silva,john.silva579@example.com,Canada,SMB,2025-03-18,organic
+C0580,Valentina White,valentina.white580@example.com,United Kingdom,Consumer,2022-06-10,referral
+C0581,Arjun Smith,arjun.smith581@mail.example.org,United States,Enterprise,2023-12-18,
+C0582,Linda Patel,linda.patel582@shop.example.net,Australia,Consumer,2023-12-29,social
+C0583,Elizabeth Silva,elizabeth.silva583@mail.example.org,Australia,Consumer,2022-09-02,organic
+C0584,Emma Garcia,emma.garcia584@mail.example.org,Australia,SMB,2023-10-06,organic
+C0585,Hana Sato,hana.sato585@mail.example.org,United States,Consumer,2025-04-22,
+C0586,Wei Miller,wei.miller586@example.com,Australia,Enterprise,2023-05-28,paid_search
+C0587,David Santos,david.santos587@example.com,United States,Consumer,2022-04-23,
+C0588,David Garcia,david.garcia588@mail.example.org,United States,Consumer,2022-06-19,organic
+C0589,Susan Martin,susan.martin589@mail.example.org,United States,Consumer,2022-02-21,
+C0590,Felix Taylor,felix.taylor590@example.com,Australia,SMB,2022-12-15,organic
+C0591,Valentina Smith,valentina.smith591@shop.example.net,United States,Consumer,2024-05-06,organic
+C0592,Felix Rossi,felix.rossi592@shop.example.net,France,SMB,2024-10-30,referral
+C0593,William Clark,william.clark593@example.com,Germany,Enterprise,2025-03-07,organic
+C0594,Anna Hernandez,anna.hernandez594@mail.example.org,Canada,SMB,2022-06-16,paid_search
+C0595,Linda Santos,linda.santos595@example.com,Japan,Consumer,2022-06-03,social
+C0596,Thomas Rossi,thomas.rossi596@example.com,United States,SMB,2022-07-22,paid_search
+C0597,Mateo Thompson,mateo.thompson597@example.com,Australia,Enterprise,2024-07-02,social
+C0598,James Wilson,james.wilson598@mail.example.org,United States,Consumer,2022-01-18,paid_search
+C0599,Jessica White,jessica.white599@shop.example.net,United Kingdom,Consumer,2024-04-26,organic
+C0600,Charles Moreau,charles.moreau600@example.com,United Kingdom,SMB,2024-03-06,referral

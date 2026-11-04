@@ -1,0 +1,16 @@
+id: l2_ecom_peak_month_2025
+difficulty: L2
+dataset: data/ecommerce/orders.csv
+question: Which calendar month of 2025 had the highest net revenue, and how much was it? Net revenue =
+  quantity * unit_price * (1 - discount_pct), counting only orders with status 'completed'.
+expected:
+  expected_rows:
+  - month: 2025-11
+    net_revenue: 64462.44
+  tolerance: 0.005
+  order_matters: false
+tags:
+- ecommerce
+- revenue
+- dates
+- top-n

@@ -1,0 +1,12 @@
+id: l1_ecom_cancelled_orders
+difficulty: L1
+dataset: data/ecommerce/orders.csv
+question: How many orders have status 'cancelled'?
+expected:
+  expected_value: 233.0
+  tolerance: 0
+  abs_tolerance: 0.0
+tags:
+- ecommerce
+- count
+- filter

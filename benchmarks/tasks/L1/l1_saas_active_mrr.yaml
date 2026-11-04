@@ -1,0 +1,11 @@
+id: l1_saas_active_mrr
+difficulty: L1
+dataset: data/saas/subscriptions.csv
+question: What is the total MRR (sum of the mrr column) of active subscriptions? Round to 2 decimals.
+expected:
+  expected_value: 2492292.0
+  tolerance: 0.001
+  abs_tolerance: 0.0
+tags:
+- saas
+- aggregate
