@@ -3,7 +3,7 @@
 #
 #   scripts/run_experiments.sh --agent dry-run --yes        # free end-to-end check, no API calls
 #   scripts/run_experiments.sh                              # real models, all 80 tasks, judge on
-#   scripts/run_experiments.sh --only semantic --control runs/experiments/<stamp>/baseline-sonnet/<run>
+#   scripts/run_experiments.sh --only semantic --control runs/experiments/<stamp>/sonnet/<run>
 #
 # Every arm is one `python -m analyst_agent.eval run` over all tasks with every AGENT_* feature
 # flag pinned (a local .env cannot leak into a comparison) and a --budget-usd cap of
