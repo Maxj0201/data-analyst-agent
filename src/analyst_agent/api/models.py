@@ -22,7 +22,7 @@ class JobStatus(StrEnum):
 
 
 class EventType(StrEnum):
-    """Step types streamed over SSE. The agent core may emit any of the first eight."""
+    """Step types streamed over SSE. The agent core may emit any of the first eleven."""
 
     plan = "plan"
     llm_call = "llm_call"
@@ -32,6 +32,9 @@ class EventType(StrEnum):
     progress = "progress"
     approval_required = "approval_required"
     approval_decision = "approval_decision"
+    route = "route"  # AGENT_ROUTING_ENABLED
+    escalation = "escalation"  # AGENT_ROUTING_ENABLED
+    semantic_retrieval = "semantic_retrieval"  # AGENT_SEMANTIC_LAYER_ENABLED
     # Emitted by the API itself:
     status = "status"
     error = "error"

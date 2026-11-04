@@ -21,6 +21,11 @@ Event contract (what the job store, SSE stream, frontend and tracing consume)
                   waits for ``POST /jobs/{id}/approve``)
 ``approval_decision`` ``{"action_id", "tool", "turn", "approved", "decided_by", "note",
                   "waited_s"}`` (``decided_by``: human | auto | timeout | unavailable)
+``route``        ``{"tier", "model", "reason", "router_model", "source", "error"?}``
+                  (model routing; ``source``: router | fallback)
+``escalation``   ``{"from_tier", "to_tier", "from_model", "to_model", "trigger", "turn",
+                  "detail"}`` (``trigger``: critic_revise | tool_error)
+``semantic_retrieval`` ``{"metrics": [names], "scores": [...], "error"}`` (semantic layer)
 
 Events carrying ``turn``/``max_turns`` drive the job's progress fraction. Unknown types are
 passed through to the stream untouched.

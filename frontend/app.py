@@ -100,6 +100,17 @@ def describe(event: str, d: dict) -> str | None:
         return f"⏹️ **Stopped ({d.get('status')})** — {d.get('detail', '')}"
     if event == "error":
         return f"❌ {d.get('message')}"
+    if event == "route":
+        fallback = " (router fallback)" if d.get("source") == "fallback" else ""
+        return f"🧭 **Routed to {d.get('tier')}** → `{d.get('model')}`{fallback}"
+    if event == "escalation":
+        return (
+            f"⬆️ **Escalated {d.get('from_tier')} → {d.get('to_tier')}** "
+            f"(`{d.get('to_model')}`, {d.get('trigger')})"
+        )
+    if event == "semantic_retrieval":
+        names = ", ".join(f"`{m}`" for m in d.get("metrics") or []) or "none"
+        return f"📚 **Metric definitions** — {names}"
     if event == "approval_required":
         return f"✋ **Approval required** — {d.get('summary', '')}"
     if event == "approval_decision":
