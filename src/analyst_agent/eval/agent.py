@@ -155,13 +155,11 @@ def _run_core(question: str, paths: list[Path]) -> Any:
         if name in datasets:
             raise ValueError(f"two dataset files map to table name {name!r}")
         datasets[name] = p
-    ctx = ToolContext(
-        sandbox=create_sandbox(datasets, artifacts_dir=settings.artifacts_dir),
-        tables=list(datasets),
-        artifacts_dir=settings.artifacts_dir,
-    )
-    loop = AgentLoop(LLMClient(settings), build_default_registry(), ctx, settings)
-    return loop.run(question)
+    # Per-task sandbox: tasks run concurrently, so the module-level sandbox must not be shared.
+    with create_sandbox(datasets, artifacts_dir=settings.artifacts_dir) as sb:
+        ctx = ToolContext(tables=sb.tables, artifacts_dir=settings.artifacts_dir, sandbox=sb)
+        loop = AgentLoop(LLMClient(settings), build_default_registry(), ctx, settings)
+        return loop.run(question)
 
 
 async def core_agent(inp: AgentInput) -> AgentOutput:

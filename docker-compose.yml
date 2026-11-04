@@ -1,0 +1,43 @@
+# Local stack: API on :8000, Streamlit UI on :8501.
+#   cp .env.example .env   # add ANTHROPIC_API_KEY etc.
+#   docker compose up --build
+services:
+  api:
+    build:
+      context: .
+      target: api
+    image: analyst-agent-api:local
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      AGENT_DATA_DIR: /app/data
+      AGENT_ARTIFACTS_DIR: /app/artifacts
+      AGENT_JOB_DB_PATH: /app/data/jobs.sqlite3
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      # Lets the API reach a self-hosted Langfuse on the host (docs/observability.md).
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - agent-data:/app/data
+      - agent-artifacts:/app/artifacts
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      target: frontend
+    image: analyst-agent-frontend:local
+    environment:
+      AGENT_API_URL: http://api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  agent-data:
+  agent-artifacts:
