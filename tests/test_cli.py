@@ -187,3 +187,53 @@ def test_ask_dry_run_every_flag_combination(
     )
     if approval != "prompt-no":
         assert "**North America** has the highest total_mrr" in res.output
+
+
+# --------------------------------------------------------------------------- trace show / ls
+
+
+def test_trace_show_prints_saved_tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import json
+    import re
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AGENT_ARTIFACTS_DIR", str(tmp_path / "art"))
+    monkeypatch.setenv("AGENT_TRACE_STORE_ENABLED", "true")
+    monkeypatch.setenv("AGENT_TRACES_DIR", str(tmp_path / "traces"))
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    data = REPO / "benchmarks/data/saas/subscriptions.csv"
+    ask_trace = tmp_path / "ask.json"
+    runner = CliRunner()
+
+    res = runner.invoke(
+        app,
+        ["ask", "-d", str(data), "which region has the highest revenue", "--dry-run",
+         "--trace", str(ask_trace)],
+    )  # fmt: skip
+    assert res.exit_code == 0, res.output
+    m = re.search(r"analyst-agent trace show (run_[0-9a-f]+)", res.output)
+    assert m, res.output
+    run_id = m.group(1)
+    assert (tmp_path / "traces" / f"{run_id}.json").is_file()
+
+    shown = runner.invoke(app, ["trace", "show", run_id])
+    assert shown.exit_code == 0, shown.output
+    out = shown.output
+    assert f"✓ run {run_id} status=completed" in out
+    assert "├─ ✓ turn 1" in out and "llm:agent dry-run" in out and "tool:run_sql" in out
+    assert "critic round=1 verdict=pass" in out
+    assert re.search(r"total \d+(ms|\.\d\ds) \| \$0\.0000 \| \d+ LLM calls \| \d+ tool calls", out)
+    assert "planner@" in out
+    assert "─ ✓ plan " not in runner.invoke(app, ["trace", "show", run_id, "--compact"]).output
+
+    # ``ask --trace`` output carries the same tree, so a path works too.
+    by_path = runner.invoke(app, ["trace", "show", str(ask_trace), "--json"])
+    assert by_path.exit_code == 0, by_path.output
+    tree = json.loads(by_path.output[by_path.output.index("{") :])
+    assert tree["kind"] == "run" and tree["metadata"]["run_id"] == run_id
+
+    listed = runner.invoke(app, ["trace", "ls"])
+    assert run_id in listed.output and "completed" in listed.output
+
+    missing = runner.invoke(app, ["trace", "show", "run_nope"])
+    assert missing.exit_code == 1 and "No saved trace" in missing.output
