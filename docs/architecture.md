@@ -1,25 +1,26 @@
 # Architecture
 
-> This describes the code on `main`. Where the code and this file disagree, the code wins and this
-> file should be updated. The README carries the same diagram; configuration is in
-> [`configuration.md`](configuration.md).
+> This describes the code on `main` after integration round 3 (#12–#17). Where the code and this
+> file disagree, the code wins and this file should be updated. The README carries a condensed
+> version of this diagram; configuration is in [`configuration.md`](configuration.md). Both
+> diagrams are render-checked with mermaid 11.4.1 in headless Chromium.
 
 ## System overview
 
 ```mermaid
 flowchart TB
     subgraph Clients
-        CLI["CLI<br/>analyst-agent ask"]
-        UI["Streamlit frontend<br/>step log · approve/deny panel"]
-        EVALCLI["Eval CLI<br/>run / report / compare"]
+        CLI["CLI<br/>analyst-agent ask · trace show"]
+        UI["Streamlit UI<br/>step timeline · approve/deny cards<br/>charts · cost panel · sample picker"]
+        EVALCLI["Eval CLI<br/>run / report / compare / tags"]
         MCPC["MCP client<br/>Claude Desktop / Claude Code"]
     end
 
     subgraph API["API layer (FastAPI)"]
-        REST["POST /datasets, POST /ask<br/>GET /jobs/{id}, /report, /artifacts"]
+        REST["POST /datasets · POST /ask<br/>GET /jobs/{id}, /report, /artifacts<br/>GET /datasets/samples (flag)"]
         APPROVE["POST /jobs/{id}/approve"]
         SSE["GET /jobs/{id}/events<br/>(SSE step stream)"]
-        JOBS[("Job store<br/>in-memory + SQLite fallback")]
+        JOBS[("Job store<br/>in-memory + SQLite mirror<br/>always reaches a terminal state")]
         BROKER["ApprovalBroker<br/>per-job wait · timeout = deny"]
     end
 
@@ -27,41 +28,41 @@ flowchart TB
 
     subgraph Core["Agent core (hand-written loop)"]
         ROUTER["Router (flag)<br/>L1/L2/L3 → working model<br/>escalation on failure"]
-        SEM["Semantic layer (flag)<br/>BM25 over metrics.yaml"]
+        SEM["Semantic layer (flag)<br/>BM25 / embedding / hybrid<br/>+ mention rerank"]
+        MEM["Insight memory (flag)<br/>SQLite, keyed by dataset fingerprint"]
         LOOP["Planner loop<br/>Plan → Execute → Verify → Revise"]
         GATE{{"Approval gate (flag)<br/>EXPLAIN rows · run_python · budget"}}
-        STATE["AgentState<br/>messages · tool results · route · approvals · cost"]
         BUDGET{{"Budget guard<br/>max turns · max tokens"}}
-        LLM["LLM client wrapper<br/>retries · prompt caching · CostTracker per model"]
-        CRITIC["Critic<br/>separate LLM call, own system prompt<br/>verdict: pass | revise"]
-        PROMPTS[("Versioned prompts<br/>core/prompts.py")]
+        CHECK["Consistency check (flag)<br/>headline ↔ key_numbers ↔ tool output"]
+        CRITIC["Critic<br/>separate LLM call, own prompt<br/>verdict: pass | revise"]
+        LLM["LLM wrapper (core/llm.py)<br/>retries · prompt caching · cost per model"]
+        PROMPTS[("Versioned prompts<br/>name@version + sha256")]
     end
 
     subgraph Tools["Tool registry"]
-        T1["inspect_schema"]
-        T2["run_sql"]
-        T3["run_python"]
-        T4["make_chart"]
-        T5["final_report"]
-        WRAP["Untrusted-data wrapper<br/>delimiters + label"]
+        TOOLS["inspect_schema · run_sql · run_python<br/>make_chart · final_report"]
+        WRAP["Untrusted-data fence<br/>case/space-insensitive delimiters"]
     end
 
-    subgraph Sandbox["Sandbox (one per job / task / server)"]
-        DUCK[("DuckDB, in-memory<br/>read-only · SELECT/WITH/EXPLAIN allowlist<br/>30s timeout · 200-row cap")]
-        PY["Python subprocess<br/>no network · rlimit memory · 60s timeout<br/>temp cwd · pandas/numpy/matplotlib/scipy"]
-        ART[("artifacts/ (chart PNGs)")]
+    subgraph Sandbox["Sandbox (one per job / eval task / MCP server)"]
+        DUCK[("DuckDB, in-memory, read-only<br/>SELECT/WITH/EXPLAIN allowlist<br/>no external access · 30s · 200 rows")]
+        PY["Python subprocess<br/>seccomp-bpf + Landlock<br/>rlimits · scrubbed env · 60s kill"]
+        ART[("artifacts/ (PNG, CSV)")]
     end
 
-    METRICS[("benchmarks/metrics/*.yaml")]
     ANTHROPIC(["Anthropic API"])
-    LF[("Langfuse<br/>traces · spans · cost")]
+
+    subgraph Obs["Observability (flags)"]
+        REC["TraceRecorder<br/>run → turn → llm / tool / critic / approval / route"]
+        LF[("Langfuse<br/>spans · cost · eval scores")]
+        TSTORE[("Trace store (JSON)<br/>for trace show")]
+    end
 
     subgraph Eval["Eval harness"]
-        TASKS[("benchmarks/tasks<br/>L1 · L2 · L3 · ADV")]
-        ERUN["runner<br/>child process per task · killed on timeout<br/>auto-approves gates"]
-        SCORE["scorers<br/>numeric · row-set · LLM judge · ADV rules"]
-        RUNS[("runs/&lt;timestamp&gt;/<br/>results.jsonl · meta.json (prompt versions)")]
-        EREP["report / compare<br/>routing · semantic · prompt diffs"]
+        TASKS[("benchmarks/tasks<br/>80 tasks: L1 · L2 · L3 · ADV")]
+        ERUN["Runner<br/>forkserver child per task · parent env passed<br/>process group killed on timeout · auto-approve"]
+        SCORE["Scorers<br/>numeric · row-set · LLM judge · ADV rules"]
+        RUNS[("runs/&lt;ts&gt;/<br/>results.jsonl · meta.json")]
     end
 
     CLI --> LOOP
@@ -69,52 +70,47 @@ flowchart TB
     UI --> APPROVE
     UI --> SSE
     REST --> JOBS
-    REST -->|background job| LOOP
+    REST -->|worker thread| LOOP
     APPROVE --> BROKER
     BROKER -->|decision| GATE
     LOOP -->|step events| SSE
-    LOOP --> JOBS
 
-    LOOP -->|first: classify| ROUTER
-    ROUTER --> LLM
-    LOOP -->|then: retrieve| SEM
-    SEM --> METRICS
-    LOOP <--> STATE
+    LOOP -->|1 classify| ROUTER
+    LOOP -->|2 retrieve| SEM
+    LOOP -->|3 recall / save| MEM
     LOOP --> BUDGET
     LOOP --> LLM
+    ROUTER --> LLM
     PROMPTS --> LOOP
     LLM <--> ANTHROPIC
-    LOOP -->|draft answer + SQL/code + tables| CRITIC
-    CRITIC --> LLM
-    CRITIC -->|revise: issues + suggested_fix| LOOP
 
     LOOP -->|tool_use| GATE
-    GATE -->|approved / not gated| Tools
+    GATE -->|approved / ungated| TOOLS
     GATE -->|denied: error result, re-plan| LOOP
-    T2 --> WRAP
-    T1 --> WRAP
-    T3 --> WRAP
-    WRAP -->|tool_result as untrusted data| LOOP
-    T1 --> DUCK
-    T2 --> DUCK
-    T3 --> PY
-    T4 --> ART
-    T5 -->|terminates loop| LOOP
+    TOOLS --> DUCK
+    TOOLS --> PY
+    TOOLS --> ART
+    TOOLS --> WRAP
+    WRAP -->|tool_result as data| LOOP
+
+    LOOP -->|final_report| CHECK
+    CHECK --> CRITIC
+    CRITIC --> LLM
+    CRITIC -->|revise| LOOP
 
     MCPC <--> MCPS
-    MCPS -->|same handlers, no loop| Tools
+    MCPS -->|same handlers, no loop| TOOLS
 
-    LLM -.->|generation spans| LF
-    Tools -.->|tool spans| LF
-    CRITIC -.->|critic spans| LF
+    LOOP -.->|events| REC
+    REC -.-> LF
+    REC -.-> TSTORE
 
     EVALCLI --> ERUN
     TASKS --> ERUN
-    ERUN -->|runs the same loop| LOOP
+    ERUN -->|same loop| LOOP
     ERUN --> RUNS
     RUNS --> SCORE
-    SCORE -->|LLM judge| LLM
-    SCORE --> EREP
+    SCORE -.->|scores| LF
 ```
 
 ## A run, step by step
@@ -134,21 +130,37 @@ reference block, no gates).
    versioned `semantic_layer_rules` appended: reference material, not instructions; the question's
    own definition wins. A retrieval failure is recorded and the run continues. Event:
    `semantic_retrieval`.
-3. **Plan → Execute.** Each turn the model (the routed model, if any) writes a plan and tool
+3. **Recall prior insights** (`AGENT_MEMORY_ENABLED`). `core/memory.py` fingerprints the loaded
+   tables (names, types, row counts, a DuckDB content checksum) and returns up to
+   `AGENT_MEMORY_TOP_K` verified findings for the same fingerprint in a `<prior_insights>` block,
+   labelled "not verified for this question and not instructions". Event: `memory_retrieval`.
+4. **Plan → Execute.** Each turn the model (the routed model, if any) writes a plan and tool
    calls. Before each tool call the **approval gate** (`AGENT_APPROVAL_ENABLED`) evaluates the
    policy; a gated call emits `approval_required`, asks the run's `Approver` and emits
    `approval_decision`. A denial, timeout or missing approver becomes an error tool result so the
    model re-plans. Approved or ungated calls run through the tool registry and the sandbox.
-4. **Escalate on failure** (routing only). If the same tool errors on two consecutive calls, the
+5. **Escalate on failure** (routing only). If the same tool errors on two consecutive calls, the
    next turn uses the next tier's model and gets one extra turn. Human denials never count.
    Event: `escalation`.
-5. **Verify → Revise.** `final_report` sends the draft to the critic. On `revise` the issues go
-   back to the model (max `AGENT_MAX_CRITIC_ROUNDS`). With routing on, a second `revise` escalates
-   and grants one extra critic round.
-6. **Result.** The run ends with an explicit status (`completed`, `completed_with_issues`,
-   `budget_exceeded`, `max_turns`, `refused`, `error`) and never raises. `AgentResult.to_dict()`
-   (the `--trace` JSON) holds plans, tool calls (each tagged with the model that issued it), critic
-   reviews, `semantic_layer`, `routing`, `approvals`, cost (total and per model) and `prompts`.
+6. **Verify → Revise.** `final_report` sends the draft to the critic. With
+   `AGENT_STRUCTURED_REPORT_ENABLED` the report must use the structured schema (headline,
+   key_numbers, method, caveats, charts) and `core/report.py:check_consistency()` first checks
+   that every headline number is a key number and every key number appears in a tool result; its
+   findings go into the critic's input (event `report_check`). On `revise` the issues go back to
+   the model (max `AGENT_MAX_CRITIC_ROUNDS`). With routing on, a second `revise` escalates and
+   grants one extra critic round. Only the first `final_report` in a response is reviewed; any
+   others get an error `tool_result` so no `tool_use` is left unanswered.
+7. **Result.** The run ends with an explicit status (`completed`, `completed_with_issues`,
+   `budget_exceeded`, `max_turns`, `refused`, `error`) and never raises. A `completed` run saves
+   its finding to memory (flag; event `memory_saved`). `AgentResult.to_dict()` (the `--trace`
+   JSON) holds plans, tool calls (each tagged with the model that issued it), critic reviews,
+   `semantic_layer`, `routing`, `approvals`, `report_checks`, `memory`, cost (total and per
+   model) and `prompts`.
+
+Every step is also an event on one `on_event` callback (`run_start`, `turn`, `plan`, `llm_call`,
+`tool_call`, `tool_result`, `approval_*`, `route`, `escalation`, `semantic_retrieval`,
+`memory_*`, `report_check`, `critic`, `stop`), which the API streams over SSE and
+`core/tracing.py` folds into a span tree.
 
 ## Components
 
@@ -169,8 +181,8 @@ by the tests, `ask --dry-run`, the eval `dry-run` agent and the UI e2e harness; 
 queues for the agent, critic, report writer and router, and records the requested model per call.
 
 ### Prompts (`core/prompts.py`)
-The planner, critic, report-writer, router and semantic-layer-rules prompts are constants with no
-per-run values (cacheable), each wrapped in a `Prompt(name, version, text)` with a 12-character
+The planner (1.1.0), critic (1.1.0), report-writer, router, semantic-layer-rules,
+structured-report-rules and memory-rules prompts are constants with no per-run values (cacheable), each wrapped in a `Prompt(name, version, text)` with a 12-character
 sha256 fingerprint. `prompt_versions()` goes into every trace, every eval run's `meta.json` and
 every API job result. `tests/test_prompts.py` pins version and fingerprint, so changing a prompt's
 text without bumping its version fails CI; `eval compare` lists prompt changes between runs.
@@ -217,16 +229,31 @@ JSON-schema definitions plus Python handlers registered in `tools/registry.py`.
 | `inspect_schema(table?)` | Columns, dtypes, row count, 5 sample rows, null rates | DuckDB |
 | `run_sql(query)` | Read-only analytical queries | DuckDB sandbox |
 | `run_python(code)` | Stats, reshaping, anything SQL can't express | Subprocess sandbox |
-| `make_chart(spec)` | matplotlib PNG saved under `artifacts/`, returns path | Local FS |
-| `final_report(markdown, key_numbers)` | Ends the loop with the answer | n/a |
+| `make_chart(spec)` | PNG via the object-oriented Matplotlib API (thread-safe, no pyplot); picks bar/line/scatter/hist from the data shape when `chart_type` is omitted; `bins` 1..200, ≤10k points per series | Local FS |
+| `final_report(markdown, key_numbers)` | Ends the loop with the answer; structured schema (headline, key_numbers, method, caveats, charts) when `AGENT_STRUCTURED_REPORT_ENABLED` | n/a |
+
+Every text result passes through `wrap_untrusted()` before it reaches the model: a
+`<tool_output … trust="untrusted">` fence whose delimiters are neutralised inside the data with a
+case- and whitespace-insensitive regex (review M1), so a cell cannot close the fence.
+
+### Structured reports and insight memory (`core/report.py`, `core/memory.py`)
+Both behind flags; see step 3 and 6 above and [`report-and-memory.md`](report-and-memory.md).
+The consistency check is deterministic and never blocks a report by itself; it informs the
+critic. Memory only stores runs the critic passed, never feeds numbers forward as facts, and is
+off for benchmark runs (tasks share datasets).
 
 ### Sandbox (`sandbox/`)
 Two independent layers, detailed in [`sandbox.md`](sandbox.md):
 
 - **DuckDB runner:** in-memory database loaded from CSV, Parquet, SQLite or DuckDB files (SQLite / DuckDB files give one table per base table), read-only connection,
   statement allowlist, 30 s timeout, first 200 rows plus total count.
-- **Python runner:** separate interpreter per call, 60 s wall clock, `RLIMIT` memory cap, sockets
-  blocked at import time via `sitecustomize`, temp-dir cwd, curated library set, structured errors.
+- **Python runner:** separate interpreter per call in its own process group, 60 s wall clock,
+  rlimits applied by the child itself (no `preexec_fn`, which can deadlock in the threaded API),
+  then a **seccomp-bpf** filter (no `execve`/`fork`/non-`AF_UNIX` sockets/`ptrace`/`setrlimit`)
+  and a **Landlock** ruleset (read only the interpreter and libraries, write only the temp dir)
+  installed right before user code. On top: scrubbed environment, audit hook, import allowlist,
+  temp-dir cwd, structured errors. The kernel layers were added after the review found two
+  escapes the Python-level guards missed (`docs/review.md` H1, H2).
 
 **Interface contract** (from `CLAUDE.md`): `sandbox/__init__.py` exposes
 `run_sql(query) -> SqlResult` and `run_python(code) -> PyResult`, both dataclasses. The tools layer
@@ -247,10 +274,14 @@ A second LLM call with its own system prompt. It receives the draft answer, the 
 and result tables, and returns `{verdict: pass|revise, issues: [...], suggested_fix: str}`.
 
 ### Eval harness (`eval/`, `benchmarks/`)
-YAML tasks in four tiers (L1 lookups, L2 multi-step, L3 open-ended with rubrics, ADV adversarial).
+80 YAML tasks in four tiers (24 L1 lookups, 24 L2 multi-step, 16 L3 open-ended with rubrics,
+16 ADV adversarial), tagged (`join`, `window`, `cohort`, `injection`, `pii`, …) so `eval run
+--tag` selects and the report breaks accuracy down by tag; see [`benchmark.md`](benchmark.md).
 The async runner executes the *same* agent loop as production. With `--isolation process` (the
 default) each task runs in its own child process (forkserver, own process group, the parent's
-environment at task start); on timeout the whole group is killed, sandbox subprocesses included.
+`os.environ` passed in and applied at task start, because a forkserver child otherwise inherits
+the environment the fork server started with); on timeout the whole group is killed, sandbox
+subprocesses included.
 Results (trace, cost, cost per model, routing, latency, tool-call count, critic rounds) go to
 `runs/<timestamp>/results.jsonl`; `meta.json` holds the config and prompt versions. Scorers:
 numeric tolerance, row-set match, LLM-as-judge for rubrics (skipped and excluded from accuracy
@@ -263,14 +294,23 @@ CI's `eval-smoke` job runs the oracle, a dry run, and a dry run with every flag 
 ### API and streaming (`api/`)
 FastAPI exposes dataset upload (CSV, Parquet, SQLite or DuckDB files, validated by magic bytes),
 `POST /ask` (returns a `job_id`), job status / report / artifacts, `POST /jobs/{id}/approve`, and
-`GET /jobs/{id}/events`, a Server-Sent Events stream of every step: `plan`, `route`,
-`semantic_retrieval`, `llm_call`, `tool_call`, `tool_result`, `approval_required`,
+`GET /jobs/{id}/events`, a Server-Sent Events stream of every step: `run_start`, `turn`, `plan`,
+`route`, `semantic_retrieval`, `llm_call`, `tool_call`, `tool_result`, `approval_required`,
 `approval_decision`, `escalation`, `critic`, `progress`, `final` (the event contract is documented
-in `api/agent.py`). Jobs run on a thread pool against an in-memory store with a SQLite fallback.
+in `api/agent.py`; other loop events pass through untouched). With `AGENT_SAMPLES_ENABLED`,
+`GET /datasets/samples` lists the bundled benchmark CSVs with example questions (adversarial
+fixtures excluded). An ASGI middleware enforces the upload size limit while the body streams in.
+Jobs run on a thread pool against an in-memory store with a best-effort SQLite mirror; the whole
+job body is guarded so every job reaches a terminal state and its SSE stream ends.
 `GET /jobs/{id}` carries `pending_approval` while a job waits, and the job result carries the
-report, key numbers, artifacts and prompt versions. The Streamlit UI (`frontend/app.py`) talks to
-the API over HTTP only: it streams the steps, pauses on `approval_required` to show an
-approve/deny panel, and resumes from the last event id.
+report, key numbers, artifacts and prompt versions.
+
+The Streamlit UI (`frontend/app.py`) talks to the API over HTTP only: a step timeline (escaped
+HTML from `frontend/ui_helpers.py`), approve/deny cards on `approval_required`, the report with
+this job's own charts inline, a per-model cost panel and a raw-trace tab, resuming from the last
+event id. All untrusted Markdown goes through `frontend/render.py`, which makes every image inert
+except this job's own `/artifacts/...` charts (review M2: a Markdown image is a zero-click
+exfiltration channel).
 
 ### MCP server (`mcp_server.py`)
 `analyst-agent-mcp` serves `inspect_schema`, `run_sql`, `run_python` and `make_chart` over stdio
@@ -330,10 +370,14 @@ arbitrary Python runs in a separate, resource-limited, network-less subprocess.
 generated code is treated as untrusted. SQL covers most analysis and can be made safe cheaply (the
 allowlist is defence in depth on top of read-only mode, so a parser bypass still can't write).
 Python is the escape hatch for what SQL can't do, so it is isolated at the process level: separate
-interpreter, `setrlimit`, no sockets, temp cwd, wall-clock kill.
+interpreter, rlimits, seccomp-bpf (no exec, fork or network sockets), Landlock (filesystem
+confined to the libraries and a temp dir), scrubbed environment, wall-clock kill.
 
-**Cost / limits:** a subprocess with rlimits is not a container or a VM. It does not defend against
-kernel exploits or a determined attacker with arbitrary code execution. For a hostile multi-tenant
+**Cost / limits:** a confined subprocess is not a container or a VM. It runs as the same Unix
+user, does not defend against kernel exploits, and loses filesystem confinement on kernels
+without Landlock (< 5.13, some gVisor setups; it logs `[sandbox] Landlock unavailable`). The
+kernel layers exist because the review broke the Python-level guards twice (H1: shell via
+`_posixsubprocess.fork_exec`; H2: arbitrary file I/O via pyarrow's native readers). For a hostile multi-tenant
 deployment, run each job in a container / gVisor / Firecracker with no network at the infrastructure
 level. `docs/sandbox.md` states exactly what is and isn't protected.
 
@@ -366,14 +410,15 @@ paired with controls that do not depend on model behaviour: the read-only sandbo
 bulk PII exposure). Security should not rest on the prompt alone.
 
 ### 6. New capabilities ship behind flags that default off
-**Decision:** model routing, the semantic layer and human-in-the-loop approval are each behind an
-`AGENT_*_ENABLED` flag that defaults to `false`, with CLI and eval overrides.
+**Decision:** model routing, the semantic layer, structured reports, insight memory,
+human-in-the-loop approval, the bundled samples and the three observability sinks are each behind
+an `AGENT_*_ENABLED` flag that defaults to `false`, with CLI and eval overrides where they apply.
 
 **Why:** each changes cost, latency or accuracy in ways that have to be measured, not assumed.
 With a flag, the same commit can be evaluated with the feature on and off (`eval compare`), and
 the off path is byte-for-byte the previous behaviour (same prompts, no extra calls), which the
-existing tests pin. The flags are independent; CI runs a dry run with all three on.
+existing tests pin. The flags are independent; CI runs a dry run with every flag on.
 
-**Cost:** more combinations to test. `tests/test_cli.py` runs `ask --dry-run` over every
-combination, and the eval runner auto-approves gates so an all-flags eval does not stall waiting
+**Cost:** more combinations to test. `tests/test_cli.py` runs `ask --dry-run` over 64
+combinations of routing × semantic × structured report × memory × approval mode, and the eval runner auto-approves gates so an all-flags eval does not stall waiting
 for a human who is not there.
