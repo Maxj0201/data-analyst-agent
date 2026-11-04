@@ -16,6 +16,7 @@ htmlcov/
 
 # Project
 data/uploads/
+data/embeddings/
 runs/
 artifacts/
 
