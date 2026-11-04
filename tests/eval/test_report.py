@@ -80,9 +80,9 @@ def test_text_fallback_rate() -> None:
 
 def test_render_report_markdown() -> None:
     md = render_report(RUN_A, {"config": {"agent": "x"}, "git_sha": "abc"})
-    assert "| Accuracy (all) | 60.0% |" in md
+    assert "| Accuracy (scored) | 60.0% |" in md
     assert "| Adversarial pass rate | 50.0% |" in md
-    assert "| L1 | 2 | 1 | 50.0% |" in md
+    assert "| L1 | 2 | 1 | 0 | 50.0% |" in md
     assert "| Critic correction rate | 50.0% |" in md
 
 
@@ -98,7 +98,7 @@ def test_render_compare_flips() -> None:
     assert "Newly passing in new (2): `b`, `d`" in md
     assert "Regressions in new (1): `a`" in md
     assert "Only in base: 1; only in new: 1" in md
-    assert "| Accuracy (all) | 60.0% | 80.0% | +20.0 pp |" in md
+    assert "| Accuracy (scored) | 60.0% | 80.0% | +20.0 pp |" in md
 
 
 def test_cli_run_report_compare(tmp_path: Path) -> None:
@@ -134,3 +134,57 @@ def test_cli_run_report_compare(tmp_path: Path) -> None:
     assert res.exit_code == 0 and (tmp_path / "c.md").exists()
     res = runner.invoke(app, ["list", "-d", "ADV"])
     assert res.exit_code == 0 and res.output.count("adv_") == 10
+
+
+def test_skipped_tasks_are_excluded_from_accuracy() -> None:
+    rows = [
+        r("a", "L1", True),
+        r("l3", "L3", False, score_details={"method": "rubric_judge", "skipped": True}),
+    ]
+    s = summarize(rows)
+    assert s["n"] == 2 and s["skipped"] == 1 and s["accuracy"] == 1.0
+    assert s["by_difficulty"]["L3"]["accuracy"] is None
+    md = render_report(rows)
+    assert "| Skipped (not gradable) | 1 |" in md and "| L3 | 1 | 0 | 1 | – | – |" in md
+
+
+def _prompts(**versions: tuple[str, str]) -> dict[str, Any]:
+    return {"prompts": {k: {"version": v, "sha256": h} for k, (v, h) in versions.items()}}
+
+
+def test_compare_shows_prompt_version_diffs() -> None:
+    meta_a = _prompts(planner=("1.0.0", "aaa"), critic=("1.0.0", "ccc"), report_writer=("1", "w"))
+    meta_b = _prompts(planner=("1.1.0", "bbb"), critic=("1.0.0", "ddd"), report_writer=("1", "w"))
+    md = render_compare(RUN_A, RUN_A, "base", "new", meta_a, meta_b)
+    assert "## Prompt versions" in md
+    assert "| planner | 1.0.0 (`aaa`) | 1.1.0 (`bbb`) | changed |" in md
+    assert (
+        "| critic | 1.0.0 (`ccc`) | 1.0.0 (`ddd`) | ⚠️ text changed without a version bump |" in md
+    )
+    assert "report_writer" not in md
+
+    same = render_compare(RUN_A, RUN_A, "a", "b", meta_a, meta_a)
+    assert "Identical prompts in both runs." in same
+    old = render_compare(RUN_A, RUN_A, "a", "b", {}, meta_a)
+    assert "No prompt metadata for a" in old
+
+
+def test_cli_gate_and_prompt_metadata(tmp_path: Path) -> None:
+    runner = CliRunner()
+    base = ["run", "--no-judge", "--limit", "5", "--fail-under", "1.0", "--runs-dir"]
+    res = runner.invoke(app, [*base, str(tmp_path / "ok"), "--agent", "oracle"])
+    assert res.exit_code == 0, res.output
+    (run_dir,) = (tmp_path / "ok").iterdir()
+    meta = json.loads((run_dir / "meta.json").read_text())
+    assert meta["prompts"]["planner"]["version"] and meta["config"]["isolation"] == "process"
+    assert "- prompts: critic@" in (run_dir / "report.md").read_text()
+
+    res = runner.invoke(app, [*base, str(tmp_path / "bad"), "--agent", "tests.eval.agents:echo_42"])
+    assert res.exit_code == 1 and "FAILED: accuracy" in res.output
+
+    res = runner.invoke(
+        app,
+        ["run", "--limit", "1", "--no-score", "--fail-on-error", "--runs-dir", str(tmp_path / "e")]
+        + ["--agent", "tests.eval.agents:raising_agent"],
+    )
+    assert res.exit_code == 1 and "did not complete" in res.output

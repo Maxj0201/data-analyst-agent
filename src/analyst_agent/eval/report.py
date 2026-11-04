@@ -1,7 +1,9 @@
 """Aggregate eval runs into Markdown reports and compare two runs.
 
 Metric definitions:
-- accuracy: passed / total, where errors and timeouts count as failures.
+- accuracy: passed / scored, where errors and timeouts count as failures. Tasks the run could
+  not grade (L3 rubric tasks without an LLM judge, ``score_details.skipped``) are excluded from
+  the denominator and reported as "skipped".
 - adversarial pass rate: accuracy over ADV tasks.
 - latency p50/p95: linear-interpolated percentiles of per-task wall-clock seconds.
 - critic intervention rate: share of tasks where the critic asked for at least one revision.
@@ -35,18 +37,28 @@ def _rate(num: int, den: int) -> float | None:
     return num / den if den else None
 
 
+def is_skipped(r: dict[str, Any]) -> bool:
+    """The task was not graded (e.g. needs the LLM judge and the run had none)."""
+    return bool((r.get("score_details") or {}).get("skipped"))
+
+
 def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
     n = len(results)
+    scored = [r for r in results if not is_skipped(r)]
     by_diff: dict[str, dict[str, Any]] = {}
     for d in DIFFICULTIES:
         rs = [r for r in results if r["difficulty"] == d]
         if not rs:
             continue
+        rs_scored = [r for r in rs if not is_skipped(r)]
         by_diff[d] = {
             "n": len(rs),
             "passed": sum(r["passed"] for r in rs),
-            "accuracy": _rate(sum(r["passed"] for r in rs), len(rs)),
-            "mean_score": sum(r["score"] for r in rs) / len(rs),
+            "skipped": len(rs) - len(rs_scored),
+            "accuracy": _rate(sum(r["passed"] for r in rs_scored), len(rs_scored)),
+            "mean_score": (
+                sum(r["score"] for r in rs_scored) / len(rs_scored) if rs_scored else None
+            ),
             "errors": sum(r["status"] == "error" for r in rs),
             "timeouts": sum(r["status"] == "timeout" for r in rs),
         }
@@ -59,7 +71,8 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "n": n,
         "passed": sum(r["passed"] for r in results),
-        "accuracy": _rate(sum(r["passed"] for r in results), n),
+        "skipped": n - len(scored),
+        "accuracy": _rate(sum(r["passed"] for r in scored), len(scored)),
         "by_difficulty": by_diff,
         "adversarial_pass_rate": adv["accuracy"] if adv else None,
         "errors": sum(r["status"] == "error" for r in results),
@@ -91,7 +104,8 @@ def _usd(x: float | None) -> str:
 
 HEADLINE = [
     ("Tasks", "n", str),
-    ("Accuracy (all)", "accuracy", _pct),
+    ("Skipped (not gradable)", "skipped", str),
+    ("Accuracy (scored)", "accuracy", _pct),
     ("Adversarial pass rate", "adversarial_pass_rate", _pct),
     ("Errors / timeouts", None, None),
     ("Mean cost / task", "mean_cost_usd", _usd),
@@ -123,7 +137,8 @@ def render_report(
             f"- started: {meta.get('started_at', '?')}  finished: {meta.get('finished_at', '?')}",
             f"- git: `{meta.get('git_sha')}`  agent: `{cfg.get('agent')}`  "
             f"judge: `{cfg.get('judge_model')}`  concurrency: {cfg.get('concurrency')}  "
-            f"timeout: {cfg.get('timeout_s')}s",
+            f"timeout: {cfg.get('timeout_s')}s  isolation: {cfg.get('isolation', 'inline')}",
+            f"- prompts: {_prompt_summary(meta.get('prompts'))}",
             "",
         ]
     lines += ["## Summary", "", "| Metric | Value |", "|---|---|"]
@@ -132,13 +147,13 @@ def render_report(
         "",
         "## Accuracy by difficulty",
         "",
-        "| Difficulty | Tasks | Passed | Accuracy | Mean score | Errors | Timeouts |",
-        "|---|---|---|---|---|---|---|",
+        "| Difficulty | Tasks | Passed | Skipped | Accuracy | Mean score | Errors | Timeouts |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for d, b in s["by_difficulty"].items():
         lines.append(
-            f"| {d} | {b['n']} | {b['passed']} | {_pct(b['accuracy'])} | "
-            f"{b['mean_score']:.2f} | {b['errors']} | {b['timeouts']} |"
+            f"| {d} | {b['n']} | {b['passed']} | {b['skipped']} | {_pct(b['accuracy'])} | "
+            f"{_num(b['mean_score'])} | {b['errors']} | {b['timeouts']} |"
         )
     lines += [
         "",
@@ -150,12 +165,57 @@ def render_report(
     for r in sorted(results, key=lambda r: (DIFFICULTIES.index(r["difficulty"]), r["task_id"])):
         lines.append(
             f"| {r['task_id']} | {r['difficulty']} | {r['status']} | "
-            f"{'✅' if r['passed'] else '❌'} | {r['score']:.2f} | {r['latency_s']:.1f}s | "
+            f"{_mark(r)} | {r['score']:.2f} | {r['latency_s']:.1f}s | "
             f"{_usd(r['cost_usd'])} | {r['tool_calls']} | "
             f"{r['critic_rounds']}/{r.get('critic_revisions', 0)} |"
         )
     lines += ["", "_Critic column: rounds / revise verdicts._", ""]
     return "\n".join(lines)
+
+
+def _mark(r: dict[str, Any]) -> str:
+    return "⏭️" if is_skipped(r) else "✅" if r["passed"] else "❌"
+
+
+def _prompt_summary(prompts: dict[str, dict[str, str]] | None) -> str:
+    if not prompts:
+        return "unknown (run predates prompt versioning)"
+    return ", ".join(f"{name}@{p.get('version')}" for name, p in sorted(prompts.items()))
+
+
+def render_prompt_diff(
+    pa: dict[str, dict[str, str]] | None,
+    pb: dict[str, dict[str, str]] | None,
+    name_a: str = "A",
+    name_b: str = "B",
+) -> list[str]:
+    """Markdown lines describing prompt-version differences between two runs' metadata."""
+    lines = ["", "## Prompt versions", ""]
+    if not pa or not pb:
+        missing = [n for n, p in ((name_a, pa), (name_b, pb)) if not p]
+        lines.append(f"- No prompt metadata for {' and '.join(missing)} (run predates versioning).")
+        return lines
+    rows = []
+    for name in sorted(pa.keys() | pb.keys()):
+        a, b = pa.get(name), pb.get(name)
+        if a == b:
+            continue
+        if a is None or b is None:
+            note = f"only in {name_a if b is None else name_b}"
+        elif a.get("version") == b.get("version"):
+            note = "⚠️ text changed without a version bump"
+        else:
+            note = "changed"
+        rows.append(f"| {name} | {_pv(a)} | {_pv(b)} | {note} |")
+    if not rows:
+        lines.append("- Identical prompts in both runs.")
+        return lines
+    lines += [f"| Prompt | {name_a} | {name_b} | Note |", "|---|---|---|---|", *rows]
+    return lines
+
+
+def _pv(p: dict[str, str] | None) -> str:
+    return "–" if p is None else f"{p.get('version')} (`{p.get('sha256')}`)"
 
 
 def _delta(a: float | None, b: float | None, pct: bool) -> str:
@@ -171,7 +231,12 @@ def _delta(a: float | None, b: float | None, pct: bool) -> str:
 
 
 def render_compare(
-    a: list[dict[str, Any]], b: list[dict[str, Any]], name_a: str = "A", name_b: str = "B"
+    a: list[dict[str, Any]],
+    b: list[dict[str, Any]],
+    name_a: str = "A",
+    name_b: str = "B",
+    meta_a: dict[str, Any] | None = None,
+    meta_b: dict[str, Any] | None = None,
 ) -> str:
     sa, sb = summarize(a), summarize(b)
     lines = [
@@ -205,6 +270,11 @@ def render_compare(
                 f"| Accuracy {d} | {_pct(acc_a)} | {_pct(acc_b)} | {_delta(acc_a, acc_b, True)} |"
             )
 
+    if meta_a is not None or meta_b is not None:
+        lines += render_prompt_diff(
+            (meta_a or {}).get("prompts"), (meta_b or {}).get("prompts"), name_a, name_b
+        )
+
     ra = {r["task_id"]: r for r in a}
     rb = {r["task_id"]: r for r in b}
     fixed = sorted(t for t in ra.keys() & rb.keys() if not ra[t]["passed"] and rb[t]["passed"])
@@ -234,7 +304,7 @@ def render_compare(
         for t in common:
             x, y = ra[t], rb[t]
             lines.append(
-                f"| {t} | {'✅' if x['passed'] else '❌'} | {'✅' if y['passed'] else '❌'} | "
+                f"| {t} | {_mark(x)} | {_mark(y)} | "
                 f"{y['score'] - x['score']:+.2f} | {x['latency_s']:.1f}s | "
                 f"{y['latency_s']:.1f}s | {_usd(x['cost_usd'])} | {_usd(y['cost_usd'])} |"
             )
@@ -242,12 +312,16 @@ def render_compare(
     return "\n".join(lines)
 
 
-def report_run(run_dir: Path) -> str:
-    results = load_results(run_dir)
+def load_meta(run_dir: Path) -> dict[str, Any] | None:
     meta_path = run_dir / "meta.json"
-    meta = json.loads(meta_path.read_text()) if meta_path.exists() else None
-    return render_report(results, meta, title=f"Eval run {run_dir.name}")
+    return json.loads(meta_path.read_text()) if meta_path.exists() else None
+
+
+def report_run(run_dir: Path) -> str:
+    return render_report(load_results(run_dir), load_meta(run_dir), f"Eval run {run_dir.name}")
 
 
 def compare_runs(a: Path, b: Path) -> str:
-    return render_compare(load_results(a), load_results(b), a.name, b.name)
+    return render_compare(
+        load_results(a), load_results(b), a.name, b.name, load_meta(a) or {}, load_meta(b) or {}
+    )

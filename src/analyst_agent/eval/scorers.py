@@ -341,7 +341,9 @@ def build_rubric_prompt(task: Task, out: AgentOutput) -> str:
 async def score_rubric(task: Task, out: AgentOutput, judge: Judge | None) -> Score:
     rubric = task.expected.rubric or []
     if judge is None:
-        return Score(False, 0.0, "rubric_judge", {"error": "no judge configured"})
+        # Not a failure of the agent: the run cannot grade it. Reports exclude skipped tasks
+        # from accuracy (see eval/report.py) and count them separately.
+        return Score(False, 0.0, "rubric_judge", {"skipped": True, "error": "no judge configured"})
     try:
         verdict = await judge.complete(RUBRIC_SYSTEM, build_rubric_prompt(task, out), RUBRIC_SCHEMA)
     except JudgeError as e:
