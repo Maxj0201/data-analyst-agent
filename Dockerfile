@@ -31,11 +31,15 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable --extra api
 
 FROM builder-base AS builder-frontend
-# The UI only talks HTTP to the API, so the project package itself isn't installed.
+# The UI only talks HTTP to the API: install just streamlit + httpx (and their deps), pinned to
+# the versions in uv.lock, without the agent's own dependencies (duckdb, anthropic, ...).
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-install-project --extra frontend
+    uv export --frozen --no-dev --extra frontend --no-emit-project --no-hashes \
+        -o /tmp/constraints.txt \
+ && uv venv /app/.venv \
+ && uv pip install --python /app/.venv/bin/python -c /tmp/constraints.txt streamlit httpx
 
 # ---- runtime base: no uv, no build tooling, non-root user ----------------------------------
 FROM ${PYTHON_IMAGE} AS runtime

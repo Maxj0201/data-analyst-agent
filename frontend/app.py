@@ -3,6 +3,9 @@
 Talks to the FastAPI service only over HTTP, so it runs in its own container.
 
     AGENT_API_URL=http://localhost:8000 streamlit run frontend/app.py
+
+On Cloud Run, set ``AGENT_API_ID_TOKEN=true`` to call a private API service with a Google ID
+token from the metadata server (see deploy/cloudrun.md).
 """
 
 from __future__ import annotations
@@ -10,21 +13,53 @@ from __future__ import annotations
 import json
 import os
 import re
-from collections.abc import Iterator
+import threading
+import time
+from collections.abc import Generator, Iterator
 
 import httpx
 import streamlit as st
 
 API_URL = os.environ.get("AGENT_API_URL", "http://localhost:8000").rstrip("/")
-TERMINAL = {"succeeded", "partial", "failed"}
+USE_ID_TOKEN = os.environ.get("AGENT_API_ID_TOKEN", "").lower() in {"1", "true", "yes"}
+METADATA_TOKEN_URL = (
+    "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity"
+)
 IMAGE_MD = re.compile(r"!\[[^\]]*\]\([^)]*\)")
 
 st.set_page_config(page_title="Data Analyst Agent", page_icon="📊", layout="centered")
 
 
+class GoogleIdTokenAuth(httpx.Auth):
+    """Bearer ID token for a private Cloud Run service, refreshed before its 1h expiry."""
+
+    def __init__(self, audience: str) -> None:
+        self._audience = audience
+        self._token, self._fetched_at = "", 0.0
+        self._lock = threading.Lock()
+
+    def _get_token(self) -> str:
+        with self._lock:
+            if time.time() - self._fetched_at > 45 * 60:
+                resp = httpx.get(
+                    METADATA_TOKEN_URL,
+                    params={"audience": self._audience},
+                    headers={"Metadata-Flavor": "Google"},
+                    timeout=5,
+                )
+                resp.raise_for_status()
+                self._token, self._fetched_at = resp.text, time.time()
+            return self._token
+
+    def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
+        request.headers["Authorization"] = f"Bearer {self._get_token()}"
+        yield request
+
+
 @st.cache_resource
 def api() -> httpx.Client:
-    return httpx.Client(base_url=API_URL, timeout=httpx.Timeout(30.0, read=None))
+    auth = GoogleIdTokenAuth(API_URL) if USE_ID_TOKEN else None
+    return httpx.Client(base_url=API_URL, timeout=httpx.Timeout(30.0, read=None), auth=auth)
 
 
 def stream_events(job_id: str) -> Iterator[tuple[str, dict]]:

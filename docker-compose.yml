@@ -16,6 +16,9 @@ services:
       AGENT_JOB_DB_PATH: /app/data/jobs.sqlite3
     ports:
       - "8000:8000"
+    extra_hosts:
+      # Lets the API reach a self-hosted Langfuse on the host (docs/observability.md).
+      - "host.docker.internal:host-gateway"
     volumes:
       - agent-data:/app/data
       - agent-artifacts:/app/artifacts
