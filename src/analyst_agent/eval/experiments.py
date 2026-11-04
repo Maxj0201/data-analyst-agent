@@ -116,8 +116,14 @@ class Estimate:
         }
 
 
-def estimate_run(settings: Settings, counts: dict[str, int], judge: bool = True) -> Estimate:
-    """Estimated USD for one ``eval run`` of ``counts`` tasks per level under ``settings``."""
+def estimate_run(
+    settings: Settings, counts: dict[str, int], judge: bool = True, batch_judge: bool = False
+) -> Estimate:
+    """Estimated USD for one ``eval run`` of ``counts`` tasks per level under ``settings``.
+
+    ``batch_judge``: the judge calls go through the Message Batches API (``eval run --batch``)
+    and are priced at :data:`~analyst_agent.core.llm.BATCH_DISCOUNT`.
+    """
     est = Estimate(n_tasks=sum(counts.values()))
     critic_on = settings.max_critic_rounds > 0
     judge_model = settings.judge_model or settings.model
@@ -146,7 +152,7 @@ def estimate_run(settings: Settings, counts: dict[str, int], judge: bool = True)
             else 0.0
         )
         j = (
-            n * estimate_cost_usd(judge_model, JUDGE_PROFILE[level])
+            n * estimate_cost_usd(judge_model, JUDGE_PROFILE[level], batch=batch_judge)
             if judge and level in JUDGE_PROFILE
             else 0.0
         )
@@ -560,6 +566,9 @@ def estimate(
         typer.Option("--semantic-layer/--no-semantic-layer", help="as `eval run`"),
     ] = None,
     no_judge: Annotated[bool, typer.Option(help="leave out the judge's cost")] = False,
+    batch: Annotated[
+        bool, typer.Option(help="price the judge at the Message Batches rate (eval run --batch)")
+    ] = False,
     factor: Annotated[float, typer.Option(min=0, help="multiply the estimate (cap headroom)")] = 1,
     fmt: Annotated[str, typer.Option("--format", help="usd | json")] = "json",
     benchmarks: Path = DEFAULT_BENCHMARK_ROOT,
@@ -573,7 +582,12 @@ def estimate(
         update["semantic_layer_enabled"] = semantic_layer
     if update:
         settings = settings.model_copy(update=update)
-    est = estimate_run(settings, level_counts(benchmarks, difficulty, limit), judge=not no_judge)
+    est = estimate_run(
+        settings,
+        level_counts(benchmarks, difficulty, limit),
+        judge=not no_judge,
+        batch_judge=batch,
+    )
     if fmt == "usd":
         typer.echo(f"{est.total_usd * factor:.2f}")
     elif fmt == "json":
@@ -591,19 +605,35 @@ def plan(
     typer.echo(plan_table(level_counts(benchmarks), cap_factor))
 
 
+def read_manifests(paths: list[Path]) -> list[ManifestRow]:
+    """Rows of several manifests (e.g. the baseline invocation and the one with the other
+    experiments); a later row for the same (experiment, arm) replaces an earlier one."""
+    rows: dict[tuple[str, str], ManifestRow] = {}
+    for path in paths:
+        for row in read_manifest(path):
+            rows[(row.experiment, row.arm)] = row
+    return list(rows.values())
+
+
 @app.command()
 def summary(
-    manifest: Annotated[Path, typer.Argument(help="TSV written by scripts/run_experiments.sh")],
+    manifest: Annotated[
+        list[Path],
+        typer.Argument(
+            help="TSV(s) written by scripts/run_experiments.sh; several are merged, later "
+            "rows replacing earlier ones for the same experiment/arm"
+        ),
+    ],
     out: Annotated[Path, typer.Option(help="where to write the Markdown")] = Path(
         "runs/summary.md"
     ),
     agent: Annotated[str | None, typer.Option(help="recorded in the header")] = None,
 ) -> None:
     """Write the comparison tables for every run listed in MANIFEST."""
-    rows = read_manifest(manifest)
+    rows = read_manifests(manifest)
     if not rows:
-        raise typer.BadParameter(f"{manifest} lists no runs")
-    header = {"manifest": f"`{manifest}`"}
+        raise typer.BadParameter(f"{', '.join(map(str, manifest))} lists no runs")
+    header = {"manifest": ", ".join(f"`{m}`" for m in manifest)}
     if agent:
         header["agent"] = f"`{agent}`"
     md = render_summary(rows, header)
