@@ -12,7 +12,7 @@ time goes. The short version:
   in the parent adds 60–200 ms.
 - **Kernel confinement is negligible.** Landlock plus seccomp take **1.4–2.2 ms** per call
   (Landlock ~0.7 ms, seccomp ~0.5 ms, loading `_oslock`/ctypes ~0.6 ms). That is about 0.15 %
-  of a call. The seccomp filter (115 instructions on x86_64 after this branch) adds no
+  of a call. The seccomp filter (115 instructions on x86_64, 103 on aarch64) adds no
   measurable cost per syscall.
 - **The audit hook makes each `open()` about 8 µs slower** (9.5 µs vs 1.2 µs), because it
   resolves every path with `os.path.realpath`. That only matters for code that opens

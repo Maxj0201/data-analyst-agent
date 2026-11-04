@@ -94,7 +94,7 @@ data: the sandbox never interpolates data values into SQL.
 | Wall-clock timeout | 60 s (configurable), then `SIGKILL` to the whole process group. Ignoring signals or catching exceptions doesn't help | OS |
 | Memory | `RLIMIT_AS` (default 1 GiB) via `resource.setrlimit`, applied by the child's `sitecustomize` before any other code (no `preexec_fn`, which can deadlock in a threaded server). Allocation bombs raise `MemoryError` → `MemoryLimitExceeded` | OS |
 | Other rlimits | `RLIMIT_CPU` (timeout + 5 s), `RLIMIT_FSIZE` 64 MiB (a full disk or giant files), `RLIMIT_NOFILE` 256, no core dumps. Hard limit = soft limit, and seccomp blocks `setrlimit`/`prlimit64`, so the child cannot raise them | OS |
-| seccomp-bpf (`_child/_oslock.py`) | Installed on every thread just before user code. These fail with `EPERM`: `execve`/`execveat`, `fork`/`vfork`, `clone` without `CLONE_THREAD`; **every** `socket()`, `AF_UNIX` included; `ptrace`, `process_vm_*`, `pidfd_*`, `kcmp`; signals to any process but itself (`kill`/`tgkill`/`rt_*sigqueueinfo` are checked against the child's pid); rlimit, priority and scheduler changes; namespace and mount syscalls; `chmod`/`chown`/`utimes`/xattr changes (path and fd forms) and `chattr`-style `ioctl`s; and host-wide syscalls that need a capability the service may hold as root (`reboot`, `init_module`, `kexec_*`, `sethostname`, `settimeofday`/`clock_settime`, `syslog`, `swapon`, `acct`, `iopl`, …). `clone3` and every syscall numbered 463 or higher (newer than anything the interpreter uses) get `ENOSYS`. Foreign-ABI (i386/x32) syscalls are refused. The full list is `_DENIED` / `_SELF_ONLY` / `_IOCTL_DENIED` in `_oslock.py`. Required on Linux: if it cannot be installed, the bootstrap refuses to run | Kernel |
+| seccomp-bpf (`_child/_oslock.py`) | Installed on every thread just before user code. These fail with `EPERM`: `execve`/`execveat`, `fork`/`vfork`, `clone` without `CLONE_THREAD`; **every** `socket()`, `AF_UNIX` included; `ptrace`, `process_vm_*`, `pidfd_*`, `kcmp`; signals to any process but itself (`kill`/`tgkill`/`rt_*sigqueueinfo` are checked against the child's pid); rlimit, priority and scheduler changes; namespace and mount syscalls; `chmod`/`chown`/`utimes`/xattr changes (path and fd forms) and `chattr`-style `ioctl`s; and host-wide syscalls that need a capability the service may hold as root (`reboot`, `init_module`, `kexec_*`, `sethostname`, `settimeofday`/`clock_settime`, `syslog`, `swapon`, `acct`, `iopl`, …). `clone3` and every syscall numbered 463 or higher (newer than anything the interpreter uses) get `ENOSYS`. Foreign-ABI (i386/x32) syscalls are refused. The full list is `_DENIED` / `_SELF_ONLY` / `_IOCTL_DENIED` in `_oslock.py`; the program is 115 BPF instructions on x86_64 and 103 on aarch64 (which lacks the legacy `fork`/`chmod`/`utime` syscalls). Required on Linux: if it cannot be installed, the bootstrap refuses to run | Kernel |
 | Landlock (`_child/_oslock.py`) | Same moment. Reads only under the read roots (interpreter, site-packages, fonts, tzdata, matplotlib cache), writes only in the temp dir, no `execve` of anything, no TCP bind/connect (ABI 4+), no signals to outside processes (ABI 6+). Best effort: kernels without Landlock (< 5.13, some gVisor setups) log `[sandbox] Landlock unavailable` to stderr and fall back to the audit hook | Kernel |
 | Scrubbed environment | Only `PATH`, `HOME`/`TMPDIR` (= the temp dir), locale, matplotlib and thread settings. **No** API keys, proxy variables or cloud credentials reach the child | OS |
 | Temp cwd | A new `TemporaryDirectory`, deleted after the run. Only allowlisted file types are copied out, never via symlinks | OS |
@@ -111,12 +111,25 @@ shell, and pyarrow (loaded by pandas) read and wrote arbitrary files with its ow
 (`pyarrow.input_stream(...)`, `DataFrame.to_parquet('/anywhere')`). Regression tests for both
 are in `tests/sandbox/test_python_security.py`.
 
-Cost: the kernel layers take about 2 ms per `run_python` call, against a call of about 1 s
-(mostly importing pandas, numpy, matplotlib and scipy). See
-[sandbox-performance.md](sandbox-performance.md).
+Cost (measured with `scripts/bench_sandbox.py`, details in
+[sandbox-performance.md](sandbox-performance.md)):
+
+| What | Time |
+|---|---|
+| Landlock + seccomp per `run_python` call | 1.4–2.2 ms (Landlock ~0.7, seccomp ~0.5, loading `_oslock`/ctypes ~0.6), about 0.15 % of a call |
+| Per-syscall cost of the 115-instruction filter | not measurable |
+| `run_python` call, end to end | 1–1.6 s, 65–80 % of it importing pandas, numpy, matplotlib and scipy in the fresh interpreter |
+| Audit hook per `open()` | ~9.5 µs vs 1.2 µs unhooked (`realpath` on every path) |
+| `run_sql` query on a built sandbox | 1–11 ms; building the sandbox costs 100–230 ms per dataset |
 
 The matplotlib font cache is built once by a trusted process into a private, owner-only
 directory. The sandbox can read it but not write it, so one run cannot poison the next.
+
+The filter program itself is unit-tested without loading it:
+`tests/sandbox/test_oslock_unit.py` runs `build_filter()`'s output through a small BPF
+interpreter on x86_64 and aarch64 and checks every rule (each denied syscall, every socket
+family, `clone` flags, signals to self vs others, the ioctl list, `ENOSYS` from 463 up, foreign
+ABIs) plus the instruction counts above.
 
 The test suite (`tests/sandbox/test_python_security.py`) runs every filesystem, network and
 process attack **twice**. The first run is as written. The second first steals the real
@@ -157,9 +170,11 @@ optional. A cheap test that the corpus compiles and covers every attack runs in 
 
 ### Found by the fuzzer and fixed
 
-Run against the code before this change, 88 of the 500 snippets (38 distinct attacks) got
-through (seed 20261104), and 3 `AF_UNIX` connections reached the host listener. All are fixed, each with a fast regression test in `tests/sandbox/test_python_security.py` that
-fails on the old code. "Full" means production mode: it worked with every layer on. The runs were as root (as in
+Run against the sandbox as it was before the fuzzer (PR #21), 88 of the 500 snippets (38
+distinct attacks) got through (seed 20261104), and 3 `AF_UNIX` connections reached the host
+listener. All are fixed, each with a fast regression test in
+`tests/sandbox/test_python_security.py` that fails on the old code. With the fixes, the default
+seed blocks or kills 500 of 500. "Full" means production mode: it worked with every layer on. The runs were as root (as in
 the dev container used here). The production image runs as the unprivileged `app` user,
 where the capability-gated rows fail anyway, but renicing or pinning the service's other
 processes, and chmod/utime/xattr changes on files the service owns (uploads, the job
