@@ -25,6 +25,12 @@ this order and only when the feature is on:
 After the tool calls (and escalations) come one ``{"type": "approval", "tool": ..., "approved":
 ..., "decided_by": "auto" | ...}`` per human-in-the-loop gate when ``AGENT_APPROVAL_ENABLED`` is
 on; eval runs auto-approve them unless ``eval run --no-auto-approve`` is given.
+
+Tracing: the ``core`` / ``dry-run`` agents also record the run's span tree
+(:class:`~analyst_agent.core.tracing.TraceRecorder`) and return it as ``AgentOutput.spans``,
+with the loop's ``run_id``. When the runner passes ``AgentInput.trace_id``
+(``AGENT_LANGFUSE_ENABLED``), the tree is mirrored to Langfuse under that trace id, so the
+runner can attach the task's scores to it afterwards.
 """
 
 from __future__ import annotations
@@ -37,6 +43,9 @@ from dataclasses import asdict, dataclass, field, is_dataclass
 from pathlib import Path
 from typing import Any
 
+from analyst_agent.core.langfuse_export import LangfuseSink, make_langfuse_client
+from analyst_agent.core.logs import log_context
+from analyst_agent.core.tracing import EventedLLM, SpanSink, TraceRecorder
 from analyst_agent.eval.schema import Task
 
 
@@ -45,6 +54,8 @@ class AgentInput:
     task_id: str
     question: str
     dataset_paths: list[Path]
+    trace_id: str | None = None  # Langfuse trace id to record under (None = no Langfuse)
+    trace_metadata: dict[str, Any] = field(default_factory=dict)  # e.g. eval run dir
 
 
 @dataclass
@@ -65,6 +76,11 @@ class AgentOutput:
     # per-model token/cost breakdown from ``CostTracker.by_model``.
     routing: dict[str, Any] | None = None
     cost_by_model: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Tracing (core adapters only): the loop's run id, the Langfuse trace id the run was
+    # recorded under, and the span tree (``Span.to_dict()``).
+    run_id: str | None = None
+    trace_id: str | None = None
+    spans: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.tool_calls is None:
@@ -112,7 +128,7 @@ def _jsonable(x: Any) -> Any:
     return str(x)
 
 
-def output_from_core(result: Any) -> AgentOutput:
+def output_from_core(result: Any, recorder: TraceRecorder | None = None) -> AgentOutput:
     """Map ``analyst_agent.core.loop.AgentResult`` onto :class:`AgentOutput`.
 
     Trace = the agent's plans, every tool call (``ToolCallRecord``) and every critic review,
@@ -165,7 +181,17 @@ def output_from_core(result: Any) -> AgentOutput:
     trace += [{"type": "critic", **r} for r in reviews]
     status = getattr(result.status, "value", str(result.status))
     cost = state.cost
+    spans = trace_id = None
+    if recorder is not None:
+        root = recorder.finish(
+            status=status, output=result.report, error=state.detail if status == "error" else None
+        )
+        spans = root.to_dict()
+        trace_id = root.metadata.get("langfuse_trace_id")
     return AgentOutput(
+        run_id=getattr(state, "run_id", None) or None,
+        trace_id=trace_id,
+        spans=spans,
         answer=result.report or "",
         key_numbers=_jsonable(result.key_numbers or {}),
         trace=trace,
@@ -188,16 +214,32 @@ def output_from_core(result: Any) -> AgentOutput:
 LLMFactory = Callable[[str, Any], Any]  # (question, sandbox) -> LLM
 
 
+def make_recorder(inp: AgentInput) -> TraceRecorder:
+    """Span recorder for one eval task; mirrored to Langfuse when ``inp.trace_id`` is set."""
+    sinks: list[SpanSink] = []
+    if inp.trace_id:
+        client = make_langfuse_client()
+        if client is not None:
+            sinks.append(LangfuseSink(client, trace_id=inp.trace_id, root_name="analyst-eval"))
+    return TraceRecorder(
+        sinks=sinks,
+        question=inp.question,
+        metadata={"task_id": inp.task_id, **inp.trace_metadata},
+    )
+
+
 def _run_core(
     question: str,
     paths: list[Path],
     llm_factory: LLMFactory | None = None,
     routing_enabled: bool | None = None,
     auto_approve: bool = True,
+    recorder: TraceRecorder | None = None,
 ) -> Any:
     try:
         from analyst_agent.core import AgentLoop, LLMClient, Settings
         from analyst_agent.core.approval import AutoApprover
+        from analyst_agent.core.llm import estimate_cost_usd
         from analyst_agent.tools import (
             ToolContext,
             build_default_registry,
@@ -226,7 +268,13 @@ def _run_core(
         # every gated step would be denied. Auto-approve by default (recorded as decided_by
         # "auto" in the trace); ``eval run --no-auto-approve`` measures the deny path instead.
         approver = AutoApprover() if auto_approve else None
-        loop = AgentLoop(llm, build_default_registry(), ctx, settings, approver=approver)
+        on_event = None
+        if recorder is not None:
+            llm = EventedLLM(llm, recorder.on_event, cost_fn=estimate_cost_usd)
+            on_event = recorder.on_event
+        loop = AgentLoop(
+            llm, build_default_registry(), ctx, settings, approver=approver, on_event=on_event
+        )
         return loop.run(question)
 
 
@@ -238,10 +286,18 @@ async def core_agent(
     ``routing_enabled`` overrides ``AGENT_ROUTING_ENABLED`` for this run (eval A/B).
     ``auto_approve`` approves every human-in-the-loop gate (``AGENT_APPROVAL_ENABLED``).
     """
-    result = await asyncio.to_thread(
-        _run_core, inp.question, list(inp.dataset_paths), None, routing_enabled, auto_approve
-    )
-    return output_from_core(result)
+    recorder = make_recorder(inp)
+    with log_context(task_id=inp.task_id):
+        result = await asyncio.to_thread(
+            _run_core,
+            inp.question,
+            list(inp.dataset_paths),
+            None,
+            routing_enabled,
+            auto_approve,
+            recorder,
+        )
+    return output_from_core(result, recorder)
 
 
 def _dry_run_llm(question: str, sb: Any) -> Any:
@@ -254,15 +310,18 @@ async def dry_run_agent(
     inp: AgentInput, routing_enabled: bool | None = None, auto_approve: bool = True
 ) -> AgentOutput:
     """Run the real agent loop with the scripted offline LLM (no API calls)."""
-    result = await asyncio.to_thread(
-        _run_core,
-        inp.question,
-        list(inp.dataset_paths),
-        _dry_run_llm,
-        routing_enabled,
-        auto_approve,
-    )
-    return output_from_core(result)
+    recorder = make_recorder(inp)
+    with log_context(task_id=inp.task_id):
+        result = await asyncio.to_thread(
+            _run_core,
+            inp.question,
+            list(inp.dataset_paths),
+            _dry_run_llm,
+            routing_enabled,
+            auto_approve,
+            recorder,
+        )
+    return output_from_core(result, recorder)
 
 
 @dataclass(frozen=True)

@@ -91,6 +91,13 @@ def run(
     runs_dir: Path = SETTINGS.eval_runs_dir,
 ) -> None:
     """Run the agent over the selected tasks and write runs/<timestamp>/."""
+    import os
+
+    from analyst_agent.core.logs import configure_logging
+
+    # Progress goes to stdout; structured logs (with task_id / run_id) only when asked for.
+    explicit = SETTINGS.log_json_enabled or "AGENT_LOG_LEVEL" in os.environ
+    configure_logging(level=SETTINGS.log_level if explicit else "WARNING")
     if isolation not in ("process", "inline"):
         raise typer.BadParameter("--isolation must be 'process' or 'inline'")
     tasks = load_tasks(benchmarks, difficulty, tag, task, limit)
