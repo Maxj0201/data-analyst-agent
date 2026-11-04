@@ -1,0 +1,133 @@
+version: 1
+domain: saas
+description: >-
+  Governed metric definitions for the SaaS benchmark dataset (table: subscriptions).
+  Each row is one subscription; mrr is its current monthly recurring revenue.
+metrics:
+  - name: churn_rate
+    label: Churn rate (period, cohort-based)
+    definition: >-
+      Of the subscriptions active at the start of a period (start_date on or before the
+      period start and not churned by then), the share whose churn_date falls inside the
+      period. Reported on a 0-100 scale. Example below is calendar year 2025.
+    tables: [subscriptions]
+    synonyms: [customer churn, logo churn, subscription churn, cancellation rate, churned,
+               percentage of subscriptions churned, churn percentage,
+               attrition, lost customers]
+    sql_fragment: |
+      WITH cohort AS (
+        SELECT *
+        FROM subscriptions
+        WHERE start_date <= DATE '2025-01-01'
+          AND (churn_date IS NULL OR churn_date > DATE '2025-01-01')
+      )
+      SELECT 100.0 * AVG(CASE WHEN churn_date BETWEEN DATE '2025-01-01' AND DATE '2025-12-31'
+                              THEN 1 ELSE 0 END) AS churn_rate_pct
+      FROM cohort
+    caveats:
+      - Subscriptions started during the period are excluded from the cohort.
+      - Logo (count) churn, not revenue churn; see revenue_churn_rate for the MRR-weighted view.
+      - All-time share of churned rows (status = 'churned') is a different, period-less measure.
+
+  - name: active_mrr
+    label: Active MRR
+    definition: >-
+      Monthly recurring revenue from currently active subscriptions: sum of mrr where
+      status = 'active'.
+    tables: [subscriptions]
+    synonyms: [mrr, monthly recurring revenue, recurring revenue, current revenue, run rate]
+    sql_fragment: |
+      SELECT SUM(mrr) AS active_mrr
+      FROM subscriptions
+      WHERE status = 'active'
+    caveats:
+      - mrr for annual plans is already normalised to a monthly amount.
+      - MRR at a past date must be computed from start_date / churn_date, not status.
+
+  - name: arr
+    label: Annual recurring revenue (ARR)
+    definition: Active MRR multiplied by 12.
+    tables: [subscriptions]
+    synonyms: [annual recurring revenue, annualized revenue, annual run rate]
+    sql_fragment: |
+      SELECT 12 * SUM(mrr) AS arr
+      FROM subscriptions
+      WHERE status = 'active'
+    caveats:
+      - A run-rate, not recognised revenue for any calendar year.
+
+  - name: arpu
+    label: ARPU / ARPA
+    definition: >-
+      Average revenue per account: active MRR divided by the number of active
+      subscriptions (each subscription is one account).
+    tables: [subscriptions]
+    synonyms: [average revenue per user, average revenue per account, arpa, revenue per
+               account, revenue per customer, mrr per account]
+    sql_fragment: |
+      SELECT SUM(mrr) / COUNT(*) AS arpu
+      FROM subscriptions
+      WHERE status = 'active'
+    caveats:
+      - Per account, not per seat; divide by SUM(seats) for revenue per seat.
+      - Each subscription row is treated as one account.
+
+  - name: net_revenue_retention
+    label: Net revenue retention (NRR)
+    definition: >-
+      MRR at the end of a period from the accounts active at its start, divided by those
+      accounts' MRR at the start, on a 0-100 scale. Churned accounts contribute 0 at the end.
+      Example below is calendar year 2025.
+    tables: [subscriptions]
+    synonyms: [nrr, ndr, net dollar retention, revenue retention, dollar retention,
+               expansion, net retention]
+    sql_fragment: |
+      WITH cohort AS (
+        SELECT *
+        FROM subscriptions
+        WHERE start_date <= DATE '2025-01-01'
+          AND (churn_date IS NULL OR churn_date > DATE '2025-01-01')
+      )
+      SELECT 100.0 * SUM(CASE WHEN churn_date IS NULL OR churn_date > DATE '2025-12-31'
+                              THEN mrr ELSE 0 END) / SUM(mrr) AS net_revenue_retention_pct
+      FROM cohort
+    caveats:
+      - The data holds a single current mrr per subscription with no expansion or contraction
+        history, so NRR here equals gross revenue retention and cannot exceed 100%.
+      - New subscriptions started during the period are excluded.
+
+  - name: revenue_churn_rate
+    label: Revenue (MRR) churn rate
+    definition: >-
+      MRR lost to subscriptions churning in a period divided by MRR of the subscriptions
+      active at its start, on a 0-100 scale. Example below is calendar year 2025.
+    tables: [subscriptions]
+    synonyms: [mrr churn, gross revenue churn, dollar churn, lost mrr, churned mrr,
+               revenue lost to churn]
+    sql_fragment: |
+      WITH cohort AS (
+        SELECT *
+        FROM subscriptions
+        WHERE start_date <= DATE '2025-01-01'
+          AND (churn_date IS NULL OR churn_date > DATE '2025-01-01')
+      )
+      SELECT 100.0 * SUM(CASE WHEN churn_date BETWEEN DATE '2025-01-01' AND DATE '2025-12-31'
+                              THEN mrr ELSE 0 END) / SUM(mrr) AS revenue_churn_rate_pct
+      FROM cohort
+    caveats:
+      - For absolute MRR lost in 2025 across all subscriptions (including ones started during
+        2025), sum mrr where year(churn_date) = 2025 without the cohort filter.
+
+  - name: average_tenure_churned
+    label: Average tenure of churned subscriptions
+    definition: Mean of (churn_date - start_date) in days over churned subscriptions.
+    tables: [subscriptions]
+    synonyms: [customer lifetime, tenure, lifespan, time to churn, subscription length,
+               days before churn]
+    sql_fragment: |
+      SELECT AVG(DATE_DIFF('day', start_date, churn_date)) AS avg_tenure_days
+      FROM subscriptions
+      WHERE status = 'churned'
+    caveats:
+      - Survivorship - active subscriptions are excluded, so this understates expected
+        lifetime of the whole base.

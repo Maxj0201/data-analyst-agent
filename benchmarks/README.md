@@ -19,12 +19,13 @@ benchmarks/
   data/hr/                  # employees, 2025 payroll
   data/support/             # support_tickets.csv (contains injection payloads + fake PII)
   tasks/{L1,L2,L3,ADV}/*.yaml
+  metrics/{ecommerce,saas,hr}.yaml   # semantic-layer metric definitions (hand-written)
 ```
 
 All data is synthetic. Emails use `example.com`/`example.org`/`example.net` domains and
 phone numbers use the `555` range.
 
-Never edit the CSVs or the task YAML by hand. Change `generate.py` and rerun it:
+Never edit the CSVs or the task YAML by hand (`metrics/` is the exception: it is hand-written). Change `generate.py` and rerun it:
 
 ```bash
 uv run python benchmarks/data/generate.py
@@ -90,3 +91,23 @@ Each run writes `runs/<timestamp>/`:
 
 Settings come from `AGENT_*` env vars: `AGENT_JUDGE_MODEL` (default: `AGENT_MODEL`),
 `AGENT_JUDGE_EFFORT`, `AGENT_EVAL_CONCURRENCY`, `AGENT_EVAL_TIMEOUT_S`, `AGENT_EVAL_RUNS_DIR`.
+
+## Semantic layer metrics
+
+`metrics/*.yaml` holds governed metric definitions (schema: `analyst_agent.semantic.schema`):
+`name`, `definition`, `sql_fragment` (read-only DuckDB SQL), `domain`, `synonyms`, `caveats`,
+plus optional `label` and `tables`. With `AGENT_SEMANTIC_LAYER_ENABLED=true` the agent retrieves
+the top `AGENT_SEMANTIC_TOP_K` definitions (BM25 over name + synonyms + definition, restricted to
+metrics whose `tables` are loaded) and puts them in a labelled `<metric_reference>` block in the
+first planner message, before any SQL is written.
+
+Every `sql_fragment` is executed against the CSVs by `tests/semantic/test_benchmark_metrics.py`.
+
+Each retrieval is recorded in the trace as `{"type": "semantic_retrieval", "metrics": [...]}`.
+`eval report` / `eval compare` show "Semantic layer on" and "Mean metrics retrieved":
+
+```bash
+AGENT_SEMANTIC_LAYER_ENABLED=false uv run python -m analyst_agent.eval run -d L2 -d L3
+AGENT_SEMANTIC_LAYER_ENABLED=true  uv run python -m analyst_agent.eval run -d L2 -d L3
+uv run python -m analyst_agent.eval compare runs/<off> runs/<on>
+```
