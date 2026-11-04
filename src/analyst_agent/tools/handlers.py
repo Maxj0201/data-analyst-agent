@@ -174,15 +174,19 @@ RUN_PYTHON = Tool(
 # --------------------------------------------------------------------------- make_chart
 
 CHART_TYPES = ("bar", "barh", "line", "scatter", "hist", "pie")
+MAX_BINS = 200
+MAX_POINTS = 10_000
 
 
 def make_chart(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    # Object-oriented Matplotlib only: pyplot keeps global figure state, which is not safe when
+    # several API jobs render charts on different worker threads at the same time.
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
 
     spec = args["spec"]
+    if not isinstance(spec, dict):
+        return ToolResult("`spec` must be an object.", True)
     kind = spec.get("chart_type", "bar")
     if kind not in CHART_TYPES:
         return ToolResult(f"Unsupported chart_type {kind!r}; use one of {CHART_TYPES}", True)
@@ -196,47 +200,51 @@ def make_chart(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             )
         if s.get("x") is not None and len(s["x"]) != len(s["y"]):
             return ToolResult("Series `x` and `y` must have the same length.", True)
+        if len(s["y"]) > MAX_POINTS:
+            return ToolResult(
+                f"Too many points ({len(s['y'])}); aggregate to <= {MAX_POINTS}.", True
+            )
+    bins = spec.get("bins", 20)
+    if isinstance(bins, bool) or not isinstance(bins, int) or not 1 <= bins <= MAX_BINS:
+        return ToolResult(f"`bins` must be an integer between 1 and {MAX_BINS}.", True)
 
-    fig, ax = plt.subplots(figsize=(8, 5), dpi=120)
-    try:
-        for s in series:
-            label = s.get("name") or None
-            if kind == "bar":
-                ax.bar([str(v) for v in s["x"]], s["y"], label=label)
-            elif kind == "barh":
-                ax.barh([str(v) for v in s["x"]], s["y"], label=label)
-            elif kind == "line":
-                ax.plot(s["x"], s["y"], marker="o", label=label)
-            elif kind == "scatter":
-                ax.scatter(s["x"], s["y"], label=label)
-            elif kind == "hist":
-                ax.hist(s["y"], bins=spec.get("bins", 20), label=label)
-            elif kind == "pie":
-                ax.pie(
-                    s["y"], labels=[str(v) for v in (s.get("x") or [])] or None, autopct="%1.1f%%"
-                )
-        ax.set_title(spec.get("title", ""))
-        if kind != "pie":
-            ax.set_xlabel(spec.get("x_label", ""))
-            ax.set_ylabel(spec.get("y_label", ""))
-        if len(series) > 1:
-            ax.legend()
-        if kind == "bar" and len(series[0]["x"]) > 6:
-            plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
-        fig.tight_layout()
+    fig = Figure(figsize=(8, 5), dpi=120)
+    FigureCanvasAgg(fig)
+    ax = fig.add_subplot()
+    for s in series:
+        label = s.get("name") or None
+        if kind == "bar":
+            ax.bar([str(v) for v in s["x"]], s["y"], label=label)
+        elif kind == "barh":
+            ax.barh([str(v) for v in s["x"]], s["y"], label=label)
+        elif kind == "line":
+            ax.plot(s["x"], s["y"], marker="o", label=label)
+        elif kind == "scatter":
+            ax.scatter(s["x"], s["y"], label=label)
+        elif kind == "hist":
+            ax.hist(s["y"], bins=bins, label=label)
+        elif kind == "pie":
+            ax.pie(s["y"], labels=[str(v) for v in (s.get("x") or [])] or None, autopct="%1.1f%%")
+    ax.set_title(spec.get("title", ""))
+    if kind != "pie":
+        ax.set_xlabel(spec.get("x_label", ""))
+        ax.set_ylabel(spec.get("y_label", ""))
+    if len(series) > 1:
+        ax.legend()
+    if kind == "bar" and len(series[0]["x"]) > 6:
+        for tick in ax.get_xticklabels():
+            tick.set_rotation(45)
+            tick.set_horizontalalignment("right")
+    fig.tight_layout()
 
-        ctx.artifacts_dir.mkdir(parents=True, exist_ok=True)
-        slug = (
-            re.sub(r"[^a-z0-9]+", "-", spec.get("title", "chart").lower()).strip("-")[:40]
-            or "chart"
-        )
-        digest = hashlib.sha1(json.dumps(spec, sort_keys=True, default=str).encode()).hexdigest()[
-            :8
-        ]
-        path = ctx.artifacts_dir / f"{slug}-{digest}.png"
-        fig.savefig(path)
-    finally:
-        plt.close(fig)
+    ctx.artifacts_dir.mkdir(parents=True, exist_ok=True)
+    slug = (
+        re.sub(r"[^a-z0-9]+", "-", str(spec.get("title", "chart")).lower()).strip("-")[:40]
+        or "chart"
+    )
+    digest = hashlib.sha1(json.dumps(spec, sort_keys=True, default=str).encode()).hexdigest()[:8]
+    path = ctx.artifacts_dir / f"{slug}-{digest}.png"
+    fig.savefig(path)
     return ToolResult(f"Chart saved to {path}", data={"path": str(path)})
 
 
@@ -269,7 +277,7 @@ MAKE_CHART = Tool(
                     "x": {"type": "array", "items": {}, "description": "Single-series x values."},
                     "y": {"type": "array", "items": {"type": "number"}},
                     "series": {"type": "array", "items": _SERIES_SCHEMA},
-                    "bins": {"type": "integer"},
+                    "bins": {"type": "integer", "minimum": 1, "maximum": MAX_BINS},
                 },
                 "required": ["chart_type", "title"],
             }
