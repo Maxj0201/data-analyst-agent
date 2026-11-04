@@ -19,6 +19,18 @@ dependencies = [
 [project.scripts]
 analyst-agent = "analyst_agent.cli:app"
 
+[project.optional-dependencies]
+api = [
+    "fastapi>=0.162.0",
+    "langfuse>=5.1.0",
+    "python-multipart>=0.0.33",
+    "uvicorn[standard]>=0.54.0",
+]
+frontend = [
+    "httpx>=0.28.1",
+    "streamlit>=1.66.1",
+]
+
 [dependency-groups]
 dev = [
     "pytest",
