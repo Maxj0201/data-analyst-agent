@@ -130,10 +130,21 @@ why the short forms are there. The test also found **two more surfaces**, now ma
 
 ### Branches
 
-Deleted the remote branches of merged or closed PRs: `docs/eval-runbook` (#19), `docs/final`
-(#18), `test/coverage-and-properties` (#20), `test/sandbox-fuzz` (#21), and, once pushing
-`main` marked them merged, `fix/review-2` (#23) and `chore/first-run` (#22). #15's branch was
-already gone. I kept `main` and the `claude/*` session branches, which have no PR.
+**Not deleted yet.** These six remote branches belong to merged PRs, and each is contained in
+`main`: `docs/eval-runbook` (#19), `docs/final` (#18), `test/coverage-and-properties` (#20),
+`test/sandbox-fuzz` (#21), `fix/review-2` (#23) and `chore/first-run` (#22). Deleting them from
+the integration session failed: the session's git proxy refused `git push --delete` with
+HTTP 403 (a policy denial), and its GitHub tools cannot delete refs. To delete them with
+repository write access:
+
+```bash
+git push origin --delete docs/eval-runbook docs/final test/coverage-and-properties test/sandbox-fuzz fix/review-2 chore/first-run
+```
+
+#15 (closed unmerged) has no branch left. Keep `main`. The five `claude/*` session branches have
+no PR, so the "merged or closed PR" rule does not cover them.
+Four of them (`brave-allen`, `elegant-cori`, `happy-thompson`, `sleepy-gates`) are fully contained
+in `main` and could go too, if you want.
 
 ### Still open
 
@@ -336,7 +347,7 @@ sandbox and CI decisions.
 - **The Docker image is still not built here** (no daemon, `ghcr.io` blocked); `scripts/demo.sh`
   and `make demo` were not run.
 - ~~**PRs:** #20, #21, #19 and #18 are merge commits on `main`, so GitHub marks them merged once
-  `main` is pushed.~~ Done; their branches were deleted in round 5.
+  `main` is pushed.~~ Done; their branches are listed for deletion in round 5.
 
 ## Round 3: #17, #15, #16, #13, #12, #14 (2026-11-04)
 
