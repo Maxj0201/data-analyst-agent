@@ -345,7 +345,10 @@ def test_plan_and_summary_commands(tmp_path: Path) -> None:
     empty = tmp_path / "empty.tsv"
     empty.write_text("experiment\tarm\trole\trun_dir\tconfig\n")
     res = runner.invoke(app, ["summary", str(empty)])
-    assert res.exit_code != 0 and "lists no runs" in res.output
+    # Rich wraps the error panel at the terminal width, and pytest's tmp path is long enough
+    # to split the message across lines: compare with the panel's borders and breaks removed.
+    flat = " ".join(res.output.replace("│", " ").split())
+    assert res.exit_code != 0 and "lists no runs" in flat
 
     run = _write_run(tmp_path / "run", [_row("a", "L1", True, 0.1)])
     manifest = _manifest(tmp_path, [("baseline", CONTROL, "control", run)])
