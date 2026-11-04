@@ -65,6 +65,9 @@ packages = ["src/analyst_agent"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_default_fixture_loop_scope = "function"
+# Slow tests (the sandbox escape fuzzer) run nightly: `uv run pytest -m slow`.
+addopts = "-m 'not slow'"
+markers = ["slow: long-running; deselected by default, run nightly with -m slow"]
 
 [tool.ruff]
 line-length = 100

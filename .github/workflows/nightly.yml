@@ -1,0 +1,54 @@
+name: Nightly
+
+# Slow tests (`@pytest.mark.slow`), deselected from the per-PR run by pyproject's addopts:
+# today, the sandbox escape fuzzer (tests/sandbox/test_fuzz_escape.py, docs/sandbox.md).
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: "Extra fuzz seed (default: the run id)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  sandbox-fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ANTHROPIC_API_KEY: ""
+      ANTHROPIC_BASE_URL: "http://127.0.0.1:9"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --no-extra embeddings
+      - name: Kernel features
+        run: |
+          uname -a
+          uv run python -c "import sys; sys.path.insert(0, 'src/analyst_agent/sandbox/_child'); import _oslock; print('Landlock ABI', _oslock.landlock_abi())"
+      - name: Fuzz, fixed seed (regression)
+        env:
+          SANDBOX_FUZZ_REPORT: ${{ runner.temp }}/fuzz-fixed-seed.json
+        run: uv run pytest -m slow -q -p no:cacheprovider tests/sandbox/test_fuzz_escape.py
+      - name: Fuzz, new seed (exploration)
+        if: always()
+        env:
+          SANDBOX_FUZZ_SEED: ${{ github.event.inputs.seed || github.run_id }}
+          SANDBOX_FUZZ_REPORT: ${{ runner.temp }}/fuzz-new-seed.json
+        run: |
+          echo "seed: $SANDBOX_FUZZ_SEED  (reproduce: SANDBOX_FUZZ_SEED=$SANDBOX_FUZZ_SEED uv run pytest -m slow tests/sandbox/test_fuzz_escape.py)"
+          uv run pytest -m slow -q -p no:cacheprovider tests/sandbox/test_fuzz_escape.py
+      - name: Upload fuzz reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-fuzz-reports
+          path: ${{ runner.temp }}/fuzz-*.json
+          if-no-files-found: ignore
