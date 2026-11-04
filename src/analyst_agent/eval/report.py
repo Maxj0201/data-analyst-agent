@@ -56,6 +56,8 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
     paths = [numeric_path(r.get("score_details") or {}) for r in results]
     numeric = [p for p in paths if p is not None]
     adv = by_diff.get("ADV")
+    retrievals = [semantic_retrieval(r) for r in results]
+    sem_on = [m for m in retrievals if m is not None]
     return {
         "n": n,
         "passed": sum(r["passed"] for r in results),
@@ -74,7 +76,17 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
         "critic_correction_rate": _rate(sum(r["passed"] for r in intervened), len(intervened)),
         "numeric_tasks": len(numeric),
         "text_fallback_rate": _rate(sum(p == TEXT_FALLBACK_PATH for p in numeric), len(numeric)),
+        "semantic_layer_rate": _rate(len(sem_on), n),
+        "mean_metrics_retrieved": sum(len(m) for m in sem_on) / len(sem_on) if sem_on else None,
     }
+
+
+def semantic_retrieval(result: dict[str, Any]) -> list[str] | None:
+    """Metric names the semantic layer injected for a task, or None if the layer was off."""
+    for e in result.get("trace") or []:
+        if e.get("type") == "semantic_retrieval":
+            return list(e.get("metrics") or [])
+    return None
 
 
 def _pct(x: float | None) -> str:
@@ -103,6 +115,8 @@ HEADLINE = [
     ("Critic intervention rate", "critic_intervention_rate", _pct),
     ("Critic correction rate", "critic_correction_rate", _pct),
     ("Numeric text-fallback rate", "text_fallback_rate", _pct),
+    ("Semantic layer on", "semantic_layer_rate", _pct),
+    ("Mean metrics retrieved", "mean_metrics_retrieved", _num),
 ]
 
 
@@ -186,6 +200,7 @@ def render_compare(
         "critic_intervention_rate",
         "critic_correction_rate",
         "text_fallback_rate",
+        "semantic_layer_rate",
     }
     for label, k, f in HEADLINE:
         if k is None:

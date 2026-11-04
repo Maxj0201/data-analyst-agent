@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     artifacts_dir: Path = Path("artifacts")
     max_tool_output_chars: int = 20_000
 
+    # Semantic layer: retrieve governed metric definitions into the planner prompt.
+    semantic_layer_enabled: bool = False
+    semantic_metrics_dir: Path = Path("benchmarks/metrics")
+    semantic_top_k: int = 4
+
     @property
     def resolved_critic_model(self) -> str:
         return self.critic_model or self.model

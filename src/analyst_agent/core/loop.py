@@ -15,14 +15,21 @@ import re
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from analyst_agent.core.config import Settings, get_settings
 from analyst_agent.core.critic import Critic, CriticVerdict
 from analyst_agent.core.llm import LLM, CostTracker
-from analyst_agent.core.prompts import PLANNER_SYSTEM, REPORT_WRITER_SYSTEM
+from analyst_agent.core.prompts import (
+    REPORT_WRITER_SYSTEM,
+    planner_system,
+    render_metric_reference,
+)
 from analyst_agent.tools.base import ToolContext
 from analyst_agent.tools.registry import TERMINAL_TOOL, ToolRegistry, wrap_untrusted
+
+if TYPE_CHECKING:
+    from analyst_agent.semantic import MetricRetriever
 
 log = logging.getLogger(__name__)
 
@@ -70,6 +77,11 @@ class AgentState:
     artifacts: list[str] = field(default_factory=list)
     status: RunStatus | None = None
     detail: str = ""
+    # Semantic layer: whether it was on for this run and which metrics were injected.
+    semantic_layer_enabled: bool = False
+    retrieved_metrics: list[str] = field(default_factory=list)
+    retrieved_scores: list[float] = field(default_factory=list)
+    semantic_error: str | None = None
 
     @property
     def current_plan(self) -> str | None:
@@ -104,6 +116,12 @@ class AgentResult:
             "critic_reviews": s.critic_reviews,
             "tool_calls": [asdict(r) for r in s.tool_results],
             "artifacts": s.artifacts,
+            "semantic_layer": {
+                "enabled": s.semantic_layer_enabled,
+                "retrieved_metrics": s.retrieved_metrics,
+                "scores": s.retrieved_scores,
+                "error": s.semantic_error,
+            },
             "cost": s.cost.to_dict(),
         }
 
@@ -120,6 +138,7 @@ class AgentLoop:
         settings: Settings | None = None,
         critic: Critic | None = None,
         on_event: EventHook | None = None,
+        retriever: MetricRetriever | None = None,
     ) -> None:
         self.llm = llm
         self.registry = registry
@@ -127,6 +146,7 @@ class AgentLoop:
         self.settings = settings or get_settings()
         self.critic = critic or Critic(llm, model=self.settings.resolved_critic_model)
         self._on_event = on_event
+        self._retriever = retriever
 
     # ------------------------------------------------------------------ public
 
@@ -157,20 +177,53 @@ class AgentLoop:
         state.detail = detail
         self._emit("stop", status=status.value, detail=detail)
 
-    def _initial_message(self, question: str) -> dict[str, Any]:
+    def _retrieve_metrics(self, state: AgentState) -> str:
+        """Semantic layer: retrieve relevant metric definitions; return the reference block.
+
+        Failures (missing / invalid metrics files) never fail the run: the error is recorded on
+        the state and the agent proceeds without reference material.
+        """
+        s = self.settings
+        state.semantic_layer_enabled = True
+        try:
+            retriever = self._retriever
+            if retriever is None:
+                from analyst_agent.semantic import default_retriever
+
+                retriever = default_retriever(s.semantic_metrics_dir)
+            hits = retriever.retrieve(state.question, k=s.semantic_top_k, tables=self.ctx.tables)
+        except Exception as exc:  # noqa: BLE001 - optional context must not break the run
+            log.exception("semantic layer retrieval failed")
+            state.semantic_error = f"{type(exc).__name__}: {exc}"
+            hits = []
+        state.retrieved_metrics = [h.metric.name for h in hits]
+        state.retrieved_scores = [round(h.score, 4) for h in hits]
+        self._emit(
+            "semantic_retrieval",
+            metrics=state.retrieved_metrics,
+            scores=state.retrieved_scores,
+            error=state.semantic_error,
+        )
+        return render_metric_reference([h.metric for h in hits])
+
+    def _initial_message(self, question: str, reference: str = "") -> dict[str, Any]:
         tables = ", ".join(self.ctx.tables) or "(none)"
+        ref = f"{reference}\n\n" if reference else ""
         return {
             "role": "user",
             "content": (
                 f"Question: {question}\n\n"
                 f"Loaded tables: {tables}\n\n"
+                f"{ref}"
                 "Start by writing your plan in <plan>...</plan>, then use the tools."
             ),
         }
 
     def _run(self, state: AgentState) -> None:
         s = self.settings
-        state.messages.append(self._initial_message(state.question))
+        reference = self._retrieve_metrics(state) if s.semantic_layer_enabled else ""
+        state.messages.append(self._initial_message(state.question, reference))
+        system = planner_system(s.semantic_layer_enabled)
         tools = self.registry.schemas()
 
         while True:
@@ -185,7 +238,7 @@ class AgentLoop:
 
             state.turns += 1
             resp = self.llm.create(
-                system=PLANNER_SYSTEM,
+                system=system,
                 messages=state.messages,
                 tools=tools,
                 role="agent",

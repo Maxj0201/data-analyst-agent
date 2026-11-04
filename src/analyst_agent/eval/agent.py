@@ -10,7 +10,9 @@ returning an :class:`AgentOutput` (sync or async). Built-in agents:
 Trace convention: ``AgentOutput.trace`` is a list of JSON-serialisable event dicts. The scorers
 look for tool calls as ``{"type": "tool_call", "name": "run_sql", "input": {"query": ...}}``
 (``run_python`` uses ``{"code": ...}``) and critic verdicts as
-``{"type": "critic", "verdict": "pass" | "revise", ...}``.
+``{"type": "critic", "verdict": "pass" | "revise", ...}``. When the semantic layer is on, the
+trace starts with ``{"type": "semantic_retrieval", "metrics": [names], "scores": [...]}``;
+its absence means the layer was off, which is how ``eval compare`` tells on/off runs apart.
 """
 
 from __future__ import annotations
@@ -101,7 +103,17 @@ def output_from_core(result: Any) -> AgentOutput:
     in that order, using the event convention documented at the top of this module.
     """
     state = result.state
-    trace: list[dict[str, Any]] = [{"type": "plan", "text": p} for p in state.plan]
+    trace: list[dict[str, Any]] = []
+    if getattr(state, "semantic_layer_enabled", False):
+        trace.append(
+            {
+                "type": "semantic_retrieval",
+                "metrics": list(state.retrieved_metrics),
+                "scores": list(state.retrieved_scores),
+                "error": state.semantic_error,
+            }
+        )
+    trace += [{"type": "plan", "text": p} for p in state.plan]
     for rec in state.tool_results:
         output = str(rec.output)
         trace.append(
