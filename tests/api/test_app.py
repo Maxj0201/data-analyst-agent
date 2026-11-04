@@ -350,4 +350,9 @@ async def test_finished_jobs_survive_restart_via_sqlite(settings, fake_agent):
 
 async def test_healthz(client):
     body = (await client.get("/healthz")).json()
-    assert body == {"status": "ok", "job_store": "memory+sqlite", "langfuse": False}
+    assert body == {
+        "status": "ok",
+        "job_store": "memory+sqlite",
+        "langfuse": False,
+        "trace_store": False,
+    }

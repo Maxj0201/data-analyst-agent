@@ -82,7 +82,11 @@ def create_app(
     manager = JobManager(
         store=store,
         runner=runner or core_runner,
-        tracer_factory=tracer_factory or make_tracer_factory(settings.langfuse_enabled),
+        tracer_factory=tracer_factory
+        or make_tracer_factory(
+            settings.langfuse_enabled,
+            store_dir=settings.traces_dir if settings.trace_store_enabled else None,
+        ),
         artifacts_dir=settings.artifacts_dir,
         max_workers=settings.max_concurrent_jobs,
         approvals=approvals,
@@ -123,6 +127,7 @@ def create_app(
             "status": "ok",
             "job_store": "memory+sqlite" if store.persistent else "memory",
             "langfuse": settings.langfuse_enabled,
+            "trace_store": settings.trace_store_enabled,
         }
 
     @app.post("/datasets", response_model=DatasetInfo, status_code=201)
@@ -251,6 +256,9 @@ def __getattr__(name: str) -> Any:
     # tests) doesn't create directories or open the job database as a side effect.
     if name == "app":
         global app
+        from analyst_agent.core.logs import configure_logging
+
+        configure_logging()  # AGENT_LOG_JSON_ENABLED / AGENT_LOG_LEVEL, with job/run ids
         app = create_app()
         return app
     raise AttributeError(name)
