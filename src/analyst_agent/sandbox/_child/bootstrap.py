@@ -16,6 +16,7 @@ import linecache
 import os
 import sys
 import traceback
+from time import perf_counter
 
 USER_CODE_FILENAME = "<analysis>"
 
@@ -45,6 +46,15 @@ def main() -> int:
         )
         return 3
 
+    # Phase timestamps for scripts/bench_sandbox.py; only present when the parent asked.
+    marks: dict | None = getattr(builtins, "__sandbox_marks__", None)
+
+    def mark(name: str) -> None:
+        if marks is not None:
+            marks[name] = perf_counter()
+
+    mark("boot_start")
+
     # ---- setup phase: trusted imports + data loading -----------------------------------
     import matplotlib
 
@@ -54,6 +64,7 @@ def main() -> int:
     import pandas as pd
     import scipy
 
+    mark("imports_done")
     data_dir = os.path.join(meta_dir, "data")
     tables: dict[str, pd.DataFrame] = {}
     if os.path.isdir(data_dir):
@@ -63,6 +74,7 @@ def main() -> int:
 
     with open(os.path.join(meta_dir, "code.py"), encoding="utf-8") as fh:
         source = fh.read()
+    mark("data_loaded")
 
     # Import allowlist for modules that are *already loaded* (the audit "import" event only
     # fires for first-time imports, and pandas/numpy pull in os, ctypes, subprocess, ...).
@@ -105,10 +117,12 @@ def main() -> int:
     # The audit hook alone is bypassable from native code (``_posixsubprocess.fork_exec``,
     # pyarrow's own file I/O), so the kernel enforces the same boundary before user code.
     cfg = json.loads(os.environ["ANALYST_SANDBOX_CONFIG"])
+    mark("confine_start")
     try:
         import _oslock
 
-        for warning in _oslock.confine(cfg["read_roots"], [work_dir]):
+        mark("oslock_imported")
+        for warning in _oslock.confine(cfg["read_roots"], [work_dir], marks=marks):
             sys.stderr.write(f"[sandbox] {warning}\n")
     except Exception as exc:  # noqa: BLE001 - fail closed
         _write_result(
@@ -127,6 +141,7 @@ def main() -> int:
     sys.audit("sandbox.lock")
 
     payload: dict = {"ok": True, "error": None}
+    mark("user_start")
     try:
         code = compile(source, USER_CODE_FILENAME, "exec")
         exec(code, namespace)
@@ -155,6 +170,7 @@ def main() -> int:
             },
         }
 
+    mark("user_end")
     try:
         fig_dir = os.path.join(meta_dir, "figures")
         os.makedirs(fig_dir, exist_ok=True)
@@ -166,6 +182,9 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         sys.stderr.write(f"[sandbox] could not save figures: {exc}\n")
 
+    mark("figures_done")
+    if marks is not None:
+        payload["profile"] = dict(marks)
     sys.stdout.flush()
     sys.stderr.flush()
     _write_result(result_path, payload)
