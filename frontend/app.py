@@ -62,9 +62,10 @@ def api() -> httpx.Client:
     return httpx.Client(base_url=API_URL, timeout=httpx.Timeout(30.0, read=None), auth=auth)
 
 
-def stream_events(job_id: str) -> Iterator[tuple[str, dict]]:
-    """Yield ``(event, data)`` pairs from the job's SSE stream until it ends."""
-    with api().stream("GET", f"/jobs/{job_id}/events") as resp:
+def stream_events(job_id: str, after: int = 0) -> Iterator[tuple[str, dict]]:
+    """Yield ``(event, data)`` from the job's SSE stream (events after seq ``after``)."""
+    headers = {"Last-Event-ID": str(after)} if after else {}
+    with api().stream("GET", f"/jobs/{job_id}/events", headers=headers) as resp:
         resp.raise_for_status()
         name, data = None, []
         for line in resp.iter_lines():
@@ -99,6 +100,13 @@ def describe(event: str, d: dict) -> str | None:
         return f"⏹️ **Stopped ({d.get('status')})** — {d.get('detail', '')}"
     if event == "error":
         return f"❌ {d.get('message')}"
+    if event == "approval_required":
+        return f"✋ **Approval required** — {d.get('summary', '')}"
+    if event == "approval_decision":
+        icon = "👍" if d.get("approved") else "🚫"
+        note = f" — {d['note']}" if d.get("note") else ""
+        verdict = "approved" if d.get("approved") else "denied"
+        return f"{icon} {d.get('tool')} {verdict} ({d.get('decided_by')}){note}"
     return None
 
 
@@ -142,6 +150,70 @@ def render_result(job_id: str) -> None:
             st.json(key_numbers)
 
 
+def follow_job(job_id: str) -> None:
+    """Stream the job's steps; stop early when it needs approval (the panel takes over)."""
+    with st.status("Agent working…", expanded=True) as box:
+        for line in st.session_state.steps:
+            st.markdown(line)
+        for event, data in stream_events(job_id, after=st.session_state.get("last_seq", 0)):
+            st.session_state.last_seq = data.get("seq", st.session_state.get("last_seq", 0))
+            if event == "llm_call":
+                st.session_state.running_cost = st.session_state.get("running_cost", 0.0) + float(
+                    data.get("usd") or 0
+                )
+                box.update(label=f"Agent working… (${st.session_state.running_cost:.4f} so far)")
+            line = describe(event, data)
+            if line:
+                st.session_state.steps.append(line)
+                st.markdown(line)
+            if event == "approval_required":
+                st.session_state.pending = data
+                box.update(label="Waiting for your approval…", state="running")
+                st.rerun()
+            if event == "end":
+                st.session_state.following = False
+                ok = data.get("status") != "failed"
+                box.update(
+                    label=f"Done — {data.get('status')}",
+                    state="complete" if ok else "error",
+                    expanded=False,
+                )
+                st.rerun()
+
+
+def render_approval_panel(job_id: str, action: dict) -> None:
+    """Approve / deny a gated step (``POST /jobs/{id}/approve``)."""
+    with st.container(border=True):
+        st.markdown(f"### ✋ Approve `{action.get('tool')}`?")
+        for reason in action.get("reasons") or []:
+            st.markdown(f"- {reason}")
+        src = (action.get("input") or {}).get("query") or (action.get("input") or {}).get("code")
+        if src:
+            st.code(src, language="sql" if action.get("tool") == "run_sql" else "python")
+        if action.get("timeout_s"):
+            st.caption(f"The step is denied automatically after {action['timeout_s']:g}s.")
+        note = st.text_input("Note for the agent (optional)", key=f"note_{action.get('id')}")
+        c1, c2 = st.columns(2)
+        decision = None
+        if c1.button("Approve", type="primary", width="stretch"):
+            decision = True
+        if c2.button("Deny", width="stretch"):
+            decision = False
+    if decision is None:
+        return
+    resp = api().post(
+        f"/jobs/{job_id}/approve",
+        json={"approve": decision, "note": note or None, "action_id": action.get("id")},
+    )
+    if resp.status_code == 409:
+        st.warning(resp.json().get("detail", "This approval is no longer pending."))
+    elif resp.status_code != 200:
+        st.error(resp.json().get("detail", resp.text))
+        return
+    st.session_state.pending = None
+    st.rerun()
+
+
 # ---- page ----------------------------------------------------------------------------------
 
 st.title("📊 Data Analyst Agent")
@@ -179,33 +251,33 @@ if dataset:
         if resp.status_code != 202:
             st.error(resp.json().get("detail", resp.text))
         else:
-            job_id = resp.json()["job_id"]
-            st.session_state.update(job_id=job_id, steps=[])
-            with st.status("Agent working…", expanded=True) as box:
-                running_cost = 0.0
-                for event, data in stream_events(job_id):
-                    if event == "llm_call":
-                        running_cost += float(data.get("usd") or 0)
-                        box.update(label=f"Agent working… (${running_cost:.4f} so far)")
-                    line = describe(event, data)
-                    if line:
-                        st.session_state.steps.append(line)
-                        st.markdown(line)
-                    if event == "end":
-                        ok = data.get("status") != "failed"
-                        box.update(
-                            label=f"Done — {data.get('status')}",
-                            state="complete" if ok else "error",
-                            expanded=False,
-                        )
+            st.session_state.update(
+                job_id=resp.json()["job_id"],
+                steps=[],
+                last_seq=0,
+                running_cost=0.0,
+                pending=None,
+                following=True,
+            )
+
+    job_id = st.session_state.get("job_id")
+    if job_id and st.session_state.get("following") and not st.session_state.get("pending"):
+        follow_job(job_id)
     elif st.session_state.get("steps"):
-        # Re-render the finished step log after Streamlit reruns.
-        with st.status("Agent steps", state="complete", expanded=False):
+        # Re-render the step log after Streamlit reruns.
+        waiting = bool(st.session_state.get("pending"))
+        with st.status(
+            "Waiting for your approval…" if waiting else "Agent steps",
+            state="running" if waiting else "complete",
+            expanded=waiting,
+        ):
             for line in st.session_state.steps:
                 st.markdown(line)
 
-    if st.session_state.get("job_id"):
-        render_result(st.session_state.job_id)
+    if job_id and st.session_state.get("pending"):
+        render_approval_panel(job_id, st.session_state.pending)
+    elif job_id and not st.session_state.get("following"):
+        render_result(job_id)
 else:
     st.info("Upload a data file to get started.")
 

@@ -8,6 +8,7 @@ from typing import Annotated
 
 import typer
 
+from analyst_agent.core.approval import PendingAction
 from analyst_agent.tools.base import table_name_for
 
 app = typer.Typer(add_completion=False, help="Autonomous data analyst agent.")
@@ -38,6 +39,20 @@ def ask(
         Path | None, typer.Option(help="Write the full run trace as JSON to this path.")
     ] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Print each step.")] = False,
+    require_approval: Annotated[
+        bool | None,
+        typer.Option(
+            "--require-approval/--no-require-approval",
+            help="Override AGENT_APPROVAL_ENABLED (human approval for costly/risky steps).",
+        ),
+    ] = None,
+    auto_approve: Annotated[
+        bool,
+        typer.Option(
+            "--auto-approve",
+            help="Approve every gated step without prompting (otherwise ask y/n on the TTY).",
+        ),
+    ] = False,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -49,11 +64,17 @@ def ask(
     """Answer QUESTION over the given data file(s); prints the report and a cost summary."""
     from analyst_agent import sandbox
     from analyst_agent.core import AgentLoop, LLMClient, Settings
+    from analyst_agent.core.approval import Approver, AutoApprover, CallbackApprover
     from analyst_agent.tools import ToolContext, build_default_registry
 
     overrides = {
         k: v
-        for k, v in {"max_turns": max_turns, "token_budget": token_budget, "model": model}.items()
+        for k, v in {
+            "max_turns": max_turns,
+            "token_budget": token_budget,
+            "model": model,
+            "approval_enabled": require_approval,
+        }.items()
         if v is not None
     }
     settings = Settings(**overrides)
@@ -85,7 +106,10 @@ def ask(
         llm = dry_run_llm(question, tables[0], sandbox.run_sql)
     else:
         llm = LLMClient(settings)
-    loop = AgentLoop(llm, build_default_registry(), ctx, settings, on_event=on_event)
+    approver: Approver = AutoApprover() if auto_approve else CallbackApprover(prompt_approval)
+    loop = AgentLoop(
+        llm, build_default_registry(), ctx, settings, on_event=on_event, approver=approver
+    )
     result = loop.run(question)
 
     typer.echo(result.report)
@@ -105,6 +129,28 @@ def ask(
         trace.write_text(json.dumps(result.to_dict(), indent=2, default=str))
     if not result.ok:
         raise typer.Exit(code=1)
+
+
+def prompt_approval(action: PendingAction) -> tuple[bool, str | None]:
+    """Interactive y/n prompt on stderr. No answer (EOF / non-interactive) means denied."""
+    typer.secho("\n⚠  Approval required", fg=typer.colors.YELLOW, bold=True, err=True)
+    typer.echo(f"  Step:    {action.tool}", err=True)
+    for reason in action.reasons:
+        typer.echo(f"  Reason:  {reason}", err=True)
+    src = action.input.get("query") or action.input.get("code")
+    if src:
+        typer.echo("  " + "\n  ".join(str(src).splitlines()[:30]), err=True)
+    try:
+        approved = typer.confirm("Run this step?", default=False, err=True)
+    except (typer.Abort, EOFError):
+        return False, "no answer on stdin"
+    if approved:
+        return True, None
+    try:
+        note = typer.prompt("Optional note for the agent", default="", show_default=False, err=True)
+    except (typer.Abort, EOFError):
+        note = ""
+    return False, note.strip() or None
 
 
 if __name__ == "__main__":  # pragma: no cover

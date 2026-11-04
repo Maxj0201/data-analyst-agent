@@ -22,7 +22,7 @@ class JobStatus(StrEnum):
 
 
 class EventType(StrEnum):
-    """Step types streamed over SSE. The agent core may emit any of the first six."""
+    """Step types streamed over SSE. The agent core may emit any of the first eight."""
 
     plan = "plan"
     llm_call = "llm_call"
@@ -30,6 +30,8 @@ class EventType(StrEnum):
     tool_result = "tool_result"
     critic = "critic"
     progress = "progress"
+    approval_required = "approval_required"
+    approval_decision = "approval_decision"
     # Emitted by the API itself:
     status = "status"
     error = "error"
@@ -119,8 +121,23 @@ class AskResponse(BaseModel):
     job_url: str
 
 
+class ApproveRequest(BaseModel):
+    approve: bool
+    note: str | None = Field(default=None, max_length=2000)
+    action_id: str | None = Field(default=None, max_length=64)
+    """Optional guard: only resolve if this is still the pending action."""
+
+
+class ApproveResponse(BaseModel):
+    job_id: str
+    action_id: str
+    approved: bool
+
+
 class JobView(Job):
     """``GET /jobs/{id}`` payload: the job plus its full step trace."""
 
     duration_seconds: float | None = None
+    pending_approval: dict[str, Any] | None = None
+    """The action awaiting ``POST /jobs/{id}/approve``, if any."""
     trace: list[JobEvent] = Field(default_factory=list)

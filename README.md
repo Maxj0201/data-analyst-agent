@@ -177,8 +177,25 @@ Or with Docker: `cp .env.example .env` (add `ANTHROPIC_API_KEY`), then `docker c
 | `POST /ask`                | `{dataset_id, question}` → `job_id` (runs in the background)   |
 | `GET /jobs/{id}`           | status, progress, cost, step trace and result                  |
 | `GET /jobs/{id}/events`    | Server-Sent Events: plan, LLM/tool calls, critic verdict, final |
+| `POST /jobs/{id}/approve`  | `{approve, note?, action_id?}` → resolve a pending approval     |
 | `GET /jobs/{id}/report`    | final report as `text/markdown`                                |
 | `GET /artifacts/{path}`    | chart images                                                   |
+
+### Human-in-the-loop approval
+
+Off by default. With `AGENT_APPROVAL_ENABLED=true` the loop pauses before a step when (a)
+`run_sql`'s DuckDB `EXPLAIN` estimate exceeds `AGENT_APPROVAL_ROW_THRESHOLD` rows (default
+1,000,000), (b) `run_python` is about to run (`AGENT_APPROVAL_PYTHON`, default true), or (c) token
+spend exceeds `AGENT_APPROVAL_BUDGET_FRACTION` of `AGENT_TOKEN_BUDGET` (default 0.8; asked once
+per run once approved). It emits `approval_required`, waits up to `AGENT_APPROVAL_TIMEOUT_S`
+(default 300) for a decision, then emits `approval_decision`. A denial or timeout is returned to
+the model as a tool error so it re-plans; every decision is in the trace (`approvals` in
+`--trace`, the events in `GET /jobs/{id}`). `final_report` is never gated.
+
+- API/UI: `GET /jobs/{id}` shows `pending_approval`; `POST /jobs/{id}/approve`; the Streamlit UI
+  shows an approve/deny panel.
+- CLI: `analyst-agent ask --require-approval ...` prompts y/n on the terminal (no answer = deny);
+  add `--auto-approve` to approve everything.
 
 Deployment: [deploy/cloudrun.md](deploy/cloudrun.md). Tracing: [docs/observability.md](docs/observability.md).
 

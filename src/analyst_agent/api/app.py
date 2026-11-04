@@ -11,6 +11,7 @@ Endpoints
 ``POST /ask``                 ``{dataset_id, question}`` -> ``job_id`` (runs in the background)
 ``GET  /jobs/{id}``           status, progress, cost, full step trace and result
 ``GET  /jobs/{id}/events``    Server-Sent Events stream of agent steps as they happen
+``POST /jobs/{id}/approve``   ``{approve, note?, action_id?}`` resolves a pending approval
 ``GET  /jobs/{id}/report``    final report as ``text/markdown``
 ``GET  /artifacts/{path}``    chart images produced by the agent
 ``GET  /healthz``             liveness probe
@@ -30,10 +31,22 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 
+from analyst_agent.core.approval import ApprovalBroker
+
 from .agent import AgentRunner, core_runner
 from .datasets import DatasetStore
 from .jobs import JobManager
-from .models import AskRequest, AskResponse, DatasetInfo, Job, JobEvent, JobStatus, JobView
+from .models import (
+    ApproveRequest,
+    ApproveResponse,
+    AskRequest,
+    AskResponse,
+    DatasetInfo,
+    Job,
+    JobEvent,
+    JobStatus,
+    JobView,
+)
 from .observability import TracerFactory, make_tracer_factory
 from .settings import ApiSettings
 from .store import JobStore
@@ -57,6 +70,7 @@ def create_app(
     runner: AgentRunner | None = None,
     store: JobStore | None = None,
     tracer_factory: TracerFactory | None = None,
+    approvals: ApprovalBroker | None = None,
 ) -> FastAPI:
     settings = settings or ApiSettings()
     settings.artifacts_dir.mkdir(parents=True, exist_ok=True)
@@ -71,6 +85,7 @@ def create_app(
         tracer_factory=tracer_factory or make_tracer_factory(settings.langfuse_enabled),
         artifacts_dir=settings.artifacts_dir,
         max_workers=settings.max_concurrent_jobs,
+        approvals=approvals,
     )
 
     @asynccontextmanager
@@ -137,11 +152,26 @@ def create_app(
     @app.get("/jobs/{job_id}", response_model=JobView)
     def get_job(job_id: str) -> JobView:
         job = get_job_or_404(job_id)
+        pending = manager.approvals.pending(job_id)
         return JobView(
             **job.model_dump(),
             duration_seconds=job.duration_s(),
             trace=store.events(job_id),
+            pending_approval=pending.to_dict() if pending else None,
         )
+
+    @app.post("/jobs/{job_id}/approve", response_model=ApproveResponse)
+    def approve_step(job_id: str, body: ApproveRequest) -> ApproveResponse:
+        job = get_job_or_404(job_id)
+        if job.status.is_terminal:
+            raise HTTPException(status_code=409, detail=f"Job is already {job.status}.")
+        action = manager.approvals.resolve(job_id, body.approve, body.note, body.action_id)
+        if action is None:
+            raise HTTPException(
+                status_code=409,
+                detail="No matching approval is pending (it may have timed out or been decided).",
+            )
+        return ApproveResponse(job_id=job_id, action_id=action.id, approved=body.approve)
 
     @app.get("/jobs/{job_id}/report", response_class=PlainTextResponse)
     def get_report(job_id: str) -> PlainTextResponse:

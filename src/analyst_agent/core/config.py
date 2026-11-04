@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     semantic_layer_enabled: bool = False
     semantic_metrics_dir: Path = Path("benchmarks/metrics")
     semantic_top_k: int = 4
+    # Human-in-the-loop approval (see core/approval.py). Off unless approval_enabled is set.
+    approval_enabled: bool = False
+    approval_row_threshold: int | None = 1_000_000  # EXPLAIN row estimate; None = never
+    approval_python: bool = True  # every run_python call
+    approval_budget_fraction: float | None = 0.8  # of token_budget; None = never
+    approval_timeout_s: float = 300.0  # no decision within this = denied
 
     @property
     def resolved_critic_model(self) -> str:
