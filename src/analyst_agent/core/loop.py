@@ -5,7 +5,13 @@ Guarantees:
   :class:`RunStatus`; failures are reported in ``status`` / ``detail``.
 * The run hard-stops when the cumulative token count reaches ``token_budget`` and returns
   whatever partial result exists (draft report or a summary of executed steps).
-* At most ``max_turns`` agent LLM calls and ``max_critic_rounds`` critic reviews per run.
+* At most ``max_turns`` agent LLM calls and ``max_critic_rounds`` critic reviews per run,
+  plus one extra of each per escalation when routing is enabled.
+
+Routing (``AGENT_ROUTING_ENABLED``, see :mod:`analyst_agent.core.router`): a cheap router call
+picks the tier and working model before the first turn. On a second critic "revise" or a
+repeated tool error, the loop escalates to the next tier and retries the step once with the
+stronger model. With routing off, every agent call uses ``AGENT_MODEL`` exactly as before.
 """
 
 from __future__ import annotations
@@ -21,6 +27,15 @@ from analyst_agent.core.config import Settings, get_settings
 from analyst_agent.core.critic import Critic, CriticVerdict
 from analyst_agent.core.llm import LLM, CostTracker
 from analyst_agent.core.prompts import PLANNER_SYSTEM, REPORT_WRITER_SYSTEM
+from analyst_agent.core.router import (
+    Escalation,
+    EscalationTrigger,
+    RouteDecision,
+    Router,
+    Tier,
+    next_tier,
+    schema_summary,
+)
 from analyst_agent.tools.base import ToolContext
 from analyst_agent.tools.registry import TERMINAL_TOOL, ToolRegistry, wrap_untrusted
 
@@ -52,6 +67,7 @@ class ToolCallRecord:
     is_error: bool
     turn: int
     data: dict[str, Any] = field(default_factory=dict)
+    model: str | None = None  # agent model that issued the call (None = AGENT_MODEL default)
 
 
 @dataclass
@@ -70,10 +86,34 @@ class AgentState:
     artifacts: list[str] = field(default_factory=list)
     status: RunStatus | None = None
     detail: str = ""
+    # Routing (all empty / None when routing is disabled)
+    route: RouteDecision | None = None
+    tier: Tier | None = None
+    model: str | None = None  # current working model; None = the configured default
+    escalations: list[Escalation] = field(default_factory=list)
+    turn_models: list[str | None] = field(default_factory=list)  # model used for each agent turn
+    extra_turns: int = 0  # granted by escalations ("retry the step once")
+    extra_critic_rounds: int = 0
+    critic_revisions: int = 0
+    last_tool_error: dict[str, bool] = field(default_factory=dict)  # tool name -> last errored
 
     @property
     def current_plan(self) -> str | None:
         return self.plan[-1] if self.plan else None
+
+    def routing_summary(self) -> dict[str, Any] | None:
+        if self.route is None:
+            return None
+        return {
+            "enabled": True,
+            "routed_tier": self.route.tier.value,
+            "routed_model": self.route.model,
+            "final_tier": self.tier.value if self.tier else None,
+            "final_model": self.model,
+            "route": self.route.to_dict(),
+            "escalations": [e.to_dict() for e in self.escalations],
+            "turn_models": list(self.turn_models),
+        }
 
 
 @dataclass
@@ -105,6 +145,7 @@ class AgentResult:
             "tool_calls": [asdict(r) for r in s.tool_results],
             "artifacts": s.artifacts,
             "cost": s.cost.to_dict(),
+            "routing": s.routing_summary(),
         }
 
 
@@ -120,6 +161,7 @@ class AgentLoop:
         settings: Settings | None = None,
         critic: Critic | None = None,
         on_event: EventHook | None = None,
+        router: Router | None = None,
     ) -> None:
         self.llm = llm
         self.registry = registry
@@ -127,6 +169,9 @@ class AgentLoop:
         self.settings = settings or get_settings()
         self.critic = critic or Critic(llm, model=self.settings.resolved_critic_model)
         self._on_event = on_event
+        if router is None and self.settings.routing_enabled:
+            router = Router(llm, self.settings)
+        self.router = router
 
     # ------------------------------------------------------------------ public
 
@@ -168,8 +213,57 @@ class AgentLoop:
             ),
         }
 
+    # ------------------------------------------------------------------ routing
+
+    def _route(self, state: AgentState) -> None:
+        assert self.router is not None
+        decision = self.router.classify(state.question, schema_summary(self.ctx), cost=state.cost)
+        state.route, state.tier, state.model = decision, decision.tier, decision.model
+        self._emit("route", **decision.to_dict())
+
+    def _escalate(self, state: AgentState, trigger: EscalationTrigger, detail: str) -> bool:
+        """Move to the next tier and grant one retry of the current step.
+
+        Returns False (and changes nothing) when routing is off or the run is already at L3.
+        """
+        if self.router is None or state.tier is None:
+            return False
+        to = next_tier(state.tier)
+        if to is None:
+            return False
+        esc = Escalation(
+            from_tier=state.tier,
+            to_tier=to,
+            from_model=state.model or self.settings.model,
+            to_model=self.router.model_for(to),
+            trigger=trigger,
+            turn=state.turns,
+            detail=detail,
+        )
+        state.escalations.append(esc)
+        state.tier, state.model = to, esc.to_model
+        state.extra_turns += 1  # the retry must not be starved by max_turns
+        self._emit("escalation", **esc.to_dict())
+        return True
+
+    def _check_repeated_tool_errors(self, state: AgentState, records: list[ToolCallRecord]) -> None:
+        """Escalate when a tool errors on two consecutive calls of that tool."""
+        repeated: list[str] = []
+        for r in records:
+            if r.is_error and state.last_tool_error.get(r.name):
+                repeated.append(r.name)
+            state.last_tool_error[r.name] = r.is_error
+        if repeated and self._escalate(
+            state, "tool_error", f"repeated error from {', '.join(sorted(set(repeated)))}"
+        ):
+            state.last_tool_error.clear()  # the escalated model starts with a clean slate
+
+    # ------------------------------------------------------------------ main loop
+
     def _run(self, state: AgentState) -> None:
         s = self.settings
+        if self.router is not None:
+            self._route(state)
         state.messages.append(self._initial_message(state.question))
         tools = self.registry.schemas()
 
@@ -180,14 +274,22 @@ class AgentLoop:
                     RunStatus.BUDGET_EXCEEDED,
                     f"Token budget exhausted ({state.cost.total_tokens:,} / {s.token_budget:,}).",
                 )
-            if state.turns >= s.max_turns:
-                return self._stop(state, RunStatus.MAX_TURNS, f"Reached max_turns={s.max_turns}.")
+            if state.turns >= s.max_turns + state.extra_turns:
+                return self._stop(
+                    state,
+                    RunStatus.MAX_TURNS,
+                    f"Reached max_turns={s.max_turns}"
+                    + (f" (+{state.extra_turns} for escalation)" if state.extra_turns else "")
+                    + ".",
+                )
 
             state.turns += 1
+            state.turn_models.append(state.model)
             resp = self.llm.create(
                 system=PLANNER_SYSTEM,
                 messages=state.messages,
                 tools=tools,
+                model=state.model,
                 role="agent",
                 cost=state.cost,
             )
@@ -208,21 +310,23 @@ class AgentLoop:
 
             result_blocks: list[dict[str, Any]] = []
             submitted: tuple[dict[str, Any], dict[str, Any]] | None = None  # (tool_use, data)
+            turn_records: list[ToolCallRecord] = []
             for tu in tool_uses:
                 name, args = tu.get("name", ""), tu.get("input") or {}
                 self._emit("tool_call", name=name, input=args, turn=state.turns)
                 res = self.registry.execute(name, args, self.ctx)
-                state.tool_results.append(
-                    ToolCallRecord(
-                        id=tu["id"],
-                        name=name,
-                        input=args if isinstance(args, dict) else {"raw": args},
-                        output=res.content,
-                        is_error=res.is_error,
-                        turn=state.turns,
-                        data=res.data,
-                    )
+                record = ToolCallRecord(
+                    id=tu["id"],
+                    name=name,
+                    input=args if isinstance(args, dict) else {"raw": args},
+                    output=res.content,
+                    is_error=res.is_error,
+                    turn=state.turns,
+                    data=res.data,
+                    model=state.model,
                 )
+                state.tool_results.append(record)
+                turn_records.append(record)
                 self._emit(
                     "tool_result", name=name, is_error=res.is_error, summary=res.content[:300]
                 )
@@ -246,6 +350,9 @@ class AgentLoop:
                         "is_error": res.is_error,
                     }
                 )
+
+            # Escalate before the next turn so the stronger model sees the errors and retries.
+            self._check_repeated_tool_errors(state, turn_records)
 
             if submitted is not None:
                 tu, data = submitted
@@ -291,6 +398,13 @@ class AgentLoop:
 
         state.critic_reviews.append(verdict.to_dict())
         self._emit("critic", round=state.critic_rounds, **verdict.to_dict())
+        if verdict.verdict == "revise":
+            state.critic_revisions += 1
+            # Second revise: hand the revision to a stronger model, with one extra review.
+            if state.critic_revisions == 2 and self._escalate(
+                state, "critic_revise", "; ".join(verdict.issues)[:500]
+            ):
+                state.extra_critic_rounds += 1
 
         if verdict.verdict == "pass":
             if verdict.parse_error:
@@ -303,7 +417,7 @@ class AgentLoop:
                 self._stop(state, RunStatus.COMPLETED, "Critic verdict: pass.")
             return True, "Report accepted."
 
-        if state.critic_rounds >= s.max_critic_rounds:
+        if state.critic_rounds >= s.max_critic_rounds + state.extra_critic_rounds:
             self._stop(
                 state,
                 RunStatus.COMPLETED_WITH_ISSUES,
@@ -351,6 +465,7 @@ class AgentLoop:
         resp = self.llm.create(
             system=REPORT_WRITER_SYSTEM,
             messages=[{"role": "user", "content": "\n\n".join(parts)}],
+            model=state.model,
             role="report_writer",
             cost=state.cost,
         )
