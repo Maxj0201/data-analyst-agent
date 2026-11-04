@@ -7,11 +7,13 @@ from analyst_agent.core.prompts import PROMPTS, prompt_versions
 
 # When you edit a prompt: bump its version in core/prompts.py, then update its line here.
 PINNED = {
-    "planner": ("1.0.0", "08761e9f772b"),
-    "critic": ("1.0.0", "bcb25459552e"),
+    "planner": ("1.1.0", "a7329feaf222"),
+    "critic": ("1.1.0", "1e123d665a10"),
     "report_writer": ("1.0.0", "7f3d5ed6c379"),
     "semantic_layer_rules": ("1.0.0", "d2ab91bc9847"),
     "router": ("1.0.0", "333c0c32c72c"),
+    "structured_report_rules": ("1.0.0", "f2f6b8dbb63f"),
+    "memory_rules": ("1.0.0", "07225f56c8a6"),
 }
 
 
@@ -33,6 +35,8 @@ def test_prompt_objects_wrap_the_system_constants() -> None:
     assert prompts.REPORT_WRITER.text is prompts.REPORT_WRITER_SYSTEM
     assert prompts.SEMANTIC_LAYER.text is prompts.SEMANTIC_LAYER_RULES
     assert prompts.ROUTER.text is prompts.ROUTER_SYSTEM
+    assert prompts.STRUCTURED_REPORT.text is prompts.STRUCTURED_REPORT_RULES
+    assert prompts.MEMORY.text is prompts.MEMORY_RULES
 
 
 def test_semantic_layer_planner_prompt_is_planner_plus_versioned_rules() -> None:
@@ -40,6 +44,20 @@ def test_semantic_layer_planner_prompt_is_planner_plus_versioned_rules() -> None
     assert (
         prompts.planner_system(True) == f"{prompts.PLANNER_SYSTEM}\n{prompts.SEMANTIC_LAYER_RULES}"
     )
+
+
+def test_optional_planner_sections_append_in_fixed_order() -> None:
+    full = prompts.planner_system(True, True, True)
+    assert full == "\n".join(
+        [
+            prompts.PLANNER_SYSTEM,
+            prompts.SEMANTIC_LAYER_RULES,
+            prompts.STRUCTURED_REPORT_RULES,
+            prompts.MEMORY_RULES,
+        ]
+    )
+    assert prompts.planner_system(False, False, False) is prompts.PLANNER_SYSTEM
+    assert prompts.planner_system(memory_enabled=True).endswith(prompts.MEMORY_RULES)
 
 
 def test_prompt_versions_metadata_shape() -> None:

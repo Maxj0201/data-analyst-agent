@@ -2,13 +2,26 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
-import re
 from typing import Any
 
 from analyst_agent.tools.base import Tool, ToolContext, ToolResult
 from analyst_agent.tools.formatting import rows_to_markdown
+from analyst_agent.tools.make_chart import CHART_TYPES, MAKE_CHART, make_chart
+
+__all__ = [
+    "ALL_TOOLS",
+    "CHART_TYPES",
+    "FINAL_REPORT",
+    "INSPECT_SCHEMA",
+    "MAKE_CHART",
+    "RUN_PYTHON",
+    "RUN_SQL",
+    "final_report",
+    "inspect_schema",
+    "make_chart",
+    "run_python",
+    "run_sql",
+]
 
 # --------------------------------------------------------------------------- inspect_schema
 
@@ -171,132 +184,40 @@ RUN_PYTHON = Tool(
     handler=run_python,
 )
 
-# --------------------------------------------------------------------------- make_chart
-
-CHART_TYPES = ("bar", "barh", "line", "scatter", "hist", "pie")
-MAX_BINS = 200
-MAX_POINTS = 10_000
-
-
-def make_chart(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    # Object-oriented Matplotlib only: pyplot keeps global figure state, which is not safe when
-    # several API jobs render charts on different worker threads at the same time.
-    from matplotlib.backends.backend_agg import FigureCanvasAgg
-    from matplotlib.figure import Figure
-
-    spec = args["spec"]
-    if not isinstance(spec, dict):
-        return ToolResult("`spec` must be an object.", True)
-    kind = spec.get("chart_type", "bar")
-    if kind not in CHART_TYPES:
-        return ToolResult(f"Unsupported chart_type {kind!r}; use one of {CHART_TYPES}", True)
-    series = spec.get("series") or [
-        {"name": spec.get("y_label", ""), "x": spec.get("x"), "y": spec.get("y")}
-    ]
-    for s in series:
-        if s.get("y") is None or (kind not in ("hist", "pie") and s.get("x") is None):
-            return ToolResult(
-                "Each series needs `y` (and `x` unless chart_type is hist/pie).", True
-            )
-        if s.get("x") is not None and len(s["x"]) != len(s["y"]):
-            return ToolResult("Series `x` and `y` must have the same length.", True)
-        if len(s["y"]) > MAX_POINTS:
-            return ToolResult(
-                f"Too many points ({len(s['y'])}); aggregate to <= {MAX_POINTS}.", True
-            )
-    bins = spec.get("bins", 20)
-    if isinstance(bins, bool) or not isinstance(bins, int) or not 1 <= bins <= MAX_BINS:
-        return ToolResult(f"`bins` must be an integer between 1 and {MAX_BINS}.", True)
-
-    fig = Figure(figsize=(8, 5), dpi=120)
-    FigureCanvasAgg(fig)
-    ax = fig.add_subplot()
-    for s in series:
-        label = s.get("name") or None
-        if kind == "bar":
-            ax.bar([str(v) for v in s["x"]], s["y"], label=label)
-        elif kind == "barh":
-            ax.barh([str(v) for v in s["x"]], s["y"], label=label)
-        elif kind == "line":
-            ax.plot(s["x"], s["y"], marker="o", label=label)
-        elif kind == "scatter":
-            ax.scatter(s["x"], s["y"], label=label)
-        elif kind == "hist":
-            ax.hist(s["y"], bins=bins, label=label)
-        elif kind == "pie":
-            ax.pie(s["y"], labels=[str(v) for v in (s.get("x") or [])] or None, autopct="%1.1f%%")
-    ax.set_title(spec.get("title", ""))
-    if kind != "pie":
-        ax.set_xlabel(spec.get("x_label", ""))
-        ax.set_ylabel(spec.get("y_label", ""))
-    if len(series) > 1:
-        ax.legend()
-    if kind == "bar" and len(series[0]["x"]) > 6:
-        for tick in ax.get_xticklabels():
-            tick.set_rotation(45)
-            tick.set_horizontalalignment("right")
-    fig.tight_layout()
-
-    ctx.artifacts_dir.mkdir(parents=True, exist_ok=True)
-    slug = (
-        re.sub(r"[^a-z0-9]+", "-", str(spec.get("title", "chart")).lower()).strip("-")[:40]
-        or "chart"
-    )
-    digest = hashlib.sha1(json.dumps(spec, sort_keys=True, default=str).encode()).hexdigest()[:8]
-    path = ctx.artifacts_dir / f"{slug}-{digest}.png"
-    fig.savefig(path)
-    return ToolResult(f"Chart saved to {path}", data={"path": str(path)})
-
-
-_SERIES_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "name": {"type": "string"},
-        "x": {"type": "array", "items": {}},
-        "y": {"type": "array", "items": {"type": "number"}},
-    },
-    "required": ["y"],
-}
-
-MAKE_CHART = Tool(
-    name="make_chart",
-    description=(
-        "Render a matplotlib chart from data you already computed and save it as a PNG under "
-        "artifacts/. Returns the file path; reference it in the report as ![title](path)."
-    ),
-    input_schema={
-        "type": "object",
-        "properties": {
-            "spec": {
-                "type": "object",
-                "properties": {
-                    "chart_type": {"type": "string", "enum": list(CHART_TYPES)},
-                    "title": {"type": "string"},
-                    "x_label": {"type": "string"},
-                    "y_label": {"type": "string"},
-                    "x": {"type": "array", "items": {}, "description": "Single-series x values."},
-                    "y": {"type": "array", "items": {"type": "number"}},
-                    "series": {"type": "array", "items": _SERIES_SCHEMA},
-                    "bins": {"type": "integer", "minimum": 1, "maximum": MAX_BINS},
-                },
-                "required": ["chart_type", "title"],
-            }
-        },
-        "required": ["spec"],
-        "additionalProperties": False,
-    },
-    handler=make_chart,
-)
-
 # --------------------------------------------------------------------------- final_report
 
 
 def final_report(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    markdown = args.get("markdown", "")
+    """Accepts free Markdown (``markdown``) or the structured fields (``headline``, ``method``,
+    ``caveats``, ``charts``; see :mod:`analyst_agent.core.report`), which are validated and
+    rendered to Markdown. The loop requires the structured form when
+    ``AGENT_STRUCTURED_REPORT_ENABLED`` is on."""
+    from analyst_agent.core.report import (
+        ReportValidationError,
+        is_structured,
+        parse_structured_report,
+    )
+
     key_numbers = args.get("key_numbers") or {}
     if not isinstance(key_numbers, dict):
         return ToolResult("`key_numbers` must be an object of name -> number.", is_error=True)
-    if not markdown.strip():
+    if is_structured(args):
+        try:
+            report = parse_structured_report(args)
+        except ReportValidationError as exc:
+            problems = "\n".join(f"- {e}" for e in exc.errors)
+            return ToolResult(f"Invalid structured report:\n{problems}", is_error=True)
+        return ToolResult(
+            "Report submitted for review.",
+            data={
+                "markdown": report.to_markdown(),
+                "key_numbers": report.key_numbers,
+                "structured": report.to_dict(),
+            },
+            terminate=True,
+        )
+    markdown = args.get("markdown", "")
+    if not isinstance(markdown, str) or not markdown.strip():
         return ToolResult("`markdown` must not be empty.", is_error=True)
     return ToolResult(
         "Report submitted for review.",
@@ -322,7 +243,9 @@ FINAL_REPORT = Tool(
                 "additionalProperties": {"type": ["number", "string", "null"]},
             },
         },
-        "required": ["markdown", "key_numbers"],
+        # ``markdown`` is enforced by the handler so the structured form (core/report.py), which
+        # the loop advertises instead when AGENT_STRUCTURED_REPORT_ENABLED is on, can omit it.
+        "required": ["key_numbers"],
         "additionalProperties": False,
     },
     handler=final_report,
