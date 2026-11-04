@@ -236,9 +236,15 @@ version bump.
 
 ```bash
 uv sync --extra api --extra frontend
-uv run uvicorn analyst_agent.api.app:app --reload          # http://localhost:8000/docs
+AGENT_SAMPLES_ENABLED=true uv run uvicorn analyst_agent.api.app:app --reload  # :8000/docs
 uv run streamlit run frontend/app.py                        # http://localhost:8501
 ```
+
+The UI streams a step timeline (plan, route, metric definitions, tool calls and results, critic
+verdicts, approve / deny cards), then shows the report with charts inline, a per-model cost and
+token panel and a filterable raw trace. With `AGENT_SAMPLES_ENABLED=true` (on in compose) the
+sidebar offers the bundled `benchmarks/data` files (`GET /datasets/samples`) with example
+questions, so a first run is two clicks.
 
 Or with Docker: `cp .env.example .env` (add `ANTHROPIC_API_KEY`, set any feature flags), then
 `docker compose up --build`. Compose passes the three feature flags through from `.env` or the
@@ -277,7 +283,8 @@ gated.
 - Eval: gated steps are auto-approved and recorded as `decided_by: auto`.
 
 Deployment: [deploy/cloudrun.md](deploy/cloudrun.md). Tracing: [docs/observability.md](docs/observability.md).
-UI end-to-end check (headless browser, approval on): [scripts/ui-e2e/](scripts/ui-e2e/README.md).
+UI end-to-end check (headless browser, every flag on, scripted LLM; CI job `ui-e2e` on PRs
+touching the UI or API): [scripts/ui-e2e/](scripts/ui-e2e/README.md).
 
 ## MCP server
 
