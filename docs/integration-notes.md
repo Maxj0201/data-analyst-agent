@@ -6,7 +6,7 @@ Merged into `main` in this order. #15 was squash-merged because its middle commi
 on its own; the others are merge commits. After each merge I ran
 `uv sync --all-extras --no-extra embeddings` (plain `--all-extras` before #12, which adds that
 extra), `uv run ruff check`, `uv run ruff format --check` and `uv run pytest`, and got
-everything green before the next merge. Final suite: **766 passed, 0 skipped**.
+everything green before the next merge. Final suite: **767 passed, 0 skipped**.
 
 | Order | PR | Branch | Result | Tests after |
 |---|---|---|---|---|
@@ -16,7 +16,7 @@ everything green before the next merge. Final suite: **766 passed, 0 skipped**.
 | 4 | #13 | `feat/report-and-memory` | 3 conflicts, plus the M4 port and an M1-style fix | 682 |
 | 5 | #12 | `feat/semantic-embeddings` | 2 conflicts, plus 3 cross-branch fixes, Docker build arg | 704 |
 | 6 | #14 | `feat/ui-polish` | 5 conflicts, plus the M2 re-fix, samples and an e2e fix | 718 |
-| – | | post-merge fixes (below) | | 766 |
+| – | | post-merge fixes (below) | | 767 |
 
 ### Conflicts resolved
 
@@ -131,7 +131,7 @@ everything green before the next merge. Final suite: **766 passed, 0 skipped**.
 - **`trace show`** works on a saved `ask` trace (by run id) and on an eval task trace (by
   path). `trace ls` lists the saved runs.
 - **CI commands**, run as in the workflows:
-  - test job: lock, lint, format, 766 tests
+  - test job: lock, lint, format, 767 tests
   - eval-smoke: oracle `--limit 5` at 100%, dry-run, dry-run with every flag
   - ui-e2e: `scripts/ui-e2e/run.sh`, 24 checks
 - **Oracle, all 80 tasks:** 100% on the 64 gradable ones (24 L1, 24 L2, 16 ADV). The 16 L3
@@ -156,7 +156,7 @@ pass (52 cases, including the open-items tests), and the code checks below hold.
 | M2 | yes, re-fixed | #14 reopened it for non-artifact report images; see #14 above. `frontend/render.py` + escaped HTML timeline. |
 | M3 | yes | `api/app.py` `UploadSizeLimit`. |
 | M4 | yes, ported | `tools/make_chart.py` (moved by #13): OO API, bins 1..200, 10k points. |
-| M5 | yes | `core/loop.py`: later `final_report` calls in one response get an error `tool_result`; this also holds with structured reports. |
+| M5 | yes | `core/loop.py`: later `final_report` calls in one response get an error `tool_result`; also with structured reports (`test_two_structured_final_reports_in_one_response_each_get_a_tool_result`). |
 | M6 | yes | `core/approval.py` strips leading comments and gates `EXPLAIN ANALYZE` on the inner query. |
 | M8 | yes | `api/jobs.py` guards all of `_run`; #16 wraps it in `_run_with_context` for logging only. |
 

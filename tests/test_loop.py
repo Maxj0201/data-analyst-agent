@@ -336,3 +336,32 @@ def test_two_final_reports_in_one_response_each_get_a_tool_result(ctx, settings)
     # Only the first submission went to the critic.
     assert "north 150" in llm.calls_for("critic")[0]["messages"][0]["content"]
     assert "north 999" not in llm.calls_for("critic")[0]["messages"][0]["content"]
+
+
+def test_two_structured_final_reports_in_one_response_each_get_a_tool_result(ctx, settings):
+    """Review M5 with #13's structured reports on: the duplicate still gets a tool_result."""
+    settings = settings.model_copy(update={"structured_report_enabled": True})
+
+    def report(n: int) -> dict:
+        return tool_use(
+            "final_report",
+            headline=f"North leads with {n}.",
+            key_numbers={"north": n},
+            method="SUM(revenue) by region",
+            caveats=[],
+            charts=[],
+        )
+
+    first, second = report(150), report(999)
+    llm = FakeLLM(
+        agent=[resp(tool_use("run_sql", query=SQL)), resp(first, second), resp(report(150))],
+        critic=[critic_json("revise", issues=["say more"]), critic_json("pass")],
+    )
+    result = make_loop(llm, ctx, settings).run("Revenue by region?")
+
+    assert result.status is RunStatus.COMPLETED
+    third_call = llm.calls_for("agent")[2]["messages"]
+    answered = {b["tool_use_id"] for b in tool_results_in(third_call[-1])}
+    assert answered == {first["id"], second["id"]}
+    dup = next(b for b in tool_results_in(third_call[-1]) if b["tool_use_id"] == second["id"])
+    assert dup["is_error"] is True
