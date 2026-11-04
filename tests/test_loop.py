@@ -268,7 +268,7 @@ def test_handler_exception_is_isolated(ctx, settings, monkeypatch):
     def boom(query):
         raise RuntimeError("sandbox crashed")
 
-    monkeypatch.setattr(ctx.sandbox, "run_sql", boom)
+    monkeypatch.setattr("analyst_agent.sandbox.run_sql", boom)
     llm = FakeLLM(
         agent=[
             resp(tool_use("run_sql", query=SQL)),

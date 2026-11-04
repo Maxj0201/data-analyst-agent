@@ -6,9 +6,10 @@ from typing import Any
 
 import pytest
 
+from analyst_agent import sandbox
 from analyst_agent.core.config import Settings
 from analyst_agent.core.llm import CostTracker, LLMResponse, Usage
-from analyst_agent.tools import LocalStubSandbox, ToolContext
+from analyst_agent.tools import ToolContext
 
 _ids = itertools.count(1)
 
@@ -110,8 +111,7 @@ def sales_csv(tmp_path: Path) -> Path:
 @pytest.fixture
 def ctx(sales_csv: Path, tmp_path: Path) -> ToolContext:
     return ToolContext(
-        sandbox=LocalStubSandbox({"sales": sales_csv}),
-        tables=["sales"],
+        tables=sandbox.load_data({"sales": sales_csv}),
         artifacts_dir=tmp_path / "artifacts",
     )
 

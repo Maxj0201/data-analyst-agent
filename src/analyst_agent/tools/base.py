@@ -7,12 +7,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from analyst_agent.tools.sandbox_iface import Sandbox
-
 
 @dataclass
 class ToolContext:
-    sandbox: Sandbox
+    """Per-run tool state. Data access goes through the module-level
+    ``analyst_agent.sandbox.run_sql`` / ``run_python`` (see CLAUDE.md)."""
+
     tables: list[str]
     artifacts_dir: Path = Path("artifacts")
 

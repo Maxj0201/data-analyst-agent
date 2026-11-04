@@ -7,8 +7,10 @@ import json
 import re
 from typing import Any
 
+from analyst_agent import sandbox
+from analyst_agent.sandbox import SqlResult
 from analyst_agent.tools.base import Tool, ToolContext, ToolResult
-from analyst_agent.tools.sandbox_iface import SqlResult, rows_to_markdown
+from analyst_agent.tools.formatting import rows_to_markdown
 
 # --------------------------------------------------------------------------- inspect_schema
 
@@ -19,7 +21,7 @@ def _quote_ident(name: str) -> str:
 
 def _describe_table(table: str, ctx: ToolContext) -> tuple[str, dict[str, Any]]:
     lit = table.replace("'", "''")
-    cols = ctx.sandbox.run_sql(
+    cols = sandbox.run_sql(
         "SELECT column_name, data_type FROM information_schema.columns "
         f"WHERE table_name = '{lit}' ORDER BY ordinal_position"
     )
@@ -33,7 +35,7 @@ def _describe_table(table: str, ctx: ToolContext) -> tuple[str, dict[str, Any]]:
         ["COUNT(*) AS __n"]
         + [f"COUNT({_quote_ident(c)}) AS c{i}" for i, (c, _) in enumerate(columns)]
     )
-    counts = ctx.sandbox.run_sql(f"SELECT {counts_sql} FROM {_quote_ident(table)}")
+    counts = sandbox.run_sql(f"SELECT {counts_sql} FROM {_quote_ident(table)}")
     if not counts.ok:
         raise RuntimeError(counts.error or "failed to count rows")
     crow = counts.rows[0]
@@ -42,7 +44,7 @@ def _describe_table(table: str, ctx: ToolContext) -> tuple[str, dict[str, Any]]:
         c: (round(1 - int(crow[f"c{i}"]) / n, 4) if n else 0.0) for i, (c, _) in enumerate(columns)
     }
 
-    sample = ctx.sandbox.run_sql(f"SELECT * FROM {_quote_ident(table)} LIMIT 5")
+    sample = sandbox.run_sql(f"SELECT * FROM {_quote_ident(table)} LIMIT 5")
     sample_rows = sample.rows if sample.ok else []
 
     info = {
@@ -105,7 +107,7 @@ def _format_sql_result(res: SqlResult) -> str:
 
 def run_sql(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     query = args["query"]
-    res = ctx.sandbox.run_sql(query)
+    res = sandbox.run_sql(query)
     if not res.ok:
         return ToolResult(f"SQL error: {res.error}", is_error=True, data={"query": query})
     return ToolResult(
@@ -140,7 +142,7 @@ RUN_SQL = Tool(
 
 def run_python(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     code = args["code"]
-    res = ctx.sandbox.run_python(code)
+    res = sandbox.run_python(code)
     body = f"stdout:\n{res.stdout or '(empty)'}"
     if res.stderr:
         body += f"\nstderr:\n{res.stderr[-2000:]}"

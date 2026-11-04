@@ -1,4 +1,7 @@
-"""Agent tools: JSON schemas + handlers, registered in :mod:`analyst_agent.tools.registry`."""
+"""Agent tools: JSON schemas + handlers, registered in :mod:`analyst_agent.tools.registry`.
+
+SQL and Python execution go through ``analyst_agent.sandbox.run_sql`` / ``run_python``.
+"""
 
 from analyst_agent.tools.base import Tool, ToolContext, ToolResult
 from analyst_agent.tools.registry import (
@@ -7,25 +10,13 @@ from analyst_agent.tools.registry import (
     build_default_registry,
     wrap_untrusted,
 )
-from analyst_agent.tools.sandbox_iface import (
-    LocalStubSandbox,
-    PyResult,
-    Sandbox,
-    SqlResult,
-    create_sandbox,
-)
 
 __all__ = [
     "TERMINAL_TOOL",
-    "LocalStubSandbox",
-    "PyResult",
-    "Sandbox",
-    "SqlResult",
     "Tool",
     "ToolContext",
     "ToolRegistry",
     "ToolResult",
     "build_default_registry",
-    "create_sandbox",
     "wrap_untrusted",
 ]

@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 app = typer.Typer(add_completion=False, help="Autonomous data analyst agent.")
+
+
+def table_name_for(path: Path) -> str:
+    """File name -> SQL-friendly table name (``Sales 2024.csv`` -> ``sales_2024``)."""
+    name = re.sub(r"\W+", "_", path.stem).strip("_").lower() or "data"
+    return f"t_{name}" if name[0].isdigit() else name
 
 
 @app.callback()
@@ -32,9 +39,9 @@ def ask(
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Print each step.")] = False,
 ) -> None:
     """Answer QUESTION over the given data file(s); prints the report and a cost summary."""
+    from analyst_agent import sandbox
     from analyst_agent.core import AgentLoop, LLMClient, Settings
-    from analyst_agent.tools import ToolContext, build_default_registry, create_sandbox
-    from analyst_agent.tools.sandbox_iface import table_name_for
+    from analyst_agent.tools import ToolContext, build_default_registry
 
     overrides = {
         k: v
@@ -50,9 +57,9 @@ def ask(
             raise typer.BadParameter(f"two files map to the same table name {name!r}")
         datasets[name] = p
 
+    tables = sandbox.load_data(datasets)
     ctx = ToolContext(
-        sandbox=create_sandbox(datasets),
-        tables=list(datasets),
+        tables=tables,
         artifacts_dir=settings.artifacts_dir,
     )
 
