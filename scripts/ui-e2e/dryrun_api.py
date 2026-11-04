@@ -31,7 +31,6 @@ def dry_runner(*, dataset_path: Path, question: str, emit: Any, approver: Any = 
         )
 
 
-core.LLMClient = (
-    _scripted_llm  # core_runner resolves LLMClient from analyst_agent.core at call time
-)
+# core_runner resolves LLMClient from analyst_agent.core at call time.
+core.LLMClient = _scripted_llm
 app = create_app(runner=dry_runner)
