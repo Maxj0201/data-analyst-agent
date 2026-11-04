@@ -16,6 +16,11 @@ Event contract (what the job store, SSE stream, frontend and tracing consume)
 ``critic``       ``{"verdict": "pass"|"revise", "issues": [...], "suggested_fix": str, "round"}``
 ``stop``         ``{"status", "detail"}`` (loop ended early or with caveats)
 ``progress``     ``{"turn": int, "max_turns": int}``
+``approval_required`` ``{"id", "tool", "input", "reasons", "triggers", "summary", "turn",
+                  "estimated_rows", "tokens_used", "token_budget", "timeout_s"}`` (the job then
+                  waits for ``POST /jobs/{id}/approve``)
+``approval_decision`` ``{"action_id", "tool", "turn", "approved", "decided_by", "note",
+                  "waited_s"}`` (``decided_by``: human | auto | timeout | unavailable)
 
 Events carrying ``turn``/``max_turns`` drive the job's progress fraction. Unknown types are
 passed through to the stream untouched.
@@ -50,6 +55,9 @@ class AgentOutcome:
 
 
 class AgentRunner(Protocol):
+    """Runners may also accept an ``approver`` keyword (see ``core.approval.Approver``); the
+    job manager passes one only to runners whose signature takes it."""
+
     def __call__(self, *, dataset_path: Path, question: str, emit: EmitFn) -> AgentOutcome: ...
 
 
@@ -142,8 +150,13 @@ class EventedLLM:
 # ---- default runner: analyst_agent.core.AgentLoop ------------------------------------------
 
 
-def core_runner(*, dataset_path: Path, question: str, emit: EmitFn) -> AgentOutcome:
-    """Run the real agent loop over one uploaded CSV (mirrors ``analyst_agent.cli.ask``)."""
+def core_runner(
+    *, dataset_path: Path, question: str, emit: EmitFn, approver: Any = None
+) -> AgentOutcome:
+    """Run the real agent loop over one uploaded CSV (mirrors ``analyst_agent.cli.ask``).
+
+    ``approver`` answers human-in-the-loop approval requests (``AGENT_APPROVAL_*``).
+    """
     try:
         from analyst_agent.core import AgentLoop, LLMClient, Settings
         from analyst_agent.core.llm import estimate_cost_usd
@@ -168,6 +181,7 @@ def core_runner(*, dataset_path: Path, question: str, emit: EmitFn) -> AgentOutc
         ctx,
         settings,
         on_event=EventTranslator(emit, max_turns=settings.max_turns),
+        approver=approver,
     )
     try:
         return coerce_outcome(loop.run(question))

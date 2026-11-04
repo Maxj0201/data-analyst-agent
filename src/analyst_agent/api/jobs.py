@@ -8,6 +8,7 @@ immediately.
 
 from __future__ import annotations
 
+import inspect
 import logging
 import shutil
 import time
@@ -15,6 +16,8 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
+
+from analyst_agent.core.approval import ApprovalBroker
 
 from .agent import AgentOutcome, AgentRunner
 from .models import Artifact, Cost, EventType, Job, JobResult, JobStatus, Progress
@@ -46,11 +49,14 @@ class JobManager:
         tracer_factory: TracerFactory,
         artifacts_dir: Path,
         max_workers: int,
+        approvals: ApprovalBroker | None = None,
     ) -> None:
         self.store = store
         self.runner = runner
         self.tracer_factory = tracer_factory
         self.artifacts_dir = artifacts_dir
+        self.approvals = approvals or ApprovalBroker()
+        self._pass_approver = _accepts_kwarg(runner, "approver")
         self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="agent-job")
 
     def submit(self, *, dataset_id: str, dataset_path: Path, question: str) -> Job:
@@ -61,6 +67,7 @@ class JobManager:
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False, cancel_futures=True)
+        self.approvals.close()
         self.tracer_factory.shutdown()
 
     # ---- worker ------------------------------------------------------------------------
@@ -85,7 +92,12 @@ class JobManager:
             tracer.on_event(type, data)
 
         try:
-            outcome = self.runner(dataset_path=dataset_path, question=job.question, emit=emit)
+            extra: dict[str, Any] = {}
+            if self._pass_approver:
+                extra["approver"] = self.approvals.for_job(job_id)
+            outcome = self.runner(
+                dataset_path=dataset_path, question=job.question, emit=emit, **extra
+            )
         except Exception as exc:  # noqa: BLE001 - surfaced to the client, never raised
             logger.exception("Job %s failed", job_id)
             self._fail(job_id, f"{type(exc).__name__}: {exc}")
@@ -217,6 +229,14 @@ class JobManager:
             found = dest
         rel = found.relative_to(root).as_posix()
         return raw, Artifact(path=rel, url=f"/artifacts/{rel}")
+
+
+def _accepts_kwarg(fn: Any, name: str) -> bool:
+    try:
+        params = inspect.signature(fn).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(p.name == name or p.kind is inspect.Parameter.VAR_KEYWORD for p in params)
 
 
 def _merge_cost(running: Cost, reported: dict[str, Any] | None) -> Cost:
