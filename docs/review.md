@@ -19,6 +19,12 @@ Method: I read every module under `src/`, plus `frontend/`, the Dockerfile, comp
 deploy docs. Each security claim was then tested live against the sandbox, the DuckDB runner
 and the API with small exploit scripts. "Confirmed" below means the exploit ran.
 
+> **Post-merge status (round 3):** every High and Medium fix below was re-checked after
+> merging #15, #16, #13, #12 and #14 on top of this branch; see
+> [integration-notes.md](integration-notes.md#audit-of-docsreviewmd-after-the-merges). M4 now
+> lives in `tools/make_chart.py`, and M2 was re-applied to the rewritten UI (#14) via
+> `frontend/render.report_parts`.
+
 ## Summary
 
 | ID | Sev | Area | Finding | Status |
