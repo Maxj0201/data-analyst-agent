@@ -208,3 +208,159 @@ def test_script_refuses_core_without_a_key() -> None:
 def test_usage_profiles_are_positive() -> None:
     for u in AGENT_PROFILE.values():
         assert isinstance(u, Usage) and u.total > 0
+
+
+# ---- coverage of the remaining summary columns, notes and CLI paths --------------------------
+
+
+def _routing(tier: str, escalations: list[dict] | None = None) -> dict:
+    return {
+        "enabled": True,
+        "routed_tier": tier,
+        "routed_model": "m",
+        "final_tier": tier,
+        "final_model": "m",
+        "route": {},
+        "escalations": escalations or [],
+        "turn_models": [],
+    }
+
+
+def _manifest(tmp_path: Path, rows: list[tuple[str, str, str, Path]]) -> Path:
+    path = tmp_path / "manifest.tsv"
+    path.write_text(
+        "experiment\tarm\trole\trun_dir\tconfig\n"
+        + "".join(f"{e}\t{a}\t{r}\t{d}\tcfg\n" for e, a, r, d in rows)
+    )
+    return path
+
+
+def test_summary_routing_structured_and_baseline_columns(tmp_path: Path) -> None:
+    control = _write_run(
+        tmp_path / "control", [_row("a", "L1", True, 0.2), _row("b", "L3", False, 0.4)]
+    )
+    esc = [{"from_tier": "L1", "to_tier": "L2", "trigger": "tool_error"}]
+    routed = _write_run(
+        tmp_path / "routed",
+        [
+            _row("a", "L1", True, 0.05, routing=_routing("L1", esc)),
+            _row("b", "L3", True, 0.3, routing=_routing("L3")),
+        ],
+    )
+    structured = _write_run(tmp_path / "structured", [_row("a", "L1", True, 0.2)])
+    haiku = _write_run(tmp_path / "haiku", [_row("a", "L1", False, 0.01)])
+    manifest = _manifest(
+        tmp_path,
+        [
+            ("baseline", "haiku", "treatment", haiku),
+            ("baseline", CONTROL, "control", control),
+            ("routing", "routing-on", "treatment", routed),
+            ("routing", CONTROL, "control", control),
+            ("structured", "structured-on", "treatment", structured),
+            ("structured", CONTROL, "control", control),
+            ("custom", "x", "treatment", haiku),  # unknown experiment: title is its name
+        ],
+    )
+    md = render_summary(read_manifest(manifest), {"agent": "`core`"})
+    assert "- agent: `core`" in md
+    baseline = md.split("### Baseline")[1].split("###")[0]
+    assert "Mean tool calls" in baseline and "| 3.0 |" in baseline
+    routing = md.split("### Model routing")[1].split("###")[0]
+    assert "| L1:1 / L3:1 | 50.0% |" in routing  # tiers, escalation rate
+    assert "| – | – |" in routing  # the control was not routed
+    structured_tbl = md.split("### Structured")[1].split("###")[0]
+    assert "Numeric text-fallback" in structured_tbl
+    assert "### custom" in md
+
+
+def test_arm_notes_cover_errors_timeouts_missing_judge_and_ungraded(tmp_path: Path) -> None:
+    rows = [
+        _row("a", "L1", False, 0.0, status="error"),
+        _row("b", "L2", False, 0.0, status="timeout"),
+        _row("c", "L3", False, 0.1, score_details={"method": "rubric", "skipped": True}),
+    ]
+    judged = _write_run(tmp_path / "judged", rows)
+    unjudged = _write_run(tmp_path / "unjudged", rows)
+    meta = json.loads((unjudged / "meta.json").read_text())
+    meta["config"] = {}
+    (unjudged / "meta.json").write_text(json.dumps(meta))
+    manifest = _manifest(
+        tmp_path,
+        [("critic", CONTROL, "control", judged), ("critic", "critic-off", "treatment", unjudged)],
+    )
+    md = render_summary(read_manifest(manifest))
+    assert "1 err / 1 timeout" in md
+    assert "sonnet: 1 err / 1 timeout; 1 ungraded" in md
+    assert "critic-off: 1 err / 1 timeout; no judge: L3 skipped" in md
+
+
+def test_formatting_helpers_handle_missing_values() -> None:
+    from analyst_agent.eval import experiments as ex
+
+    assert ex._pct(None) == ex._pp(None, 0.5) == ex._usd(None) == "–"
+    assert ex._ratio(0.0, 1.0) == ex._ratio(1.0, None) == "–"
+    assert ex._usd(0.05) == "$0.0500" and ex._usd(1.5) == "$1.500"
+    assert ex._scaled(Usage(10, 20, 30, 40), 0.5) == Usage(5, 10, 15, 20)
+
+
+def test_estimate_skips_empty_levels_and_counts_routing_and_extras() -> None:
+    base = settings_for({})
+    est = estimate_run(base, {"L1": 2, "L2": 0})
+    assert set(est.by_level) == {"L1"} and est.router_usd == 0
+    routed = estimate_run(
+        settings_for(
+            {
+                "AGENT_ROUTING_ENABLED": "true",
+                "AGENT_MODEL_L1": HAIKU,
+                "AGENT_SEMANTIC_LAYER_ENABLED": "true",
+                "AGENT_STRUCTURED_REPORT_ENABLED": "true",
+            }
+        ),
+        {"L1": 2},
+        judge=False,
+    )
+    assert routed.router_usd > 0 and routed.judge_usd == 0
+    assert routed.models["judge"] == "off" and routed.models["router"]
+
+
+def test_estimate_cli_overrides_and_bad_format(monkeypatch: pytest.MonkeyPatch) -> None:
+    runner = CliRunner()
+    for key in ("AGENT_ROUTING_ENABLED", "AGENT_SEMANTIC_LAYER_ENABLED"):
+        monkeypatch.delenv(key, raising=False)
+    plain = json.loads(runner.invoke(app, ["estimate", "--limit", "4", "--no-judge"]).output)
+    assert plain["judge_usd"] == 0 and plain["router_usd"] == 0
+    routed = json.loads(
+        runner.invoke(app, ["estimate", "--limit", "4", "--routing", "--semantic-layer"]).output
+    )
+    assert routed["router_usd"] > 0 and routed["agent_usd"] > plain["agent_usd"]
+    bad = runner.invoke(app, ["estimate", "--limit", "4", "--format", "xml"])
+    assert bad.exit_code != 0 and "usd or json" in bad.output
+
+
+def test_plan_and_summary_commands(tmp_path: Path) -> None:
+    runner = CliRunner()
+    out = runner.invoke(app, ["plan", "--cap-factor", "2"])
+    assert out.exit_code == 0 and "Cap (×2)" in out.output and "| **all** |" in out.output
+
+    empty = tmp_path / "empty.tsv"
+    empty.write_text("experiment\tarm\trole\trun_dir\tconfig\n")
+    res = runner.invoke(app, ["summary", str(empty)])
+    assert res.exit_code != 0 and "lists no runs" in res.output
+
+    run = _write_run(tmp_path / "run", [_row("a", "L1", True, 0.1)])
+    manifest = _manifest(tmp_path, [("baseline", CONTROL, "control", run)])
+    dest = tmp_path / "out" / "summary.md"
+    res = runner.invoke(app, ["summary", str(manifest), "--out", str(dest), "--agent", "core"])
+    assert res.exit_code == 0, res.output
+    text = dest.read_text()
+    assert "- agent: `core`" in text and "- manifest:" in text and text in res.output
+
+
+def test_module_entry_point_prints_help() -> None:
+    out = subprocess.run(
+        [sys.executable, "-m", "analyst_agent.eval.experiments", "--help"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert out.returncode == 0 and "estimate" in out.stdout and "summary" in out.stdout
