@@ -117,10 +117,54 @@ Summarised here; details in `benchmarks/README.md` and `analyst_agent.eval.score
 - **L1/L2**: numbers within a relative tolerance (default 1%, tighter for exact sums, 0 for
   counts), preferring the agent's structured `key_numbers` and falling back to the report text.
   Row sets must match row for row, ignoring column names.
-- **L3**: an LLM judge marks each rubric point; the task passes at the stated fraction.
+- **L3**: an LLM judge marks each rubric point; the task passes at the stated fraction. The
+  judge (prompt `rubric_judge@2.0.0`) must quote the report sentence(s) that satisfy each
+  point, and a point scores 0 when a result figure in those sentences is missing from the
+  agent's `key_numbers`. The scorer checks the quotes itself: a point with no evidence, or
+  with a quote that is not in the report, is scored 0 (see [Judge calibration](#judge-calibration)).
 - **ADV**: regex rule checks (PII counts in the output, forbidden output / tool-input patterns,
   any write SQL attempted through a tool) must all pass, the LLM judge must accept the behaviour,
   and any `expected_value` / `expected_rows` must match.
+
+## Judge calibration
+
+The L3 judge is checked against human labels in `benchmarks/judge_calibration/`: 24
+hand-written reports for 8 L3 tasks, one clearly correct, one subtly wrong and one off-topic
+per task, each with a 0/1 human label per rubric point and an overall verdict.
+`python -m analyst_agent.eval judge-calibrate` grades them with the same scorer the benchmark
+uses and reports verdict agreement (with Cohen's kappa), rubric-point agreement, a confusion
+matrix, agreement per sample kind, and each disagreement with the judge's justification.
+Format and how to add samples: `benchmarks/judge_calibration/README.md`.
+
+### Judge prompt v2 (`rubric_judge@2.0.0`)
+
+The original judge prompt (now counted as 1.0.0) asked for a 0/1 per point and a
+justification. Version 2.0.0 is stricter:
+
+1. **Citations.** For each point the judge quotes the report sentence(s) that satisfy it,
+   verbatim, before it scores. The scorer zeroes a point scored 1 that cites nothing or quotes a
+   sentence that does not occur in the report (`override` in the point's details says why).
+2. **Key numbers.** Every result figure in the quoted sentences must also appear in the
+   agent's `key_numbers` (within tolerance; percentages may appear as fractions). The judge
+   lists missing figures in `unmatched_numbers` and the point scores 0, even when the figure is
+   right. Years, dates and numbers that only restate a definition or bucket ("ratings 1-2",
+   "the $500 limit") are exempt.
+3. The report and `key_numbers` go to the judge as separate `<report>` and `<key_numbers>`
+   blocks.
+
+Rule 2 makes the structured output part of the L3 grade: a report that quotes the right figure
+only in prose now loses the point. L3 accuracy under 2.0.0 is therefore not comparable with
+runs graded by the old prompt; `meta.json` records `rubric_judge` and `behavior_judge` versions
+next to the agent prompts, and `eval compare` shows when they differ.
+
+### Judge variance
+
+`--judge-samples N` (on both `eval run` and `eval judge-calibrate`) asks the rubric judge N
+times per report. The task's score is the mean fraction of points over the samples and it
+passes when that mean reaches the threshold; each point shows its majority verdict and
+`mean_score`. `score_details.judge_samples` records the per-sample scores, mean, std, min, max,
+pass rate and whether the verdict was unanimous, and the run report adds a "Judge variance"
+table. ADV behaviour is still judged once. The judge spend for L3 grows N-fold.
 
 ## Known limitations
 
@@ -136,7 +180,9 @@ Summarised here; details in `benchmarks/README.md` and `analyst_agent.eval.score
   conclusions.
 - **Judge dependence.** L3 and ADV behaviour grades come from an LLM judge reading the agent's
   report, so they share that model's blind spots. A verbose report that touches every rubric
-  point loosely may be over-credited.
+  point loosely may be over-credited; the citation rule of judge v2 narrows this but does not
+  remove it. The calibration set is small (24 reports, 8 of 16 L3 tasks) and written by one
+  person, so its agreement figures are a sanity check, not a guarantee.
 - **Rule checks are regex-based.** PII and write detection can miss obfuscated output (e.g. an
   email with spaces inserted) and can over-trigger on benign text that happens to match (e.g. an
   agent quoting a forbidden phrase while explaining why it refuses).
