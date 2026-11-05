@@ -8,8 +8,10 @@
    arm in :data:`analyst_agent.eval.experiments.PLAN`) answers a 1-token call, sent through
    ``core.llm.LLMClient`` exactly like the real run (same effort parameter and refusal-fallback
    beta), plus one small structured-output call to the judge model, parsed like a verdict.
-3. Every optional extra of the package is installed (``uv sync --locked --all-extras``); the
-   embedding / hybrid arms need ``embeddings``.
+3. Every optional extra of the package is installed (``uv sync --locked --all-extras``). A
+   missing ``embeddings`` extra (torch) is only a warning unless embedding backends were asked
+   for (``--embeddings``, or ``AGENT_SEMANTIC_BACKEND=embedding|hybrid``): without it the
+   semantic experiment's embedding / hybrid arms record a retrieval error on every task.
 4. The benchmark data and task files regenerate byte-for-byte from the seeded generator.
 5. The governed metric definitions load.
 6. The trace store, the eval runs directory and the experiments directory are writable.
@@ -235,9 +237,28 @@ def extra_requirements(dist: str = DIST_NAME) -> dict[str, list[str]]:
     return out
 
 
+EMBEDDING_BACKENDS = ("embedding", "hybrid")
+
+
+def embeddings_requested(
+    flag: bool = False, env: dict[str, str] | None = None, settings: Settings | None = None
+) -> bool:
+    """True when the user asked for embedding backends: ``--embeddings``, or
+    ``AGENT_SEMANTIC_BACKEND`` (environment or ``.env``) set to ``embedding`` / ``hybrid``."""
+    if flag:
+        return True
+    env = dict(os.environ if env is None else env)
+    backend = env.get("AGENT_SEMANTIC_BACKEND")
+    if backend is None:
+        backend = (settings or Settings()).semantic_backend
+    return backend.strip().lower() in EMBEDDING_BACKENDS
+
+
 def check_extras(
     extras: dict[str, list[str]] | None = None,
     installed: Callable[[str], bool] | None = None,
+    *,
+    require_embeddings: bool = True,
 ) -> list[Check]:
     def _installed(name: str) -> bool:
         try:
@@ -251,6 +272,18 @@ def check_extras(
     checks = []
     for extra, reqs in sorted(extras.items()):
         missing = [r for r in reqs if not installed(r)]
+        if missing and extra == "embeddings" and not require_embeddings:
+            checks.append(
+                Check(
+                    f"extra [{extra}]",
+                    True,
+                    f"missing {', '.join(missing)}: fine unless you run the semantic "
+                    "experiment's embedding / hybrid arms (then: uv sync --locked --all-extras, "
+                    "and pass --embeddings to make this a failure)",
+                    warning=True,
+                )
+            )
+            continue
         checks.append(
             Check(
                 f"extra [{extra}]",
@@ -419,12 +452,16 @@ def run_preflight(
     skip_api: bool = False,
     skip_regenerate: bool = False,
     extras: dict[str, list[str]] | None = None,
+    require_embeddings: bool | None = None,
+    dry_run: bool = False,
     echo: Callable[[str], None] = print,
 ) -> bool:
     """Run every check, print a report; True when nothing failed.
 
     ``llm`` is the ``core.llm.LLM`` the API checks go through (default: a real
-    ``LLMClient`` at effort ``low``); pass a FakeLLM to rehearse offline.
+    ``LLMClient`` at effort ``low``); pass a FakeLLM to rehearse offline. ``dry_run`` only
+    labels the API checks as rehearsed. ``require_embeddings`` (default: see
+    :func:`embeddings_requested`) makes a missing ``embeddings`` extra a failure, not a warning.
     """
     settings = Settings()
     models = runbook_models(judge_model)
@@ -446,7 +483,16 @@ def run_preflight(
             api_checks, spend = check_models(llm, models, judge)
             checks += api_checks
             checks.append(check_batches(llm))
-    checks += check_extras(extras)
+        if dry_run:  # say so on every API line: no real key was read and no API was called
+            for c in checks:
+                c.detail = (
+                    "not checked: --dry-run uses a placeholder key"
+                    if c is key
+                    else f"dry run (scripted FakeLLM): {c.detail}"
+                )
+    if require_embeddings is None:
+        require_embeddings = embeddings_requested(settings=settings)
+    checks += check_extras(extras, require_embeddings=require_embeddings)
     if skip_regenerate:
         checks.append(Check("benchmark regenerates", True, "skipped", warning=True))
     else:
@@ -514,6 +560,15 @@ def main(
     ] = False,
     skip_api: Annotated[bool, typer.Option(help="skip the key and model checks")] = False,
     skip_regenerate: Annotated[bool, typer.Option(help="skip the benchmark regeneration")] = False,
+    embeddings: Annotated[
+        bool,
+        typer.Option(
+            "--embeddings",
+            help="require the embeddings extra (the semantic experiment's embedding / hybrid "
+            "arms); without this a missing extra is a warning, unless AGENT_SEMANTIC_BACKEND "
+            "is embedding or hybrid",
+        ),
+    ] = False,
     experiments_dir: Path = Path("runs/experiments"),
     benchmarks: Path = DEFAULT_BENCHMARK_ROOT,
 ) -> None:
@@ -535,6 +590,8 @@ def main(
         experiments_dir=experiments_dir,
         skip_api=skip_api,
         skip_regenerate=skip_regenerate,
+        require_embeddings=embeddings_requested(embeddings),
+        dry_run=dry_run,
         echo=typer.echo,
     )
     raise typer.Exit(code=0 if ok else 1)

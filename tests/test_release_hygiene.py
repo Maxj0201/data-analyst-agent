@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import re
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -77,8 +78,19 @@ def test_release_files_exist() -> None:
     assert "docs/history/kickoff/" in (ROOT / "CONTRIBUTING.md").read_text()
 
 
-def test_httpx_is_declared_once() -> None:
-    assert (ROOT / "pyproject.toml").read_text().count('"httpx') == 1
+def test_httpx_is_declared_once_per_role() -> None:
+    """httpx is a runtime dependency of the frontend extra and a test dependency (TestClient,
+    the frontend's mock API) in the dev group, so a plain ``uv sync`` can run the tests. It is
+    declared exactly there, once each, and not in the core dependencies."""
+    cfg = tomllib.loads((ROOT / "pyproject.toml").read_text())
+
+    def count(reqs: list[str]) -> int:
+        return sum(r.startswith("httpx") for r in reqs)
+
+    assert count(cfg["project"]["dependencies"]) == 0
+    extras = cfg["project"]["optional-dependencies"]
+    assert {name: count(reqs) for name, reqs in extras.items() if count(reqs)} == {"frontend": 1}
+    assert count(cfg["dependency-groups"]["dev"]) == 1
 
 
 def test_find_unbumped_flags_only_text_changes_without_a_version_bump() -> None:

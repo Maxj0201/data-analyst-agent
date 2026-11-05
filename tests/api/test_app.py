@@ -6,10 +6,12 @@ import threading
 import httpx
 import pytest
 
-from analyst_agent.api.agent import AgentOutcome
-from analyst_agent.api.app import create_app
+pytest.importorskip("fastapi", reason="needs the 'api' extra: uv sync --extra api")
 
-from .conftest import CSV_BYTES, PNG_BYTES, parse_sse, upload, wait_for_job
+from analyst_agent.api.agent import AgentOutcome  # noqa: E402
+from analyst_agent.api.app import create_app  # noqa: E402
+
+from .conftest import CSV_BYTES, PNG_BYTES, parse_sse, upload, wait_for_job  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
 

@@ -9,11 +9,13 @@ from pathlib import Path
 import httpx
 import pytest
 
-import tests.conftest as h
-from analyst_agent.api.agent import AgentOutcome
-from analyst_agent.api.app import create_app
+pytest.importorskip("fastapi", reason="needs the 'api' extra: uv sync --extra api")
 
-from .conftest import parse_sse, upload, wait_for_job
+import tests.conftest as h  # noqa: E402
+from analyst_agent.api.agent import AgentOutcome  # noqa: E402
+from analyst_agent.api.app import create_app  # noqa: E402
+
+from .conftest import parse_sse, upload, wait_for_job  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
 

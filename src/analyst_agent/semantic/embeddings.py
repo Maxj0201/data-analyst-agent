@@ -25,15 +25,13 @@ from typing import Any, Protocol
 
 import numpy as np
 
+from analyst_agent.extras import MissingExtraError
 from analyst_agent.semantic.retriever import ScoringBackend
 
 log = logging.getLogger(__name__)
 
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-INSTALL_HINT = (
-    "the embedding backend needs the optional 'embeddings' extra: "
-    "uv sync --extra embeddings  (or pip install 'analyst-agent[embeddings]')"
-)
+INSTALL_HINT = str(MissingExtraError("embeddings", "the embedding backend"))
 
 
 class Encoder(Protocol):
@@ -47,7 +45,7 @@ def load_sentence_transformer(model_name: str) -> Encoder:
     try:
         from sentence_transformers import SentenceTransformer
     except ImportError as e:  # pragma: no cover - exercised only without the extra
-        raise ImportError(INSTALL_HINT) from e
+        raise MissingExtraError("embeddings", "the embedding backend") from e
     log.info("loading sentence-transformers model %s", model_name)
     return SentenceTransformer(model_name)
 

@@ -22,7 +22,7 @@ uv sync --locked --all-extras
 ```
 
 ```bash
-scripts/preflight.sh
+scripts/preflight.sh --embeddings
 ```
 
 ```bash
@@ -82,7 +82,7 @@ and warms the embedding model and prints retrieval quality per backend (no API c
 ### 1. Pre-flight (< $0.01)
 
 ```bash
-scripts/preflight.sh
+scripts/preflight.sh --embeddings
 ```
 
 ```bash
@@ -93,7 +93,10 @@ Check:
 
 - The last line says `pre-flight passed` and the exit status is 0. A `WARN` is fine (an
   unclean git tree, or *Message Batches API* unavailable, in which case `--batch` falls back to
-  direct judge calls at full price).
+  direct judge calls at full price). `--embeddings` makes a missing `embeddings` extra a
+  failure, because the semantic experiment needs it; without the flag (and with
+  `AGENT_SEMANTIC_BACKEND` at its `bm25` default) it is only a `WARN`, which is the right
+  setting for a dev checkout synced with `--no-extra embeddings`.
 - `API key valid` and one `model …` line per model (`claude-haiku-5-5`, `claude-sonnet-5-5`)
   are `ok`, and `judge structured output` is `ok`: the calls went through `core/llm.py` with the
   same effort parameter and refusal-fallback beta as the real run.
@@ -571,7 +574,7 @@ text-fallback / Critic rounds)
 | Run crashed / Ctrl-C / connection lost | Same: `--resume <its --out>`. Finished tasks are not re-run; answers still waiting for a verdict are re-graded without re-running the agent. |
 | `cannot resume: AGENT_* settings differ` | The shell does not have the arm's environment. Export it from `run_experiments.sh --print-commands`, or resume through the script. |
 | `meta.json` shows `judge_batch.fallback` | Batching was not used (SDK without `messages.batches`, batch rejected, or > 6 h); the judge ran directly at full price. The scores are valid. |
-| `scripts/preflight.sh` fails `extra [embeddings]` | `uv sync --locked --all-extras` (pulls torch). |
+| `scripts/preflight.sh` warns (or, with `--embeddings`, fails) `extra [embeddings]` | `uv sync --locked --all-extras` (pulls torch). Without it the semantic experiment's embedding / hybrid arms record a retrieval error on every task; the other experiments do not need it. |
 | *Retrieval errors* > 0% in embedding/hybrid | `sentence-transformers` missing or the model download failed. `uv sync --extra embeddings`, warm with `python -m analyst_agent.semantic eval -b embedding`. |
 | Many timeouts on L3 | Raise `--timeout`, or lower `--concurrency` if 429 retries are stretching tasks. |
 | Script exits 1 but `runs/summary.md` exists | Some arm is incomplete; the summary marks it in *Notes*. See the list the script prints and `<arm>.log`. |

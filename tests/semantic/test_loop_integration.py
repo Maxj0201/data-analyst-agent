@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from analyst_agent.core.config import Settings
@@ -14,6 +15,7 @@ from analyst_agent.core.prompts import (
 )
 from analyst_agent.eval.agent import output_from_core
 from analyst_agent.eval.report import render_compare, summarize
+from analyst_agent.extras import MissingExtraError
 from analyst_agent.semantic import Metric, MetricRetriever
 from analyst_agent.tools import build_default_registry
 from tests.conftest import FakeLLM, critic_json, resp, text, tool_use
@@ -158,6 +160,23 @@ def test_retrieval_failure_does_not_fail_run(ctx, settings) -> None:
     assert result.status is RunStatus.COMPLETED
     assert result.state.semantic_error == "RuntimeError: index unavailable"
     assert "<metric_reference>" not in first_user_message(llm)
+
+
+class NoTorchRetriever(BrokenRetriever):
+    def retrieve(self, question, k=5, tables=None):  # type: ignore[override]
+        raise MissingExtraError("embeddings", "the embedding backend")
+
+
+def test_missing_embeddings_extra_is_one_warning_line(ctx, settings, caplog) -> None:
+    """Fresh-clone audit: AGENT_SEMANTIC_BACKEND=embedding without torch logged a traceback."""
+    settings = settings.model_copy(update={"semantic_layer_enabled": True})
+    with caplog.at_level(logging.WARNING, logger="analyst_agent.core.loop"):
+        _, result = run(ctx, settings, retriever=NoTorchRetriever())
+    assert result.status is RunStatus.COMPLETED
+    assert "uv sync --extra embeddings" in (result.state.semantic_error or "")
+    [rec] = [r for r in caplog.records if "semantic layer" in r.getMessage()]
+    assert rec.levelno == logging.WARNING and rec.exc_info is None
+    assert rec.getMessage().startswith("semantic layer off for this run: the embedding backend")
 
 
 def test_default_retriever_loads_from_settings_dir(ctx, settings, tmp_path: Path) -> None:

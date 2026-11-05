@@ -11,8 +11,10 @@ import pytest
 import pytest_asyncio
 
 from analyst_agent.api.agent import AgentOutcome, EmitFn
-from analyst_agent.api.app import create_app
 from analyst_agent.core.config import Settings
+
+# Test modules that need FastAPI start with ``pytest.importorskip("fastapi", ...)``: without
+# the ``api`` extra (a plain ``uv sync``) they are reported as skipped instead of erroring.
 
 # Smallest valid PNG (1x1 transparent pixel).
 PNG_BYTES = bytes.fromhex(
@@ -71,6 +73,8 @@ def fake_agent(settings: Settings) -> FakeAgent:
 
 @pytest_asyncio.fixture
 async def client(settings: Settings, fake_agent: FakeAgent) -> AsyncIterator[httpx.AsyncClient]:
+    from analyst_agent.api.app import create_app  # needs the 'api' extra
+
     app = create_app(settings, runner=fake_agent)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:

@@ -159,6 +159,9 @@ def test_runner_maps_engine_exceptions(data_files: dict[str, Path]) -> None:
     class Conn:
         def __init__(self, exc: Exception, fire_timer: bool) -> None:
             self.exc, self.fire_timer = exc, fire_timer
+            # Fire only this call's watchdog: under load a cancelled Timer from an earlier test
+            # can still be alive, and its interrupt() hits a closed connection.
+            self.old_threads = set(threading.enumerate())
 
         def cursor(self) -> Any:
             outer, cur = self, real_conn.cursor()
@@ -170,7 +173,7 @@ def test_runner_maps_engine_exceptions(data_files: dict[str, Path]) -> None:
                 def execute(self, q: str) -> None:
                     if outer.fire_timer:  # the watchdog fires just before the error surfaces
                         for t in threading.enumerate():
-                            if isinstance(t, threading.Timer):
+                            if isinstance(t, threading.Timer) and t not in outer.old_threads:
                                 t.function()  # type: ignore[attr-defined]
                     raise outer.exc
 

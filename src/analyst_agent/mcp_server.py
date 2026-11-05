@@ -27,10 +27,12 @@ try:
     from mcp.server import Server, ServerRequestContext
     from mcp.server.stdio import stdio_server
 except ImportError as exc:  # pragma: no cover - exercised only without the extra
-    raise ImportError(
-        "analyst_agent.mcp_server needs the 'mcp' extra: pip install 'analyst-agent[mcp]' "
-        "(or `uv sync --extra mcp`)."
-    ) from exc
+    from analyst_agent.extras import MissingExtraError
+
+    if __name__ == "__main__":  # python -m analyst_agent.mcp_server: one line, no traceback
+        print(f"analyst-agent-mcp: {MissingExtraError('mcp', 'the MCP server')}", file=sys.stderr)
+        raise SystemExit(2) from None
+    raise MissingExtraError("mcp", "the MCP server") from exc
 
 from analyst_agent import __version__
 from analyst_agent.sandbox import Sandbox, create_sandbox

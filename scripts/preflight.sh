@@ -10,15 +10,17 @@
 # extra is installed, the benchmark regenerates byte-for-byte, the metric definitions load,
 # the trace store / runs / experiments directories are writable; then prints the estimated
 # cost of each experiment from core/llm.py's price table. Exits 1 if any check fails.
+# A missing [embeddings] extra (torch) is a WARN, not a FAIL, unless you pass --embeddings or
+# AGENT_SEMANTIC_BACKEND is embedding/hybrid: pass it before running the semantic experiment.
 #
 # Options are passed to `python -m analyst_agent.eval.preflight` (see --help there):
 #   --judge-model M  --limit N  --cap-factor F  --batch  --dry-run  --skip-api
-#   --skip-regenerate  --experiments-dir DIR
+#   --skip-regenerate  --embeddings  --experiments-dir DIR
 # Environment: PYTHON (default "uv run python") is the interpreter.
 set -euo pipefail
 
 if [[ ${1:-} == -h || ${1:-} == --help ]]; then
-  sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
   exit 0
 fi
 
