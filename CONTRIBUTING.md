@@ -15,6 +15,7 @@ make install    # uv sync --locked --all-extras --no-extra embeddings
 
 ```bash
 make help       # every target
+make hooks      # optional: install the pre-commit hooks (below)
 ```
 
 Add `--extra embeddings` only when working on the embedding or hybrid semantic backends. It pulls
@@ -23,11 +24,12 @@ in torch, and the tests mock the encoder.
 ## Before you open a PR
 
 ```bash
-make check      # lint + format check + tests + coverage gate + offline eval gate (what CI runs)
+make check      # install + lint + format check + tests + coverage gate + offline eval gate
 ```
 
 | Target | What it runs | Needs |
 |---|---|---|
+| `make hooks` | installs the pre-commit hooks (see below) | — |
 | `make lint` | `ruff check` + `ruff format --check` (line length 100) | — |
 | `make format` | applies `ruff format` and autofixable lint fixes | — |
 | `make test` | `pytest` with the API key blanked and the base URL pointed at a dead port | — |
@@ -38,13 +40,23 @@ make check      # lint + format check + tests + coverage gate + offline eval gat
 | `make eval-live` | a real benchmark run (`EVAL_ARGS="-d L1 --limit 5"`) | `ANTHROPIC_API_KEY`; costs money |
 | `make demo` | `docker compose` stack with sample datasets | Docker |
 
-CI runs `lint`, `coverage` and `eval` on every PR, and the fuzzer nightly
-(`.github/workflows/nightly.yml`). Tests marked `@pytest.mark.slow` are deselected by default
-(`addopts` in `pyproject.toml`) and are not part of the coverage measurement, so every line in
-`src/` must be reachable from a fast test. Property tests (Hypothesis) live in
+CI runs `make lint`, `make coverage` and `make eval` on every PR (the workflow calls the Makefile,
+so `make check` is what CI runs: change commands in the Makefile, not in the workflow), and the
+fuzzer nightly (`.github/workflows/nightly.yml`). Tests marked `@pytest.mark.slow` are deselected
+by default (`addopts` in `pyproject.toml`) and are not part of the coverage measurement, so every
+line in `src/` must be reachable from a fast test. Property tests (Hypothesis) live in
 `tests/property/`; they are deterministic by default (profile `ci`, 150 examples), and
 `HYPOTHESIS_PROFILE=dev` runs 1000 random examples each. `ui-e2e` runs on PRs that touch `frontend/`,
 `src/analyst_agent/api/`, `core/approval.py`, `core/fake_llm.py` or `scripts/ui-e2e/`.
+
+## Pre-commit hooks
+
+`make hooks` installs [`.pre-commit-config.yaml`](.pre-commit-config.yaml) (via `uvx pre-commit`).
+On each commit it runs `ruff check --fix`, `ruff format`, `uv lock --check` when `pyproject.toml`
+or `uv.lock` change, and `scripts/check_prompt_versions.py` when `core/prompts.py` or
+`eval/scorers.py` change. The last one compares every registered prompt with `HEAD` and fails if
+the text changed but the version did not; use `--base origin/main` to compare a whole branch.
+The hooks run through `uv run --locked`, so they use the same ruff as CI.
 
 ## Rules
 
@@ -103,11 +115,22 @@ Check each one that applies:
       updating `docs/sandbox.md`, the escape tests in `tests/sandbox/` and the rule checks in
       `tests/sandbox/test_oslock_unit.py`, and running `make fuzz`. (H1, H2)
 
+## Repository layout notes
+
+- `docs/history/kickoff/` holds the four session briefs the project was started from. They are
+  **historical**: they describe the pre-merge plan (including stubs that no longer exist), so do
+  not treat them as documentation or update them. The current design is in
+  `docs/architecture.md`.
+- Run outputs (`runs/`, `traces/`, `artifacts/`, `*.sqlite3`) and images outside `docs/assets/`
+  are git-ignored. If a doc needs an example run, copy the relevant part into `docs/assets/`.
+- Security reports go through [`SECURITY.md`](SECURITY.md), not public issues. The project is
+  [MIT licensed](LICENSE).
+
 ## Commits and PRs
 
 - Work on a branch named after the task (`feat/...`, `fix/...`, `docs/...`) and commit in small
   logical steps.
-- The PR description says what changed, how you verified it (commands and results) and anything
+- Fill in the PR template (`.github/PULL_REQUEST_TEMPLATE.md`). The description says what changed, how you verified it (commands and results) and anything
   you edited outside your area.
 - If your change affects documented behaviour, update `README.md` and the matching `docs/*.md`
   in the same PR. `docs/architecture.md` describes `main`. If you change the diagram, check that

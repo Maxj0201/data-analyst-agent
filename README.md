@@ -307,3 +307,7 @@ what the sandbox needs from Docker / Cloud Run: [docs/deploy.md](docs/deploy.md)
 - [ ] Warehouse connectors (Postgres, BigQuery) behind the same `run_sql` contract
 - [ ] Measure the real judge against the calibration set (`judge-calibrate --judge-samples 3`)
 - [ ] Measure embedding / hybrid retrieval and sweep the hybrid weight (commands in [semantic-layer.md](docs/semantic-layer.md#embedding-and-hybrid-not-measured-yet))
+
+## License and security
+
+[MIT](LICENSE). To report a vulnerability, see [SECURITY.md](SECURITY.md); what the sandbox does and does not guarantee is in [docs/sandbox.md](docs/sandbox.md).

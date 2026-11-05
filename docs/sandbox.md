@@ -252,8 +252,9 @@ Be honest about this before exposing the agent to untrusted users:
 - **Filesystem isolation depends on Landlock.** On kernels without it, only the audit hook
   limits file access, and native code can bypass the hook (see above). Look for the
   `sandbox confinement degraded: Landlock unavailable` warning in the server log (it is logged
-  once per process; the child's stderr also carries `[sandbox] Landlock unavailable`). Use a read-only root filesystem, a non-root user, and
-  mount only the data directory you intend to expose. Don't run as root.
+  once per process; the child's stderr also carries `[sandbox] Landlock unavailable`). Use a
+  read-only root filesystem, a non-root user, and mount only the data directory you intend to
+  expose. Don't run as root.
 - **Reads from the Python installation are allowed** (libraries need them). Don't install
   secrets inside the venv.
 - **CPU fairness / concurrency:** each call is limited, but many concurrent calls can still
