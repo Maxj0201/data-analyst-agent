@@ -1,0 +1,24 @@
+id: l3_hr_attrition__off_topic
+task_id: l3_hr_attrition
+kind: off_topic
+note: Summarises salaries by level for current staff; attrition is never measured.
+report: |
+  ## Salaries by level
+
+  The 346 current employees are paid a median base salary of $64,550 at L1, $84,000 at L2, $108,800 at L3, $136,400 at L4 and $185,100 at L5.
+
+  Pay rises steadily with level, with the largest step between L4 and L5.
+key_numbers:
+  current_employees: 346
+  median_salary_l1: 64550
+  median_salary_l2: 84000
+  median_salary_l3: 108800
+  median_salary_l4: 136400
+  median_salary_l5: 185100
+labels:
+  passed: false
+  points:
+    - {score: 0, reason: No attrition measure.}
+    - {score: 0, reason: Departments are not compared on terminations.}
+    - {score: 0, reason: Performance ratings are not discussed.}
+    - {score: 0, reason: No recommendation.}

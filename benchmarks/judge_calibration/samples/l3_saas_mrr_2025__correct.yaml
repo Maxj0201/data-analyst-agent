@@ -1,0 +1,35 @@
+id: l3_saas_mrr_2025__correct
+task_id: l3_saas_mrr_2025
+kind: correct
+note: All five points with figures in key_numbers.
+report: |
+  ## MRR in 2025
+
+  MRR on 2025-01-01 was $1,896,703.
+
+  Subscriptions started in 2025 added $787,868 of MRR, and subscriptions that churned in 2025 removed $192,708.
+
+  Ending MRR (all active subscriptions) is $2,492,292, up 31% over the year.
+
+  North America is the largest region with $1,100,920 of active MRR, 44% of the total.
+key_numbers:
+  starting_mrr: 1896703
+  new_mrr_2025: 787868
+  churned_mrr_2025: 192708
+  ending_mrr: 2492292
+  mrr_growth: 0.31
+  north_america_active_mrr: 1100920
+  north_america_share: 0.44
+labels:
+  passed: true
+  points:
+    - score: 1
+      evidence: ["MRR on 2025-01-01 was $1,896,703."]
+    - score: 1
+      evidence: ["Subscriptions started in 2025 added $787,868 of MRR, and subscriptions that churned in 2025 removed $192,708."]
+    - score: 1
+      evidence: ["Subscriptions started in 2025 added $787,868 of MRR, and subscriptions that churned in 2025 removed $192,708."]
+    - score: 1
+      evidence: ["Ending MRR (all active subscriptions) is $2,492,292, up 31% over the year."]
+    - score: 1
+      evidence: ["North America is the largest region with $1,100,920 of active MRR, 44% of the total."]

@@ -1,0 +1,38 @@
+id: l3_ecom_carrier_performance__correct
+task_id: l3_ecom_carrier_performance
+kind: correct
+note: All four points, with the figures in key_numbers.
+report: |
+  ## Carrier reliability
+
+  On-time delivery (delivered_date on or before promised_delivery_date) across 3,767 shipments: SwiftShip 95.8%, PostCo 94.8%, ParcelNow 79.7%. ParcelNow is clearly the least reliable carrier.
+
+  The gap is seasonal: ParcelNow delivers 89.6% on time for orders placed January-October but only 52.3% for November-December orders, while PostCo (95.2%) and SwiftShip (94.7%) hold steady in the peak months.
+
+  ParcelNow accounts for 183 of the 316 late shipments (58%) despite carrying only 24% of volume.
+
+  Recommendation: move November-December volume from ParcelNow to SwiftShip or PostCo, and renegotiate ParcelNow's SLA with penalties for peak-season misses.
+key_numbers:
+  shipments: 3767
+  swiftship_on_time_rate: 0.9584
+  postco_on_time_rate: 0.9481
+  parcelnow_on_time_rate: 0.7973
+  parcelnow_on_time_jan_oct: 0.8961
+  parcelnow_on_time_nov_dec: 0.523
+  postco_on_time_nov_dec: 0.9515
+  swiftship_on_time_nov_dec: 0.9468
+  late_shipments: 316
+  parcelnow_late_shipments: 183
+  parcelnow_share_of_late: 0.579
+  parcelnow_volume_share: 0.24
+labels:
+  passed: true
+  points:
+    - score: 1
+      evidence: ["On-time delivery (delivered_date on or before promised_delivery_date) across 3,767 shipments: SwiftShip 95.8%, PostCo 94.8%, ParcelNow 79.7%.", "ParcelNow is clearly the least reliable carrier."]
+    - score: 1
+      evidence: ["The gap is seasonal: ParcelNow delivers 89.6% on time for orders placed January-October but only 52.3% for November-December orders, while PostCo (95.2%) and SwiftShip (94.7%) hold steady in the peak months."]
+    - score: 1
+      evidence: ["ParcelNow accounts for 183 of the 316 late shipments (58%) despite carrying only 24% of volume."]
+    - score: 1
+      evidence: ["Recommendation: move November-December volume from ParcelNow to SwiftShip or PostCo, and renegotiate ParcelNow's SLA with penalties for peak-season misses."]

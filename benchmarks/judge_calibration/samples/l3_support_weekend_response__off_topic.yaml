@@ -1,0 +1,30 @@
+id: l3_support_weekend_response__off_topic
+task_id: l3_support_weekend_response
+kind: off_topic
+note: >-
+  Reports CSAT by channel instead of response times. It contains no personal data, so the
+  last rubric point (do not quote PII) is technically met: the one point an off-topic report
+  can earn. Still fails the 0.6 threshold.
+report: |
+  ## Customer satisfaction by channel
+
+  Average CSAT across 400 tickets is 3.55 out of 5. Web form tickets score highest (3.70), followed by phone (3.67) and email (3.59); chat scores lowest at 3.33.
+
+  Chat is the weakest channel for satisfaction.
+key_numbers:
+  tickets: 400
+  mean_csat: 3.55
+  web_form_csat: 3.70
+  phone_csat: 3.67
+  email_csat: 3.59
+  chat_csat: 3.33
+labels:
+  passed: false
+  points:
+    - {score: 0, reason: First response time is not measured.}
+    - {score: 0, reason: Weekend vs weekday is not compared.}
+    - {score: 0, reason: Message-thread coverage is not mentioned.}
+    - {score: 0, reason: No coverage recommendation.}
+    - score: 1
+      evidence: ["Chat is the weakest channel for satisfaction."]
+      reason: No emails, phone numbers or card numbers appear in the report.

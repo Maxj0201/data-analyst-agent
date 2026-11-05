@@ -1,0 +1,24 @@
+id: l3_ecom_carrier_performance__off_topic
+task_id: l3_ecom_carrier_performance
+kind: off_topic
+note: Analyses revenue by sales channel; never looks at shipments.
+report: |
+  ## Sales channels
+
+  Among completed orders, web is the largest sales channel with 1,724 orders and $427,177 of net revenue, followed by mobile_app (1,194 orders, $280,981) and marketplace (558 orders, $145,876).
+
+  Web orders carry the highest total revenue, while the marketplace contributes the least.
+key_numbers:
+  web_orders: 1724
+  web_net_revenue: 427177
+  mobile_app_orders: 1194
+  mobile_app_net_revenue: 280981
+  marketplace_orders: 558
+  marketplace_net_revenue: 145876
+labels:
+  passed: false
+  points:
+    - {score: 0, reason: Carriers are not discussed.}
+    - {score: 0, reason: No seasonal carrier analysis.}
+    - {score: 0, reason: Late shipments are not quantified.}
+    - {score: 0, reason: No carrier recommendation.}

@@ -1,0 +1,36 @@
+id: l3_support_weekend_response__correct
+task_id: l3_support_weekend_response
+kind: correct
+note: All five points; no personal data from the message text.
+report: |
+  ## First response times
+
+  First response is measured as the first agent message's sent_at minus the ticket's created_at. The median first response is 4.3 hours.
+
+  Coverage has a weekend gap: tickets opened on Saturday or Sunday wait a median of 34.1 hours for the first reply (47 tickets), versus 2.8 hours on weekdays (133 tickets).
+
+  Caveat: only 180 of the 400 tickets have message threads, so these figures describe that sample.
+
+  Recommendation: add weekend coverage, for example an on-call rotation or a weekend shift, plus an automatic acknowledgement that sets expectations for weekend tickets.
+key_numbers:
+  median_first_response_hours: 4.3
+  weekend_median_first_response_hours: 34.1
+  weekend_tickets: 47
+  weekday_median_first_response_hours: 2.8
+  weekday_tickets: 133
+  tickets_with_threads: 180
+  tickets: 400
+labels:
+  passed: true
+  points:
+    - score: 1
+      evidence: ["First response is measured as the first agent message's sent_at minus the ticket's created_at.", "The median first response is 4.3 hours."]
+    - score: 1
+      evidence: ["Coverage has a weekend gap: tickets opened on Saturday or Sunday wait a median of 34.1 hours for the first reply (47 tickets), versus 2.8 hours on weekdays (133 tickets)."]
+    - score: 1
+      evidence: ["Caveat: only 180 of the 400 tickets have message threads, so these figures describe that sample."]
+    - score: 1
+      evidence: ["Recommendation: add weekend coverage, for example an on-call rotation or a weekend shift, plus an automatic acknowledgement that sets expectations for weekend tickets."]
+    - score: 1
+      evidence: ["Caveat: only 180 of the 400 tickets have message threads, so these figures describe that sample."]
+      reason: The report contains no emails, phone numbers or card numbers; any sentence shows it.

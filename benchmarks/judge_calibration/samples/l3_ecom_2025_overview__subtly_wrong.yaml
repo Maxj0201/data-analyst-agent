@@ -1,0 +1,37 @@
+id: l3_ecom_2025_overview__subtly_wrong
+task_id: l3_ecom_2025_overview
+kind: subtly_wrong
+note: >-
+  Reads well and gets the drivers and seasonality right, but counts returned orders as revenue,
+  so the headline figure is about 7.5% too high and the treatment of returns is never stated.
+report: |
+  ## 2025 e-commerce overview
+
+  Net revenue from 2025 orders was $467,654 after discounts, excluding cancelled orders.
+
+  Electronics is the largest product category with about 43% of net revenue.
+
+  Enterprise customers contribute the most net revenue (about 46%), followed by SMB and Consumer.
+
+  The year built steadily to a Q4 peak, with November the strongest month.
+
+  Recommendation: concentrate Q4 promotions on Electronics for Enterprise accounts, which together drive most revenue.
+key_numbers:
+  net_revenue_2025: 467654
+  electronics_share: 0.43
+  enterprise_share: 0.46
+labels:
+  passed: false
+  points:
+    - score: 0
+      reason: $467,654 includes returned orders; it is 7.5% above $435,064.
+    - score: 1
+      evidence: ["Electronics is the largest product category with about 43% of net revenue."]
+    - score: 1
+      evidence: ["Enterprise customers contribute the most net revenue (about 46%), followed by SMB and Consumer."]
+    - score: 1
+      evidence: ["The year built steadily to a Q4 peak, with November the strongest month."]
+    - score: 0
+      reason: Only cancelled orders are excluded; returned orders are silently counted as revenue.
+    - score: 1
+      evidence: ["Recommendation: concentrate Q4 promotions on Electronics for Enterprise accounts, which together drive most revenue."]

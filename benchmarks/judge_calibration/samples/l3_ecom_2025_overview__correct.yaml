@@ -1,0 +1,43 @@
+id: l3_ecom_2025_overview__correct
+task_id: l3_ecom_2025_overview
+kind: correct
+note: Every rubric point is stated with the right figure, and every figure is in key_numbers.
+report: |
+  ## 2025 e-commerce overview
+
+  Net revenue from completed orders in 2025 was $435,064, computed as quantity x unit_price x (1 - discount_pct); cancelled and returned orders are excluded.
+
+  Electronics is by far the largest category at $188,412 (43% of net revenue), followed by Home at $75,966.
+
+  By customer segment, Enterprise contributes the most net revenue ($200,914, 46%), ahead of SMB ($141,781) and Consumer ($92,369).
+
+  Revenue is strongly seasonal: Q4 brought 36% of the year's revenue, and November was the peak month at $64,462, more than double January ($27,855).
+
+  Recommendation: build Q4 inventory and campaigns around Electronics for Enterprise buyers, the combination that drives most revenue, and plan fulfilment capacity for the November peak.
+key_numbers:
+  net_revenue_2025: 435063.66
+  electronics_net_revenue: 188412
+  electronics_share: 0.433
+  home_net_revenue: 75966
+  enterprise_net_revenue: 200914
+  enterprise_share: 0.462
+  smb_net_revenue: 141781
+  consumer_net_revenue: 92369
+  q4_share: 0.363
+  november_net_revenue: 64462
+  january_net_revenue: 27855
+labels:
+  passed: true
+  points:
+    - score: 1
+      evidence: ["Net revenue from completed orders in 2025 was $435,064, computed as quantity x unit_price x (1 - discount_pct); cancelled and returned orders are excluded."]
+    - score: 1
+      evidence: ["Electronics is by far the largest category at $188,412 (43% of net revenue), followed by Home at $75,966."]
+    - score: 1
+      evidence: ["By customer segment, Enterprise contributes the most net revenue ($200,914, 46%), ahead of SMB ($141,781) and Consumer ($92,369)."]
+    - score: 1
+      evidence: ["Revenue is strongly seasonal: Q4 brought 36% of the year's revenue, and November was the peak month at $64,462, more than double January ($27,855)."]
+    - score: 1
+      evidence: ["Net revenue from completed orders in 2025 was $435,064, computed as quantity x unit_price x (1 - discount_pct); cancelled and returned orders are excluded."]
+    - score: 1
+      evidence: ["Recommendation: build Q4 inventory and campaigns around Electronics for Enterprise buyers, the combination that drives most revenue, and plan fulfilment capacity for the November peak."]

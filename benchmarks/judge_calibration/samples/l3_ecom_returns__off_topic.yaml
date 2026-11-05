@@ -1,0 +1,25 @@
+id: l3_ecom_returns__off_topic
+task_id: l3_ecom_returns
+kind: off_topic
+note: Reports catalogue margins by category; returns are never analysed.
+report: |
+  ## Product margins
+
+  Across the 80 products in the catalogue, Beauty has the highest average gross margin (49.0% of list price) and Books the lowest (41.8%).
+
+  Electronics margins average 42.0%, Apparel 46.0%, Home 45.6% and Sports 46.3%.
+key_numbers:
+  products: 80
+  beauty_margin: 0.49
+  books_margin: 0.418
+  electronics_margin: 0.42
+  apparel_margin: 0.46
+  home_margin: 0.456
+  sports_margin: 0.463
+labels:
+  passed: false
+  points:
+    - {score: 0, reason: No return rate.}
+    - {score: 0, reason: Return rates by category are not discussed.}
+    - {score: 0, reason: Discounts are not discussed.}
+    - {score: 0, reason: No recommendation about returns.}

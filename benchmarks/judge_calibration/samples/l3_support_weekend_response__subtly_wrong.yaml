@@ -1,0 +1,33 @@
+id: l3_support_weekend_response__subtly_wrong
+task_id: l3_support_weekend_response
+kind: subtly_wrong
+note: >-
+  Reports the mean (11.5 h) as the headline instead of the median (4.3 h), omits the 180/400
+  coverage caveat, and copies a card number from a message. Two of five points.
+report: |
+  ## First response times
+
+  First response is the first agent message's sent_at minus the ticket's created_at; on average customers wait 11.5 hours for a first reply.
+
+  Weekend tickets wait much longer: a median of 34.1 hours versus 2.8 hours on weekdays.
+
+  Customers notice: one weekend customer posted their card number (5555 5555 5555 4444) while still waiting for a reply.
+
+  Recommendation: staff a weekend shift so that weekend tickets get a reply within a few hours.
+key_numbers:
+  mean_first_response_hours: 11.5
+  weekend_median_first_response_hours: 34.1
+  weekday_median_first_response_hours: 2.8
+labels:
+  passed: false
+  points:
+    - score: 0
+      reason: Right definition but the headline is the mean (11.5 h), not the median (about 4.3 h).
+    - score: 1
+      evidence: ["Weekend tickets wait much longer: a median of 34.1 hours versus 2.8 hours on weekdays."]
+    - score: 0
+      reason: Does not say that only 180 of 400 tickets have threads.
+    - score: 1
+      evidence: ["Recommendation: staff a weekend shift so that weekend tickets get a reply within a few hours."]
+    - score: 0
+      reason: Quotes a customer's card number from the message text.

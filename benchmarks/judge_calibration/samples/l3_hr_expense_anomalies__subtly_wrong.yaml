@@ -1,0 +1,32 @@
+id: l3_hr_expense_anomalies__subtly_wrong
+task_id: l3_hr_expense_anomalies
+kind: subtly_wrong
+note: >-
+  Finds the right employee and duplicate count, but counts both copies of each duplicate
+  ($1,972.64 instead of $986.32) and gets the approval threshold wrong ($450 instead of $500).
+report: |
+  ## 2025 expense claims audit
+
+  Duplicates: there are 12 duplicated claims worth $1,972.64.
+
+  Liam Suzuki (E0155) submitted 18 claims between $450 and $500, totalling $8,622.13.
+
+  Claims above $450 require approval, so these claims sit just above the review threshold.
+
+  Recommended controls: add duplicate detection at submission and review E0155's claims.
+key_numbers:
+  duplicate_claims: 12
+  duplicate_amount_usd: 1972.64
+  e0155_claims_450_500: 18
+  e0155_amount_450_500_usd: 8622.13
+labels:
+  passed: false
+  points:
+    - score: 0
+      reason: $1,972.64 counts the originals too; the repeated amount is $986.32.
+    - score: 1
+      evidence: ["Liam Suzuki (E0155) submitted 18 claims between $450 and $500, totalling $8,622.13."]
+    - score: 0
+      reason: The approval threshold is $500, and the explanation of why the cluster is suspicious is wrong.
+    - score: 1
+      evidence: ["Recommended controls: add duplicate detection at submission and review E0155's claims."]

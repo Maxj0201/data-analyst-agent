@@ -1,0 +1,31 @@
+id: l3_ecom_2025_overview__off_topic
+task_id: l3_ecom_2025_overview
+kind: off_topic
+note: Describes the customer base (countries, signup channels) instead of 2025 revenue.
+report: |
+  ## Customer base
+
+  The customer table holds 600 customers. The United States is the largest market with 224 customers, followed by the United Kingdom (81) and Germany (75).
+
+  Organic is the most common signup channel (222 customers), ahead of paid_search (151), referral (92) and social (76); 59 customers have no recorded signup channel.
+
+  The customer base is concentrated in a few English-speaking and European markets.
+key_numbers:
+  customers: 600
+  us_customers: 224
+  uk_customers: 81
+  germany_customers: 75
+  organic_signups: 222
+  paid_search_signups: 151
+  referral_signups: 92
+  social_signups: 76
+  no_signup_channel: 59
+labels:
+  passed: false
+  points:
+    - {score: 0, reason: No revenue figure.}
+    - {score: 0, reason: Product categories are not discussed.}
+    - {score: 0, reason: Segments are not discussed.}
+    - {score: 0, reason: No revenue trend.}
+    - {score: 0, reason: Order status treatment is not discussed.}
+    - {score: 0, reason: No recommendation.}

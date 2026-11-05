@@ -1,0 +1,49 @@
+id: l3_saas_churn_drivers__correct
+task_id: l3_saas_churn_drivers
+kind: correct
+note: All six points with figures in key_numbers.
+report: |
+  ## Subscription churn drivers
+
+  417 of 1,500 subscriptions (27.8%) have churned.
+
+  Churn falls steadily with plan tier: Basic 39.8%, Pro 25.3%, Business 13.9%, Enterprise 11.6%.
+
+  Monthly billing churns far more than annual billing (33.9% vs 18.1%).
+
+  By region, APAC has the highest churn rate at 31.7%, ahead of North America (28.3%), LATAM (26.9%) and EMEA (25.3%).
+
+  Price is the most common churn reason (135 of 417 churned subscriptions), followed by missing features (117).
+
+  Recommendations: offer discounted annual plans to monthly Basic customers, review Basic pricing and packaging given the price-driven churn, and add a customer-success touchpoint for APAC accounts.
+key_numbers:
+  churned_subscriptions: 417
+  subscriptions: 1500
+  churn_rate: 0.278
+  basic_churn_rate: 0.398
+  pro_churn_rate: 0.253
+  business_churn_rate: 0.139
+  enterprise_churn_rate: 0.116
+  monthly_churn_rate: 0.339
+  annual_churn_rate: 0.181
+  apac_churn_rate: 0.317
+  north_america_churn_rate: 0.283
+  latam_churn_rate: 0.269
+  emea_churn_rate: 0.253
+  price_churn_reason_count: 135
+  missing_features_churn_reason_count: 117
+labels:
+  passed: true
+  points:
+    - score: 1
+      evidence: ["417 of 1,500 subscriptions (27.8%) have churned."]
+    - score: 1
+      evidence: ["Churn falls steadily with plan tier: Basic 39.8%, Pro 25.3%, Business 13.9%, Enterprise 11.6%."]
+    - score: 1
+      evidence: ["Monthly billing churns far more than annual billing (33.9% vs 18.1%)."]
+    - score: 1
+      evidence: ["By region, APAC has the highest churn rate at 31.7%, ahead of North America (28.3%), LATAM (26.9%) and EMEA (25.3%)."]
+    - score: 1
+      evidence: ["Price is the most common churn reason (135 of 417 churned subscriptions), followed by missing features (117)."]
+    - score: 1
+      evidence: ["Recommendations: offer discounted annual plans to monthly Basic customers, review Basic pricing and packaging given the price-driven churn, and add a customer-success touchpoint for APAC accounts."]

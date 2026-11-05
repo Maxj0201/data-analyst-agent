@@ -1,0 +1,32 @@
+id: l3_hr_expense_anomalies__correct
+task_id: l3_hr_expense_anomalies
+kind: correct
+note: All four points with figures in key_numbers.
+report: |
+  ## 2025 expense claims audit
+
+  We reviewed 1,430 claims totalling $170,034.45.
+
+  Duplicates: 12 claims are exact repeats of an earlier claim (same employee, submitted_date, category and amount_usd), worth $986.32 in repeated amounts.
+
+  Threshold splitting: Liam Suzuki (E0155, Engineering) submitted 18 claims between $450 and $500, totalling $8,622.13. Claims of $500 or more require approval (requires_approval), so this clustering just below the limit looks like a deliberate way to avoid review.
+
+  Recommended controls: block exact duplicates at submission, escalate E0155's claims to their manager and finance for review, and flag employees with repeated claims just below the approval limit (or apply approval to cumulative monthly spend).
+key_numbers:
+  claims: 1430
+  claims_total_usd: 170034.45
+  duplicate_claims: 12
+  duplicate_amount_usd: 986.32
+  e0155_claims_450_500: 18
+  e0155_amount_450_500_usd: 8622.13
+labels:
+  passed: true
+  points:
+    - score: 1
+      evidence: ["Duplicates: 12 claims are exact repeats of an earlier claim (same employee, submitted_date, category and amount_usd), worth $986.32 in repeated amounts."]
+    - score: 1
+      evidence: ["Threshold splitting: Liam Suzuki (E0155, Engineering) submitted 18 claims between $450 and $500, totalling $8,622.13."]
+    - score: 1
+      evidence: ["Claims of $500 or more require approval (requires_approval), so this clustering just below the limit looks like a deliberate way to avoid review."]
+    - score: 1
+      evidence: ["Recommended controls: block exact duplicates at submission, escalate E0155's claims to their manager and finance for review, and flag employees with repeated claims just below the approval limit (or apply approval to cumulative monthly spend)."]
