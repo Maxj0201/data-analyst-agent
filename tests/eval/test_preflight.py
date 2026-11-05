@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
+from analyst_agent.core.config import Settings
 from analyst_agent.core.fake_llm import FakeLLM
 from analyst_agent.core.llm import LLMResponse, Usage
 from analyst_agent.eval import preflight
@@ -26,6 +27,7 @@ from analyst_agent.eval.preflight import (
     check_writable,
     cost_table,
     dry_run_llm,
+    embeddings_requested,
     extra_requirements,
     run_preflight,
     runbook_models,
@@ -166,9 +168,45 @@ def test_run_preflight_fails_on_any_failed_check(tmp_path: Path) -> None:
     ok, out = _run(env={}, experiments_dir=tmp_path / "exp")
     assert not ok and "PRE-FLIGHT FAILED" in out and "API key set" in out
     ok, out = _run(
-        extras={"embeddings": ["definitely-not-installed-pkg"]}, experiments_dir=tmp_path
+        extras={"embeddings": ["definitely-not-installed-pkg"]},
+        require_embeddings=True,
+        experiments_dir=tmp_path,
     )
     assert not ok and "extra [embeddings]" in out.split("PRE-FLIGHT FAILED")[1]
+    ok, out = _run(extras={"api": ["definitely-not-installed-pkg"]}, experiments_dir=tmp_path)
+    assert not ok and "extra [api]" in out.split("PRE-FLIGHT FAILED")[1]
+
+
+def test_missing_embeddings_extra_warns_unless_asked_for(tmp_path: Path) -> None:
+    """Fresh-clone audit: torch is opt-in, so its absence must not fail a plain pre-flight."""
+    missing = {"embeddings": ["definitely-not-installed-pkg"]}
+    ok, out = _run(extras=missing, require_embeddings=False, experiments_dir=tmp_path)
+    assert ok, out
+    line = next(ln for ln in out.splitlines() if "extra [embeddings]" in ln)
+    assert "[WARN]" in line and "--embeddings" in line and "pre-flight passed" in out
+    checks = check_extras(missing, require_embeddings=False)
+    assert checks[0].ok and checks[0].warning
+
+
+def test_embeddings_requested() -> None:
+    bm25 = Settings(_env_file=None)
+    assert embeddings_requested(True, env={}, settings=bm25)
+    assert not embeddings_requested(False, env={}, settings=bm25)
+    assert not embeddings_requested(env={"AGENT_SEMANTIC_BACKEND": "bm25"}, settings=bm25)
+    for backend in ("embedding", "Hybrid"):
+        assert embeddings_requested(env={"AGENT_SEMANTIC_BACKEND": backend}, settings=bm25)
+    assert embeddings_requested(
+        env={}, settings=Settings(_env_file=None, semantic_backend="hybrid")
+    )
+
+
+def test_dry_run_labels_the_api_checks(tmp_path: Path) -> None:
+    ok, out = _run(dry_run=True, experiments_dir=tmp_path)
+    assert ok, out
+    key = next(ln for ln in out.splitlines() if "API key set" in ln)
+    assert "not checked: --dry-run uses a placeholder key" in key
+    valid = next(ln for ln in out.splitlines() if "API key valid" in ln)
+    assert "dry run (scripted FakeLLM)" in valid
 
 
 def test_smoke_estimate_uses_limit(tmp_path: Path) -> None:
@@ -185,6 +223,13 @@ def test_cli_dry_run_exit_codes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
     monkeypatch.setattr(preflight, "extra_requirements", lambda: {"x": ["no-such-dist-xyz"]})
     res = runner.invoke(preflight.app, args)
     assert res.exit_code == 1 and "PRE-FLIGHT FAILED" in res.output
+    monkeypatch.delenv("AGENT_SEMANTIC_BACKEND", raising=False)
+    no_torch = {"embeddings": ["no-such-dist-xyz"]}
+    monkeypatch.setattr(preflight, "extra_requirements", lambda: no_torch)
+    res = runner.invoke(preflight.app, args)
+    assert res.exit_code == 0 and "[WARN] extra [embeddings]" in res.output, res.output
+    res = runner.invoke(preflight.app, [*args, "--embeddings"])
+    assert res.exit_code == 1 and "PRE-FLIGHT FAILED: 1 check(s): extra [embeddings]" in res.output
 
 
 def test_script_wraps_the_module(tmp_path: Path) -> None:
