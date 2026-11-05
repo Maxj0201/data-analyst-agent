@@ -127,8 +127,8 @@ metrics:
       Net revenue from completed orders divided by the number of distinct customers with at
       least one completed order.
     tables: [orders]
-    synonyms: [arpc, average revenue per customer, customer value, spend per customer,
-               customer lifetime revenue]
+    synonyms: [arpc, average revenue per customer, spend per customer, revenue per buyer,
+               average customer spend]
     sql_fragment: |
       SELECT SUM(quantity * unit_price * (1 - discount_pct)) / COUNT(DISTINCT customer_id)
         AS revenue_per_customer

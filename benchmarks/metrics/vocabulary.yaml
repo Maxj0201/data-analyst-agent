@@ -1,0 +1,44 @@
+# Curated analyst vocabulary for the semantic layer (see src/analyst_agent/semantic/vocabulary.py).
+#
+# When a question contains any of a concept's `phrases` (or one of its `expands_to` terms), the
+# `expands_to` terms it does not already contain are added to the BM25 query at half weight.
+# Embeddings see the question as asked. Matching is on tokens (lower-case, stop words dropped,
+# light plural strip), so "employees" also matches "employee".
+#
+# Keep this generic: everyday analyst phrasings mapped onto the words the governed metric
+# definitions use. Never copy a benchmark question in here. Prefer multi-word phrases for
+# words that mean different things in different domains ("turnover" is revenue in retail and
+# attrition in HR, so only "employee turnover" / "staff turnover" are attrition phrases).
+# Expansions must not pull in another domain's metric: tables already filter by domain, but
+# within a domain an expansion term should point at one family of metrics.
+#
+# `kind: vocabulary` makes the metrics loader skip this file when it scans the directory.
+kind: vocabulary
+version: 1
+concepts:
+  # Headcount / employees / staff: "how many people work here".
+  - name: headcount
+    expands_to: [headcount, workforce]
+    phrases: [current employees, active employees, how many employees,
+              employee count, staff, staff count, personnel, people employed, team size, fte,
+              full time equivalent]
+
+  # Churn / attrition / retention: one concept, the domain's tables decide which metric
+  # (subscriptions: churn_rate; employees: attrition_rate). Retention is churn's complement.
+  - name: churn_attrition
+    expands_to: [attrition, churn]
+    phrases: [retention, retained, still employed, still active, employee turnover,
+              staff turnover, leavers, left the company, who left, people leaving, quit,
+              resignations, departures, separations, cancelled subscriptions,
+              subscription cancellations]
+
+  # Revenue / sales / GMV.
+  - name: revenue
+    expands_to: [net revenue, sales, gmv]
+    phrases: [revenue, gmv, gross merchandise value, top line, takings, turnover, net sales,
+              total sales, sales volume]
+
+  # Compensation / pay / salary.
+  - name: compensation
+    expands_to: [salary, pay]
+    phrases: [compensation, comp, earnings, earn, wage, wages, paid, payroll cost]
