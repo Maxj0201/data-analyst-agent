@@ -1,0 +1,38 @@
+# Local hooks that run through uv, so they use exactly the ruff and Python that uv.lock pins
+# (the same ones CI uses). Install once:
+#   uvx pre-commit install        (or: make hooks)
+# Run on everything:
+#   uvx pre-commit run --all-files
+default_language_version:
+  python: python3.11
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff check
+        entry: uv run --locked ruff check --fix --exit-non-zero-on-fix
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --locked ruff format
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: uv-lock-check
+        name: uv.lock is up to date with pyproject.toml
+        entry: uv lock --check
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+
+      - id: prompt-version-bump
+        name: prompt text changes need a version bump
+        entry: uv run --locked python scripts/check_prompt_versions.py
+        language: system
+        files: ^src/analyst_agent/(core/prompts|eval/scorers)\.py$
+        pass_filenames: false
