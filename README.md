@@ -16,33 +16,34 @@ the model is labelled `dry-run`; the loop, tools, sandbox, approval gate and cri
 |---|---|
 | ![UI paused on an approval request for a run_sql step, with Approve and Deny buttons](docs/assets/ui-approve-approval.png) | ![UI after approval: timeline, critic verdict, key numbers, table and chart](docs/assets/ui-approve-report.png) |
 
-The same run as a span tree (`analyst-agent trace show`, full file in
+The same flags from the CLI as a span tree (`ask --dry-run --routing --semantic-layer
+--require-approval --auto-approve` with the trace store on, then `analyst-agent trace show`; also in
 [`docs/assets/trace-example.txt`](docs/assets/trace-example.txt)):
 
 ```text
-✓ run run_c81ae13aa8424e95 status=completed tier=L2                           +   0.00s    639ms
-├─ ✓ route L2 → claude-opus-5-5                                               +   0.03s      0ms
-│  └─ ✓ llm:router dry-run in=0 out=0 prompt=router@1.0.0                     +   0.03s      0ms
-├─ ✓ semantic_retrieval                                                       +   0.10s      0ms
-├─ ✓ turn 1 model=claude-opus-5-5 tier=L2                                     +   0.10s     10ms
-│  ├─ ✓ llm:agent dry-run [L2] in=0 out=0 prompt=planner@1.1.0                +   0.10s      0ms
-│  ├─ ✓ plan "1. Inspect `subscriptions`. 2. Aggregate SUM("mrr") by `regi…"  +   0.10s      0ms
-│  └─ ✓ tool:inspect_schema                                                   +   0.10s     10ms
-├─ ✓ turn 2 model=claude-opus-5-5 tier=L2                                     +   0.11s      5ms
-│  ├─ ✓ llm:agent dry-run [L2] in=0 out=0 prompt=planner@1.1.0                +   0.11s      0ms
-│  └─ ✓ tool:run_sql                                                          +   0.11s      5ms
-│     └─ ✓ approval:run_sql approved by auto                                  +   0.12s      0ms
-├─ ✓ turn 3 model=claude-opus-5-5 tier=L2                                     +   0.12s    520ms
-│  ├─ ✓ llm:agent dry-run [L2] in=0 out=0 prompt=planner@1.1.0                +   0.12s      0ms
-│  └─ ✓ tool:make_chart                                                       +   0.12s    519ms
-└─ ✓ turn 4 model=claude-opus-5-5 tier=L2                                     +   0.64s      1ms
-   ├─ ✓ llm:agent dry-run [L2] in=0 out=0 prompt=planner@1.1.0                +   0.64s      0ms
-   ├─ ✓ tool:final_report                                                     +   0.64s      0ms
-   └─ ✓ critic round=1 verdict=pass                                           +   0.64s      0ms
-      └─ ✓ llm:critic dry-run in=0 out=0 prompt=critic@1.1.0                  +   0.64s      0ms
+✓ run run_ad08f602a94448a3 status=completed tier=L2                           +   0.00s    807ms
+├─ ✓ route L2 → claude-opus-5-5                                               +   0.04s      0ms
+│  └─ ✓ llm:router dry-run in=0 out=0 prompt=router@1.0.0                     +   0.04s      0ms
+├─ ✓ semantic_retrieval                                                       +   0.19s      0ms
+├─ ✓ turn 1 model=claude-opus-5-5 tier=L2                                     +   0.19s     12ms
+│  ├─ ✓ llm:agent dry-run [L2] in=0 out=0 prompt=planner@1.2.0                +   0.19s      0ms
+│  ├─ ✓ plan "1. Inspect `subscriptions`. 2. Aggregate SUM("mrr") by `regi…"  +   0.19s      0ms
+│  └─ ✓ tool:inspect_schema                                                   +   0.19s     11ms
+├─ ✓ turn 2 model=claude-opus-5-5 tier=L2                                     +   0.20s      5ms
+│  ├─ ✓ llm:agent dry-run [L2] in=0 out=0 prompt=planner@1.2.0                +   0.20s      0ms
+│  └─ ✓ tool:run_sql                                                          +   0.20s      5ms
+│     └─ ✓ approval:run_sql approved by auto                                  +   0.20s      0ms
+├─ ✓ turn 3 model=claude-opus-5-5 tier=L2                                     +   0.21s    601ms
+│  ├─ ✓ llm:agent dry-run [L2] in=0 out=0 prompt=planner@1.2.0                +   0.21s      0ms
+│  └─ ✓ tool:make_chart                                                       +   0.21s    601ms
+└─ ✓ turn 4 model=claude-opus-5-5 tier=L2                                     +   0.81s      1ms
+   ├─ ✓ llm:agent dry-run [L2] in=0 out=0 prompt=planner@1.2.0                +   0.81s      0ms
+   ├─ ✓ tool:final_report                                                     +   0.81s      0ms
+   └─ ✓ critic round=1 verdict=pass                                           +   0.81s      0ms
+      └─ ✓ llm:critic dry-run in=0 out=0 prompt=critic@1.1.0                  +   0.81s      0ms
 
-total 639ms | $0.0000 | 6 LLM calls | 4 tool calls | models: dry-run
-prompts: critic@1.1.0, memory_rules@1.0.0, planner@1.1.0, report_writer@1.0.0, router@1.0.0, semantic_layer_rules@1.0.0, structured_report_rules@1.0.0
+total 807ms | $0.0000 | 6 LLM calls | 4 tool calls | models: dry-run
+prompts: critic@1.1.0, memory_rules@1.0.0, planner@1.2.0, report_writer@1.0.0, router@1.0.0, semantic_layer_rules@1.0.0, structured_report_rules@1.0.0
 ```
 
 Giving a live demo? See the [3-minute walkthrough](docs/assets/demo-script.md).
