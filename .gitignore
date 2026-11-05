@@ -19,6 +19,7 @@ data/uploads/
 data/embeddings/
 runs/
 artifacts/
+# default AGENT_TRACES_DIR (trace store), relative to the working directory
 traces/
 *.sqlite3
 .DS_Store

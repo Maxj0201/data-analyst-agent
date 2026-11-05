@@ -58,7 +58,7 @@ import threading  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 from ._errors import NO_DATA, fmt  # noqa: E402
-from ._loaders import DataLoadError, DataSources  # noqa: E402
+from ._loaders import DataLoadError, DataSources, quote_ident, safe_identifier  # noqa: E402
 from .duckdb_runner import DuckDBRunner, validate_query  # noqa: E402
 from .python_runner import run_python as _run_python_subprocess  # noqa: E402
 
@@ -72,12 +72,13 @@ __all__ = [
     "Sandbox",
     "SqlResult",
     "create_sandbox",
-    "current_tables",
     "load_data",
     "loaded_tables",
+    "quote_ident",
     "reset",
     "run_python",
     "run_sql",
+    "safe_identifier",
     "validate_query",
 ]
 
@@ -190,9 +191,6 @@ def load_data(
 def loaded_tables() -> list[str]:
     """Names of the tables currently available to ``run_sql`` / ``run_python``."""
     return _default.tables if _default is not None else []
-
-
-current_tables = loaded_tables
 
 
 def reset() -> None:

@@ -56,6 +56,23 @@ def test_ask_dry_run_duckdb_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "West" in res.output
 
 
+def test_ask_without_credentials_says_so_instead_of_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """The README quickstart's live step used to end in a report reading
+    ``Status: error — TypeError: Could not resolve authentication method``."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    data = REPO / "benchmarks/data/saas/subscriptions.csv"
+
+    res = CliRunner().invoke(app, ["ask", "--data", str(data), "which region has the most mrr"])
+
+    assert res.exit_code == 2
+    assert "ANTHROPIC_API_KEY" in res.output and "--dry-run" in res.output
+    assert "TypeError" not in res.output
+
+
 def test_ask_unsupported_file_type_is_a_usage_error(tmp_path: Path):
     bad = tmp_path / "x.xlsx"
     bad.write_text("nope")

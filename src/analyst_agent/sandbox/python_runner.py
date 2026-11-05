@@ -40,6 +40,7 @@ import pandas as pd
 from . import PyResult
 from . import _errors as T
 from ._loaders import DataSources, load_dataframes, normalize_sources, safe_identifier
+from .duckdb_runner import ms_since
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +105,7 @@ _PROFILE: dict[str, float] | None = None
 DataContext = Mapping[str, "pd.DataFrame | str | Path"] | DataSources
 
 
-def _read_roots(work_dir: str) -> list[str]:
+def _read_roots() -> list[str]:
     """Directories the child may read from: the interpreter, libraries, fonts, tz data."""
     roots = {
         sys.prefix,
@@ -162,7 +163,7 @@ def _mpl_cache_dir() -> str | None:
 
 def _child_env(work_dir: str, rlimits: dict[str, int] | None = None) -> dict[str, str]:
     mpl_dir = _mpl_cache_dir()
-    read_roots = _read_roots(work_dir) + ([mpl_dir] if mpl_dir else [])
+    read_roots = _read_roots() + ([mpl_dir] if mpl_dir else [])
     cfg = {
         "work_dir": work_dir,
         "read_roots": read_roots,
@@ -390,7 +391,7 @@ def run_python(
             base["stderr"] = (stderr + ("\n" if stderr else "") + tb)[-MAX_OUTPUT_BYTES:]
         return _failure(kind, msg, start, **base)
 
-    return PyResult(ok=True, duration_ms=_ms_since(start), **base)
+    return PyResult(ok=True, duration_ms=ms_since(start), **base)
 
 
 _MAX_WARNING_CHARS = 500
@@ -420,9 +421,5 @@ def _log_confinement_warnings(payload: Any) -> None:
         log.warning("sandbox confinement degraded: %s", warning)
 
 
-def _ms_since(start: float) -> int:
-    return int((time.monotonic() - start) * 1000)
-
-
 def _failure(kind: str, message: str, start: float, **kwargs: Any) -> PyResult:
-    return PyResult(ok=False, error=T.fmt(kind, message), duration_ms=_ms_since(start), **kwargs)
+    return PyResult(ok=False, error=T.fmt(kind, message), duration_ms=ms_since(start), **kwargs)

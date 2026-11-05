@@ -31,12 +31,13 @@ class DataLoadError(ValueError):
 
 
 def safe_identifier(name: str) -> str:
-    """Map an arbitrary string to an identifier (same rule as tools.table_name_for)."""
+    """Map an arbitrary string to a lower-case SQL identifier (``Sales 2024`` -> ``sales_2024``)."""
     ident = _IDENT_RE.sub("_", name).strip("_").lower() or "data"
     return f"t_{ident}" if ident[0].isdigit() else ident
 
 
 def quote_ident(name: str) -> str:
+    """Double-quote a DuckDB identifier, escaping embedded quotes."""
     return '"' + name.replace('"', '""') + '"'
 
 

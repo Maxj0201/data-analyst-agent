@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from analyst_agent.sandbox import PyResult, SqlResult
+from analyst_agent.sandbox import PyResult, SqlResult, safe_identifier
 
 
 class SandboxLike(Protocol):
@@ -47,8 +46,7 @@ class ToolContext:
 
 def table_name_for(path: Path) -> str:
     """File name -> SQL-friendly table name (``Sales 2024.csv`` -> ``sales_2024``)."""
-    name = re.sub(r"\W+", "_", path.stem).strip("_").lower() or "data"
-    return f"t_{name}" if name[0].isdigit() else name
+    return safe_identifier(path.stem)
 
 
 @dataclass

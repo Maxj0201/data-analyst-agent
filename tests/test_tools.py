@@ -140,6 +140,7 @@ def test_cli_ask(sales_csv, tmp_path, monkeypatch):
         critic=[critic_json("pass")],
     )
     monkeypatch.setattr("analyst_agent.core.LLMClient", lambda settings: fake)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")  # the CLI checks it before the run
     monkeypatch.setenv("AGENT_ARTIFACTS_DIR", str(tmp_path / "art"))
     trace = tmp_path / "trace.json"
     result = CliRunner().invoke(

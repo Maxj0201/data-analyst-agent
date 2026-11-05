@@ -16,6 +16,7 @@ from collections.abc import Callable
 from typing import Any
 
 from analyst_agent.core.llm import CostTracker, LLMResponse, Usage
+from analyst_agent.sandbox import quote_ident
 
 _ids = itertools.count(1)
 
@@ -128,10 +129,6 @@ def _fmt(v: Any) -> str:
     return f"{v:,.2f}".rstrip("0").rstrip(".") if isinstance(v, float) else f"{v:,}"
 
 
-def _q(ident: str) -> str:
-    return '"' + ident.replace('"', '""') + '"'
-
-
 def _words(question: str) -> set[str]:
     ws = set(re.findall(r"[a-z0-9]+", question.lower()))
     return ws | {w[:-1] for w in ws if w.endswith("s")}
@@ -180,15 +177,16 @@ def dry_run_llm(
     cols = [(r["column_name"], r["data_type"]) for r in schema.rows] if schema.ok else []
     group, measure = _pick_columns(cols, question)
 
-    agg = f"SUM({_q(measure)})" if measure else "COUNT(*)"
+    agg = f"SUM({quote_ident(measure)})" if measure else "COUNT(*)"
     agg_name = f"total_{measure}" if measure else "row_count"
     if group:
+        g = quote_ident(group)
         sql = (
-            f"SELECT {_q(group)} AS {_q(group)}, {agg} AS {_q(agg_name)} FROM {_q(table)} "
-            f"GROUP BY 1 ORDER BY 2 DESC NULLS LAST LIMIT 10"
+            f"SELECT {g} AS {g}, {agg} AS {quote_ident(agg_name)} FROM {quote_ident(table)} "
+            "GROUP BY 1 ORDER BY 2 DESC NULLS LAST LIMIT 10"
         )
     else:
-        sql = f"SELECT {agg} AS {_q(agg_name)} FROM {_q(table)}"
+        sql = f"SELECT {agg} AS {quote_ident(agg_name)} FROM {quote_ident(table)}"
     res = run_sql(sql)
     rows = res.rows if res.ok else []
 

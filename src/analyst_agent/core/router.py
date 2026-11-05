@@ -28,6 +28,7 @@ from typing import Any, Literal
 from analyst_agent.core.config import Settings, get_settings
 from analyst_agent.core.llm import LLM, CostTracker
 from analyst_agent.core.prompts import ROUTER_SYSTEM
+from analyst_agent.sandbox import quote_ident
 from analyst_agent.tools.base import ToolContext
 from analyst_agent.tools.registry import wrap_untrusted
 
@@ -125,7 +126,7 @@ def schema_summary(ctx: ToolContext, max_chars: int = MAX_SCHEMA_SUMMARY_CHARS) 
     lines: list[str] = []
     for table in ctx.tables:
         lit = table.replace("'", "''")
-        ident = '"' + table.replace('"', '""') + '"'
+        ident = quote_ident(table)
         try:
             cols = ctx.run_sql(
                 "SELECT column_name, data_type FROM information_schema.columns "
