@@ -102,3 +102,12 @@ Ordered by how much a reader will notice each one.
 - `make coverage`: the full suite (1002 passed, 1 slow deselected) and all three coverage
   floors.
 - The dry-run quickstart (step 3) gives the same answer and the same SQL as before.
+
+## Follow-up (integration round 7)
+
+Resolved after this review, on `main`: N2 (README *How this was built*), N3 (the `v0.1.0` tag
+exists at `3071120`), N4 (`interview-notes.md` is now
+[`design-decisions.md`](design-decisions.md)) and N6 (README and `resume.md` point at
+`make test` instead of a count). `docs/kickoff/` moved to `docs/history/kickoff/` (#29), with
+F8's README inside it. The rest is unchanged; see
+[integration-notes.md, round 7](integration-notes.md#still-open).

@@ -1,5 +1,8 @@
 # Autonomous Data Analyst Agent
 
+> **Status:** offline verification is complete (tests, coverage gates, oracle eval, sandbox fuzzer, UI e2e).
+> Live-model results are pending the first eval run; see [docs/eval-runbook.md](docs/eval-runbook.md).
+
 Ask a question in plain English about a CSV, Parquet, SQLite or DuckDB file, and the agent
 inspects the schema, writes and runs SQL and Python in a kernel-confined sandbox, has a second
 model check the answer, and returns a Markdown report with charts. It is built on a hand-written
@@ -7,6 +10,10 @@ Anthropic Messages API loop and ships with an 80-task benchmark (16 of them adve
 prompt injection, PII, exfiltration) and offline CI gates. **It has not been scored against a
 live model yet:** every number below comes from offline runs with a scripted LLM (see
 [Results](#results)). Current version: **0.1.0** ([CHANGELOG.md](CHANGELOG.md)).
+
+## How this was built
+
+The architecture, interface contracts, evaluation design and security requirements were specified by me; the implementation was produced by parallel Claude Code sessions working from those specifications, then merged through six integration rounds and two adversarial review rounds that I directed. Every bug and design decision recorded in `docs/` was found and resolved through that process. The original session briefs are in `docs/history/kickoff/`.
 
 ## See it run
 
@@ -102,7 +109,7 @@ Every surface (CLI, API/UI, eval runner) drives the **same** loop; they differ o
 sink and the approver. The MCP server exposes the sandboxed tools without the loop. The full
 diagram, a step-by-step run and the design trade-offs are in
 [`docs/architecture.md`](docs/architecture.md); the reasoning behind each decision, with the
-alternatives that were rejected, is in [`docs/interview-notes.md`](docs/interview-notes.md).
+alternatives that were rejected, is in [`docs/design-decisions.md`](docs/design-decisions.md).
 
 ## What makes this production-minded
 
@@ -134,8 +141,9 @@ Each task runs in its own child process, and on timeout the whole process group 
 rate, routing and prompt diffs. L3 is graded by an LLM judge (prompt 2.0.0) that must quote the
 sentence behind each rubric point and credits a figure only if it is also in `key_numbers`;
 `eval judge-calibrate` measures it against 24 hand-labelled reports
-([docs/benchmark.md](docs/benchmark.md)). CI makes no API calls. It runs lint, the format check
-and 1015 tests (Hypothesis property tests included) under a branch-coverage gate, then the oracle agent
+([docs/benchmark.md](docs/benchmark.md)). CI makes no API calls. It runs lint, the format check and
+the full test suite (Hypothesis property tests included; run `make test` for the current number)
+under a branch-coverage gate, then the oracle agent
 (must score 100%), then a dry run of the real loop and sandbox with a scripted LLM, and then the
 same dry run with **every** feature flag on. A headless-browser UI e2e test runs on API/UI PRs,
 and the sandbox escape fuzzer runs nightly.
@@ -250,11 +258,11 @@ The offline numbers that *are* measured:
 
 | Check | Result | Command |
 |---|---|---|
-| Unit, integration and property tests | 1015 passed, 0 skipped (1 slow test deselected) | `make test` |
+| Unit, integration and property tests all pass, 0 skipped (1 slow test deselected); run `make test` for the current number | `make test` |
 | Branch coverage (CI gate) | 94.2% overall (floor 92) · `sandbox/` 99.4% (floor 97) · `core/loop.py` 100% (floor 98) | `make coverage` |
 | Oracle on all 80 tasks (harness self-check) | 100% on the 64 gradable tasks (L3 needs a judge) | `uv run python -m analyst_agent.eval run --agent oracle --no-judge` |
 | Semantic retrieval, BM25, 33 scored benchmark-task cases | top-1 1.000 · top-3 1.000 · MRR 1.000 (was 0.848 · 0.909 · 0.896; [tuning](docs/semantic-layer.md)) | `uv run python -m analyst_agent.semantic eval` |
-| Sandbox escape and unit tests | 271 passed | `uv run pytest tests/sandbox` |
+| Sandbox escape and unit tests | all pass; run `make test` for the current number (this subset: the command at right) | `uv run pytest tests/sandbox` |
 | Sandbox escape fuzzer (default seed, nightly) | 500 of 500 snippets blocked or killed | `uv run pytest -m slow tests/sandbox/test_fuzz_escape.py` |
 | UI e2e (approve and deny flows) | 24 of 24 checks, locally and against the compose stack | `make e2e` |
 | Judge calibration plumbing (oracle fake) | 100% agreement on 24 samples, κ 1.000; the real-judge figure is not measured yet | `uv run python -m analyst_agent.eval judge-calibrate --fake` |

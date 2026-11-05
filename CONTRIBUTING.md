@@ -95,7 +95,7 @@ Stay inside your area; if you must edit outside it, say so in the PR description
 ## Security checklist
 
 Every item here is a review finding that was fixed and then came back in a later branch (see
-[`docs/interview-notes.md`](docs/interview-notes.md#c-security-fixes-regressed-by-branches-written-before-them)).
+[`docs/design-decisions.md`](docs/design-decisions.md#c-security-fixes-regressed-by-branches-written-before-them)).
 Check each one that applies:
 
 - [ ] **Anything from a dataset, a tool result or stored memory that reaches the model goes

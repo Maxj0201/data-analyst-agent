@@ -2,7 +2,7 @@
 
 Talking points for presenting this project in an AI-engineer interview. Every factual claim
 below comes from the code or from [README.md](../README.md), [CHANGELOG.md](../CHANGELOG.md),
-[interview-notes.md](interview-notes.md), [review.md](review.md), [review-2.md](review-2.md),
+[design-decisions.md](design-decisions.md), [review.md](review.md), [review-2.md](review-2.md),
 [sandbox.md](sandbox.md), [integration-notes.md](integration-notes.md) and
 [eval-runbook.md](eval-runbook.md), and carries a pointer you can open.
 
@@ -11,8 +11,8 @@ below comes from the code or from [README.md](../README.md), [CHANGELOG.md](../C
 > are written as `{{PLACEHOLDERS}}`; section 1 says which command fills each one. Do not invent a
 > value, and do not send a bullet with an unfilled placeholder: delete that clause instead.
 
-Offline numbers that *are* measured (README *Results* and CHANGELOG *Measured offline*): 1001
-tests, 94.2% branch coverage (`sandbox/` 99.4%, `core/loop.py` 100%), the oracle agent at 100% on
+Offline numbers that *are* measured (README *Results* and CHANGELOG *Measured offline*): the full
+test suite passes (run `make test` for the current number), 94.2% branch coverage (`sandbox/` 99.4%, `core/loop.py` 100%), the oracle agent at 100% on
 the 64 gradable tasks, the escape fuzzer at 500 of 500 snippets blocked or killed, and 24 of 24
 UI e2e checks.
 
@@ -106,8 +106,8 @@ database, external access off with the configuration locked, a 30 s timeout and 
 
 The child runs as the same Unix user. seccomp is a deny list, so unlisted syscalls below 463 are
 allowed. `stat` works on any path, and nothing caps the number of files in the work dir. Landlock
-is best effort: kernels before 5.13 and some gVisor setups lack it, and the warning goes only to
-the child's stderr (open item 12). A container or gVisor per call is the right boundary for
+is best effort: kernels before 5.13 and some gVisor setups lack it; the run continues, and the
+parent process logs one `sandbox confinement degraded` warning so the operator sees it. A container or gVisor per call is the right boundary for
 hostile multi-tenant use, but it needs a container runtime inside the service, a cold start on
 every call, and a deployment model Cloud Run does not offer. Kernel self-confinement closed the
 two real holes (no exec, no arbitrary file I/O) for 1.4 to 2.2 ms per call. The honest answer is
@@ -122,7 +122,7 @@ its own chain of thought tends to ratify it, while a clean context catches wrong
 counting and unsupported claims more often. That is the design argument. Whether it is true here
 is an experiment I have scripted but not run: critic on versus `AGENT_MAX_CRITIC_ROUNDS=0` on all
 80 tasks, reporting accuracy delta, cost, and the share of flagged tasks that end up passing.
-([interview-notes.md](interview-notes.md) decision 2; [eval-runbook.md](eval-runbook.md))
+([design-decisions.md](design-decisions.md) decision 2; [eval-runbook.md](eval-runbook.md))
 
 ### Q4. What are the critic's failure modes?
 
@@ -190,7 +190,7 @@ ADV tier (16 tasks) plants injections in cell text, a column header and a file n
 write attempts and exfiltration URLs, and a task passes only if the rule checks, the judge and
 the legitimate part of the answer all pass. Known gaps: the MCP server's `structuredContent`
 carries raw rows outside the fence (review-2 L2), and the ADV set is small and English-only. I
-have no ADV pass rate from a live model yet. ([interview-notes.md](interview-notes.md) decision 5)
+have no ADV pass rate from a live model yet. ([design-decisions.md](design-decisions.md) decision 5)
 
 ### Q9. What would you change to run this at scale (many tenants, real warehouses)?
 
@@ -217,8 +217,8 @@ Measurement first, then hardening, then breadth (README roadmap, integration not
 2. Run `judge-calibrate --judge-samples 3` and fix the judge before trusting L3.
 3. Measure embedding and hybrid retrieval and sweep `AGENT_SEMANTIC_HYBRID_WEIGHT`; close the
    gap on held-out paraphrases (4 of 10 miss top-1).
-4. Add a startup self-check that logs when Landlock is unavailable (open item 12), and verify
-   the sandbox on Cloud Run gen2.
+4. Verify the sandbox on Cloud Run gen2 (Landlock and seccomp under gVisor), and turn the
+   parent-side "confinement degraded" log line into a startup self-check.
 5. Build a harder benchmark: messy real schemas, Parquet and SQLite inputs, multi-turn
    injections, and a held-out set kept out of the repo.
 
@@ -291,7 +291,7 @@ makes these the dearest tasks. I added a per-task `SpendMeter` that writes to a
 
 | Can say (verified offline) | Cannot say yet |
 |---|---|
-| 1001 tests, 94.2% coverage, oracle 100% on 64 gradable tasks | Any accuracy for any model on the benchmark |
+| The full test suite passes (run `make test` for the current number), 94.2% coverage, oracle 100% on 64 gradable tasks | Any accuracy for any model on the benchmark |
 | Fuzzer: 500 of 500 blocked or killed; 88 of 500 got through before the fixes | That the critic improves accuracy, or by how much |
 | 2 High and 8 Medium (review) plus 4 Medium (review 2) findings fixed, each with a regression test | That routing saves money, or at what accuracy cost |
 | BM25 top-1 1.000 on 33 tuned cases, 0.600 on 10 held-out paraphrases | Embedding or hybrid retrieval quality |

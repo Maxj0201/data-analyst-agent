@@ -1,8 +1,122 @@
 # Integration notes
 
-## Round 6 (final, v0.1.0): #27, #25, #26, #24 (2026-11-05)
+## Round 7 (final): #29, #30, #28 and the README provenance edits (2026-11-05)
 
-This is the last integration round. `main` is tagged **v0.1.0** and [CHANGELOG.md](../CHANGELOG.md)
+This is the last integration round. It lands after the `v0.1.0` tag (`3071120`), so the tag and
+the CHANGELOG's release section are unchanged; everything here is post-release hygiene and
+documentation. All three PRs branched from `3071120` and were merged into `main` in this order,
+as merge commits. After each merge I ran `uv sync --all-extras --no-extra embeddings` and
+`make check`, which since #29 is exactly what CI runs: `make install` (`uv sync --locked`),
+lint and format check, `pytest --cov` with the three coverage floors, and the three-step
+offline eval gate.
+
+| Order | PR | Branch | Merge | Result | Tests after | Coverage (overall / `sandbox/` / `core/loop.py`) |
+|---|---|---|---|---|---|---|
+| 1 | #29 | `chore/release-hygiene` | `1522944` | clean | 1014 | 94% / 99% / 100% |
+| 2 | #30 | `chore/final-review` | `6e58cd5` | 3 conflicts, below | 1015 | 94% / 99% / 100% |
+| 3 | #28 | `docs/resume-and-talking-points` | `aea6e51` | clean (one new file) | 1015 | unchanged |
+| – | | rename, provenance, status box, test counts | this commit | | 1015 | unchanged |
+
+### #30 onto #29: collision points
+
+- **`traces/` and `.gitignore`.** Both PRs deleted the same 32 committed `traces/run_*.json`
+  files, so the deletions merged cleanly. `.gitignore` conflicted: I kept the union, #29's run
+  outputs and image rules plus #30's comment explaining that `traces/` is the default
+  `AGENT_TRACES_DIR`. Both PRs added `traces/` to `.dockerignore` on the same line, so that
+  merged to one entry.
+- **`docs/kickoff/`.** #29 moved the four briefs to `docs/history/kickoff/`; #30 added a
+  `README.md` at the old path. git flagged it as added inside a renamed directory. The README
+  now lives at `docs/history/kickoff/README.md`, and its two relative links gained a `../` for
+  the extra level. The only remaining mentions of `docs/kickoff/` are in dated entries of these
+  notes (rounds 1 and 6), which keep the path that existed then. `final-review.md` now cites
+  the new path.
+- **`sandbox/python_runner.py`.** #29 added `_log_confinement_warnings` (the parent logs the
+  child's "Landlock unavailable" warning once per process) next to the module's `_ms_since`;
+  #30 deleted `_ms_since` in favour of the shared `duckdb_runner.ms_since`. Kept #29's
+  function and #30's import, and the two `PyResult` returns use `ms_since`.
+- **README test counts.** #29 left the counts alone and #30 set 1002. The merged suite has
+  1015 (and 271 in `tests/sandbox`), which went into the merge commit; the counts were then
+  replaced by a pointer to `make test` (below).
+- **`uv.lock`.** #29 dropped the duplicate `httpx` dev dependency and regenerated the lock; #30
+  did not touch dependencies. `uv lock` after the merge changed nothing, and `uv lock --check`
+  passes.
+
+### Edits after the merges
+
+1. **`docs/interview-notes.md` → `docs/design-decisions.md`** (final-review N4), title changed to
+   match. Links updated in `README.md`, `CONTRIBUTING.md` (including the
+   `#c-security-fixes-regressed-by-branches-written-before-them` anchor), `docs/resume.md`
+   and `docs/assets/demo-script.md`. Dated records (`review-2.md`, `final-review.md` F7/N4 and
+   earlier rounds here) keep the old name, which is what the file was called at the time.
+2. **README "How this was built"** (final-review N2), added after the overview paragraph in the
+   owner's wording.
+3. **Hard-coded test counts** (final-review N6) in `README.md` (CI paragraph and two rows of the
+   offline table) and `docs/resume.md` (intro and the *Claims* table) now say the suite passes
+   and to run `make test` for the current number. CHANGELOG, `final-review.md`, the reviews
+   and these notes keep their counts, since they record a point in time. Coverage percentages
+   stay: CI gates on their floors.
+4. **README status box** at the top: offline verification complete, live-model results pending
+   the first eval run, linking `docs/eval-runbook.md`.
+5. **`docs/resume.md` facts that #29 made stale:** Q2 and Q10 said the Landlock warning reaches
+   only the child's stderr (open item 12). It is now also logged in the parent, as
+   `docs/sandbox.md` says.
+6. **`docs/eval-runbook.md`:** four links pointed at `#interrupted-runs-resume`; GitHub's slug
+   for "Interrupted runs (`--resume`)" is `#interrupted-runs---resume`.
+
+### Verification (all local, no API key)
+
+- `make check` green after each merge and after the edits: lint and format clean; 1015 passed,
+  1 slow deselected, 0 skipped; coverage 94% overall, 99% `sandbox/`, 100% `core/loop.py`;
+  oracle 5/5 at 100%; both dry-run eval steps 0 errors.
+- `uv lock --check`: passes.
+- `analyst-agent ask --dry-run --data benchmarks/data/saas/subscriptions.csv "which region has
+  the highest mrr"`: exit 0, North America 1,290,124, same SQL as before. Without
+  `--dry-run` and without credentials it exits 2 with #30's one-line message.
+- Relative links and anchors in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`,
+  `docs/**/*.md` and `deploy/*.md` resolve (checked with GitHub's heading slugs). The one
+  non-resolving match is example attack Markdown inside inline code in `review-2.md`.
+- Every file, function and test that `docs/resume.md` cites exists: `core/critic.py`
+  (`parse_verdict`), `core/loop.py` (`_check_repeated_tool_errors`), `core/report.py`
+  (`check_consistency`), `eval/isolation.py` (`_apply_env`, `SpendMeter`),
+  `sandbox/_child/sitecustomize.py`, `sandbox/_child/bootstrap.py`, `tools/registry.py`
+  (`_DELIMITER_RE`), `tests/eval/test_isolation.py`,
+  `tests/frontend/test_no_untrusted_images.py`, `test_human_denials_do_not_escalate`,
+  `test_child_dies_with_its_parent`, `test_budget_counts_the_spend_of_timed_out_tasks`,
+  `test_eval_auto_approves_gated_steps_by_default`, and the linked docs. The
+  `run_experiments.sh --only/--control/--batch` flags and `eval.experiments summary` exist.
+
+### Branches
+
+Every remote branch except `main` is merged into `main`: `chore/release-hygiene`,
+`chore/final-review`, `docs/resume-and-talking-points`, `docs/demo-assets` and the six
+`claude/*` session branches. The session proxy still refuses `git push --delete`. To delete
+them with repository write access:
+
+```bash
+git push origin --delete chore/release-hygiene chore/final-review docs/resume-and-talking-points docs/demo-assets claude/brave-allen-ypr6aj claude/brave-noether-vss0sh claude/elegant-cori-zipgaj claude/happy-thompson-uu5vre claude/nifty-allen-3t8meu claude/sleepy-gates-wuaqzx
+```
+
+### Still open
+
+The round 6 list ([Still open at v0.1.0](#still-open-at-v010)) stands, with these changes:
+
+- **Closed:** item 12 (the parent now logs the Landlock warning, #29); from item 19, `httpx`
+  listed twice (#29) and the unlabelled kickoff briefs (#29 moved them, #30 labelled them);
+  final-review N2 (provenance), N3 (the `v0.1.0` tag now exists at `3071120`), N4 (rename) and
+  N6 (test counts).
+- **Still open from final-review:** N1, no live-model numbers (the single biggest gap; a first
+  Sonnet baseline over all 80 tasks is the cheapest step that changes it); N5, stale branches
+  (above); N7, the remaining duplicated parsers and renderers; N8, large modules; N9, plain
+  `uv sync` without extras fails some tests.
+- **Wording to check:** the README's "How this was built" says six integration rounds, as the
+  owner wrote it; this file now records seven, and `design-decisions.md` and `resume.md` also
+  say six.
+
+---
+
+## Round 6 (v0.1.0): #27, #25, #26, #24 (2026-11-05)
+
+This was the last round before the release. `main` is tagged **v0.1.0** and [CHANGELOG.md](../CHANGELOG.md)
 summarises the release by area.
 
 The four PRs were merged into `main` in this order, all as merge commits. After each merge I ran:

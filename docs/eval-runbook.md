@@ -55,7 +55,7 @@ Total about **$140** expected with `--batch` ($143 without); the caps stop it at
 Run everything from the repo root, in one shell, in this order. Do not start a step until the
 previous one's checks pass. Every `run_experiments.sh` invocation below writes to a fixed
 `--out` directory, so a step that is interrupted can be continued with `--resume` (see
-[Interrupted runs](#interrupted-runs-resume)).
+[Interrupted runs](#interrupted-runs---resume)).
 
 ### 0. Setup (free)
 
@@ -303,7 +303,7 @@ Tasks that time out or crash count too: the core agents report each LLM call's c
 and the runner records what a killed task had spent as its `cost_usd` (tokens stay 0). Judge
 calls count whether they are direct or batched (`--batch`: when the batch returns, at half
 price). On `--resume` the cap starts from the spend the earlier run recorded (see
-[Interrupted runs](#interrupted-runs-resume)).
+[Interrupted runs](#interrupted-runs---resume)).
 
 `run_experiments.sh` sets each arm's cap to its estimate × `--cap-factor` (default 1.5) and, by
 default, stops starting new arms once the total spend reaches the sum of those caps
@@ -386,7 +386,7 @@ scripts/run_experiments.sh --help
 | `scripts/run_experiments.sh --only semantic --only critic --cap-factor 2` | several experiments, more headroom |
 | `scripts/run_experiments.sh --agent dry-run --yes` | the free end-to-end check |
 | `scripts/run_experiments.sh ... --batch` | judge calls of each arm as one Message Batch (half price) |
-| `scripts/run_experiments.sh ... --out DIR --resume DIR` | continue an interrupted invocation ([Interrupted runs](#interrupted-runs-resume)) |
+| `scripts/run_experiments.sh ... --out DIR --resume DIR` | continue an interrupted invocation ([Interrupted runs](#interrupted-runs---resume)) |
 
 Layout of one invocation:
 
@@ -567,7 +567,7 @@ text-fallback / Critic rounds)
 | Symptom | Cause / fix |
 |---|---|
 | *Notes* says "no judge: L3 skipped" | `ANTHROPIC_API_KEY` was not visible to `eval run`; L3 was not graded. Re-run the arm. |
-| *Notes* says "N not started (budget)" | The arm hit its `--budget-usd`. Continue it with the same command plus `--resume <its --out> --cap-factor 2` (only the unstarted tasks run; see [Interrupted runs](#interrupted-runs-resume)). |
+| *Notes* says "N not started (budget)" | The arm hit its `--budget-usd`. Continue it with the same command plus `--resume <its --out> --cap-factor 2` (only the unstarted tasks run; see [Interrupted runs](#interrupted-runs---resume)). |
 | Run crashed / Ctrl-C / connection lost | Same: `--resume <its --out>`. Finished tasks are not re-run; answers still waiting for a verdict are re-graded without re-running the agent. |
 | `cannot resume: AGENT_* settings differ` | The shell does not have the arm's environment. Export it from `run_experiments.sh --print-commands`, or resume through the script. |
 | `meta.json` shows `judge_batch.fallback` | Batching was not used (SDK without `messages.batches`, batch rejected, or > 6 h); the judge ran directly at full price. The scores are valid. |

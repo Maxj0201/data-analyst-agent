@@ -1,4 +1,4 @@
-# Interview notes: design decisions and integration stories
+# Design decisions and integration stories
 
 These notes cover the project's major decisions. For each one: what was built, the alternative
 that was considered and why it lost, and what would change at production scale (many tenants,

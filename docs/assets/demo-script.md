@@ -39,9 +39,9 @@ AGENT_APPROVAL_ROW_THRESHOLD=0 AGENT_TRACE_STORE_ENABLED=true scripts/demo.sh
 
 - *What if the data contains an injection?* The finance sample has a file name that tries
   to redirect the agent; tool output is fenced as untrusted and the ADV tasks test it
-  (`docs/interview-notes.md`, part 1, item 5).
+  (`docs/design-decisions.md`, part 1, item 5).
 - *Why a hand-written loop?* Explicit control of approval, critic rounds and escalation;
-  see `docs/interview-notes.md`, item 1.
+  see `docs/design-decisions.md`, item 1.
 - *Cost?* Per model and per role in the **Cost & tokens** tab and the trace.
 
 ## If something goes wrong
