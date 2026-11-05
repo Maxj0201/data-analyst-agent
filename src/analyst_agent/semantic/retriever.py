@@ -21,11 +21,14 @@ import math
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from rank_bm25 import BM25Okapi
 
 from analyst_agent.semantic.schema import Metric
+
+if TYPE_CHECKING:
+    from analyst_agent.semantic.vocabulary import Vocabulary
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
@@ -72,11 +75,27 @@ class _NonNegativeBM25(BM25Okapi):
 
 
 class BM25Backend:
-    """Okapi BM25 (``rank_bm25``) over :func:`tokenize`-d documents, with a non-negative IDF."""
+    """Okapi BM25 (``rank_bm25``) over :func:`tokenize`-d documents, with a non-negative IDF.
 
-    def __init__(self, k1: float = 1.5, b: float = 0.75) -> None:
+    With a ``vocabulary`` (see :mod:`analyst_agent.semantic.vocabulary`), the tokens it adds for
+    a question are scored as extra query terms at ``expansion_weight`` (BM25 is a sum over query
+    terms, so this is ``score(question) + expansion_weight * score(expansion)``).
+    """
+
+    def __init__(
+        self,
+        k1: float = 1.5,
+        b: float = 0.75,
+        *,
+        vocabulary: Vocabulary | None = None,
+        expansion_weight: float = 0.5,
+    ) -> None:
+        if expansion_weight < 0:
+            raise ValueError(f"expansion_weight must be >= 0, got {expansion_weight}")
         self.k1 = k1
         self.b = b
+        self.vocabulary = vocabulary
+        self.expansion_weight = expansion_weight
         self._bm25: _NonNegativeBM25 | None = None
         self._n = 0
 
@@ -91,7 +110,11 @@ class BM25Backend:
         q = tokenize(query)
         if not q:
             return [0.0] * self._n
-        return [float(s) for s in self._bm25.get_scores(q)]
+        scores = self._bm25.get_scores(q)
+        extra = self.vocabulary.expand(q) if self.vocabulary else []
+        if extra and self.expansion_weight > 0:
+            scores = scores + self.expansion_weight * self._bm25.get_scores(extra)
+        return [float(s) for s in scores]
 
 
 @dataclass(frozen=True)

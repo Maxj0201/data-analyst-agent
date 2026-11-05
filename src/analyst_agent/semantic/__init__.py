@@ -35,6 +35,7 @@ from analyst_agent.semantic.retriever import (
     tokenize,
 )
 from analyst_agent.semantic.schema import Metric, MetricsFile
+from analyst_agent.semantic.vocabulary import Vocabulary, load_vocabulary
 
 __all__ = [
     "BACKENDS",
@@ -52,6 +53,8 @@ __all__ = [
     "load_metrics",
     "load_metrics_file",
     "VectorCache",
+    "Vocabulary",
+    "load_vocabulary",
     "make_backend",
     "tokenize",
 ]
@@ -72,6 +75,7 @@ def _cached_retriever(
             embedding_model=embedding_model,
             cache_dir=cache_dir,
             hybrid_weight=hybrid_weight,
+            vocabulary=load_vocabulary(paths),
         ),
     )
 
@@ -84,7 +88,10 @@ def default_retriever(
     cache_dir: Path | str | None = None,
     hybrid_weight: float = 0.5,
 ) -> MetricRetriever:
-    """Retriever over the metric files at ``paths``, cached per path set and backend config."""
+    """Retriever over the metric files at ``paths``, cached per path set and backend config.
+
+    Any ``kind: vocabulary`` file at ``paths`` (see :mod:`.vocabulary`) expands BM25 queries.
+    """
     if isinstance(paths, str | Path):
         paths = [paths]
     return _cached_retriever(

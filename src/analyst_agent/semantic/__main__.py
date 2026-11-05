@@ -22,6 +22,7 @@ from analyst_agent.semantic.evaluation import (
 )
 from analyst_agent.semantic.loader import load_metrics
 from analyst_agent.semantic.retriever import MetricRetriever
+from analyst_agent.semantic.vocabulary import load_vocabulary
 
 app = typer.Typer(help="Semantic layer tools.", no_args_is_help=True)
 
@@ -50,6 +51,12 @@ def eval_cmd(
     rerank: Annotated[
         bool, typer.Option("--rerank/--no-rerank", help="mention rerank (see retriever.py)")
     ] = True,
+    vocabulary: Annotated[
+        bool,
+        typer.Option(
+            "--vocabulary/--no-vocabulary", help="BM25 query expansion (see vocabulary.py)"
+        ),
+    ] = True,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="per-case ranks")] = False,
     as_json: Annotated[bool, typer.Option("--json", help="machine-readable output")] = False,
 ) -> None:
@@ -63,7 +70,9 @@ def eval_cmd(
     for n in names:
         if n not in BACKENDS:
             raise typer.BadParameter(f"unknown backend {n!r}; expected one of {BACKENDS}")
-    metrics = load_metrics(metrics_dir or s.resolved_semantic_metrics_dir)
+    metrics_path = metrics_dir or s.resolved_semantic_metrics_dir
+    metrics = load_metrics(metrics_path)
+    vocab = load_vocabulary(metrics_path) if vocabulary else None
     case_list = load_cases(cases, benchmarks, metric_names(metrics))
     reports: list[BackendReport] = []
     for n in names:
@@ -77,6 +86,7 @@ def eval_cmd(
                     hybrid_weight=s.semantic_hybrid_weight
                     if hybrid_weight is None
                     else hybrid_weight,
+                    vocabulary=vocab,
                 ),
                 rerank_mentions=rerank,
             )
