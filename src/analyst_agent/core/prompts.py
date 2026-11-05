@@ -56,6 +56,7 @@ writing a concise, accurate Markdown report.
 
 ## Rules
 - Only use numbers that came from tool output. Never invent or estimate values you did not compute.
+- Put every figure you cite in the report, prose included, into key_numbers as well.
 - State assumptions and data-quality caveats (NULLs, filters applied, ambiguous definitions).
 - SQL must be read-only (SELECT / WITH). Never attempt to modify data.
 - If a tool returns an error, read it, fix the query or code, and try again.
@@ -258,7 +259,7 @@ class Prompt:
         return hashlib.sha256(self.text.encode()).hexdigest()[:12]
 
 
-PLANNER = Prompt("planner", "1.1.0", PLANNER_SYSTEM)
+PLANNER = Prompt("planner", "1.2.0", PLANNER_SYSTEM)
 CRITIC = Prompt("critic", "1.1.0", CRITIC_SYSTEM)
 REPORT_WRITER = Prompt("report_writer", "1.0.0", REPORT_WRITER_SYSTEM)
 # Appended to the planner prompt only when AGENT_SEMANTIC_LAYER_ENABLED is on.

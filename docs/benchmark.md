@@ -156,6 +156,8 @@ Rule 2 makes the structured output part of the L3 grade: a report that quotes th
 only in prose now loses the point. L3 accuracy under 2.0.0 is therefore not comparable with
 runs graded by the old prompt; `meta.json` records `rubric_judge` and `behavior_judge` versions
 next to the agent prompts, and `eval compare` shows when they differ.
+The planner prompt 1.2.0 tells the agent to put every figure it cites into `key_numbers`, so
+runs at `planner@1.2.0` or later are the ones to compare under this judge.
 
 ### Judge variance
 

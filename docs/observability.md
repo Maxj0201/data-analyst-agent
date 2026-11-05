@@ -111,7 +111,7 @@ Example output (abridged, illustrative numbers):
 ├─ ✓ route L2 → claude-opus-5-5                                            +   0.03s    310ms   $0.0001
 │  └─ ✓ llm:router claude-haiku-5-5 in=412 out=18 prompt=router@1.0.0      +   0.03s    310ms   $0.0001
 ├─ ✓ turn 1 model=claude-opus-5-5 tier=L2                                  +   0.34s    2.81s   $0.0213
-│  ├─ ✓ llm:agent claude-opus-5-5 [L2] in=3,912 out=301 prompt=planner@1.1.0 …
+│  ├─ ✓ llm:agent claude-opus-5-5 [L2] in=3,912 out=301 prompt=planner@1.2.0 …
 │  ├─ ✓ plan "1. Inspect `payroll`. 2. Aggregate SUM("base_pay") by `pay_p…"
 │  └─ ✓ tool:inspect_schema                                                +   2.95s      7ms
 …
@@ -121,7 +121,7 @@ Example output (abridged, illustrative numbers):
       └─ ✓ llm:critic claude-opus-5-5 …
 
 total 14.20s | $0.0912 | 6 LLM calls | 4 tool calls | models: claude-haiku-5-5, claude-opus-5-5
-prompts: critic@1.1.0, memory_rules@1.0.0, planner@1.1.0, report_writer@1.0.0, router@1.0.0, semantic_layer_rules@1.0.0, structured_report_rules@1.0.0
+prompts: critic@1.1.0, memory_rules@1.0.0, planner@1.2.0, report_writer@1.0.0, router@1.0.0, semantic_layer_rules@1.0.0, structured_report_rules@1.0.0
 ```
 
 Each line shows its status (`✓` ok, `!` warning, `✗` error), its offset from the run start, its

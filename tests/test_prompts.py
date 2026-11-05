@@ -7,7 +7,7 @@ from analyst_agent.core.prompts import PROMPTS, prompt_versions
 
 # When you edit a prompt: bump its version in core/prompts.py, then update its line here.
 PINNED = {
-    "planner": ("1.1.0", "a7329feaf222"),
+    "planner": ("1.2.0", "108ef068a7b7"),
     "critic": ("1.1.0", "1e123d665a10"),
     "report_writer": ("1.0.0", "7f3d5ed6c379"),
     "semantic_layer_rules": ("1.0.0", "d2ab91bc9847"),

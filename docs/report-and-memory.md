@@ -102,6 +102,7 @@ Code: [`core/memory.py`](../src/analyst_agent/core/memory.py).
 
 | Prompt | Version | Change |
 |---|---|---|
+| `planner` | 1.2.0 | Every figure the report cites goes into `key_numbers` too (the v2 rubric judge, `rubric_judge@2.0.0`, gives no credit for a figure found only in the prose). |
 | `planner` | 1.1.0 | `make_chart` can pick the chart type itself. |
 | `critic` | 1.1.0 | Verify the numbers flagged by the automated consistency check. |
 | `structured_report_rules` | 1.0.0 | New; appended to the planner prompt when structured reports are on. |

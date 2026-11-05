@@ -183,7 +183,7 @@ by the tests, `ask --dry-run`, the eval `dry-run` agent and the UI e2e harness; 
 queues for the agent, critic, report writer and router, and records the requested model per call.
 
 ### Prompts (`core/prompts.py`)
-The planner (1.1.0), critic (1.1.0), report-writer, router, semantic-layer-rules,
+The planner (1.2.0), critic (1.1.0), report-writer, router, semantic-layer-rules,
 structured-report-rules and memory-rules prompts are constants with no per-run values (cacheable), each wrapped in a `Prompt(name, version, text)` with a 12-character
 sha256 fingerprint. `prompt_versions()` goes into every trace, every eval run's `meta.json` and
 every API job result. `tests/test_prompts.py` pins version and fingerprint, so changing a prompt's
