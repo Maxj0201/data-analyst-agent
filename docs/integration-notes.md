@@ -1,8 +1,143 @@
 # Integration notes
 
-## Docker verification (`chore/docker-verify`, 2026-11-04)
+## Round 6 (final, v0.1.0): #27, #25, #26, #24 (2026-11-05)
 
-First build of the real images, with a Docker 29.9.2 daemon. Details, sizes and the sandbox's
+This is the last integration round. `main` is tagged **v0.1.0** and [CHANGELOG.md](../CHANGELOG.md)
+summarises the release by area.
+
+The four PRs were merged into `main` in this order, all as merge commits. After each merge I ran:
+
+- `uv sync --all-extras --no-extra embeddings`
+- `uv run ruff check .` and `uv run ruff format --check .`
+- `uv run pytest --cov` with CI's three coverage floors
+
+Every merge was green before I went on. Final suite: **1001 passed, 1 deselected (slow), 0
+skipped**.
+
+| Order | PR | Branch | Merge | Result | Tests after | Coverage (overall / `sandbox/` / `core/loop.py`) |
+|---|---|---|---|---|---|---|
+| 1 | #27 | `chore/docker-verify` | `1f80dac` | clean | 966 | 94% / 99% / 100% |
+| 2 | #25 | `feat/semantic-tuning` | `4367311` | clean | 976 | 94% / 99% / 100% |
+| 3 | #26 | `feat/eval-judge-quality` | `b6146c1` | clean | 1001 | 94% / 99% / 100% |
+| 4 | #24 | `docs/demo-assets` | `cef4fa1` | clean | 1001 | 94% / 99% / 100% |
+| – | | planner prompt 1.2.0 | `35c33ff` | | 1001 | 94.24% / 99.38% / 100% |
+| – | | trace example regenerated | `5fbeba2` | | 1001 | unchanged |
+
+None of the four PRs had a textual conflict. All four branched from `8686150`. Below is what I
+checked at each expected collision point.
+
+### Collision points
+
+- **#26's runner versus #27's compose and e2e changes.**
+  - The files do not overlap. #26 changed `eval/runner.py`, the scorers, the CLI, the report
+    and `docs/benchmark.md`. #27 changed the Dockerfile, the compose files,
+    `scripts/ui-e2e/*`, `scripts/sandbox-probes/*`, `docs/deploy.md` and `deploy/cloudrun.md`.
+    Neither touched `docs/eval-runbook.md`, so both sets of changes are kept as written.
+  - #26's new flush trigger (`waiting >= unfinished`, counting tasks whose scorer is waiting on
+    the batch judge) still sits behind round 5's `stopping` guard, so a cancelled `--batch` run
+    sends no batch.
+  - With `--judge-samples 3`, the gathered judge calls all enqueue before the flush runs: one
+    batch of 4 (3 L3 samples + 1 ADV) against the fake API below.
+- **#25's `vocabulary.yaml` versus #26's `benchmarks/judge_calibration/`.**
+  - `tests/eval/test_open_items.py` lists the bundled metrics directory and expects
+    `vocabulary.yaml`. The metrics loader skips files whose `kind` is `vocabulary` or
+    `retrieval_eval`.
+  - The wheel force-includes only `benchmarks/metrics` (as
+    `analyst_agent/semantic/metrics`), so it carries `vocabulary.yaml`. #25 checked this with a
+    built wheel.
+  - `judge_calibration/` sits outside `benchmarks/metrics` and outside the `.dockerignore`
+    allow-list, so neither the wheel nor the image sees it. Like `semantic eval`,
+    `judge-calibrate` is a dev tool that reads the source checkout.
+- **README.** #24's *See it run*, #25's BM25 row and roadmap items and #27's `docs/deploy.md`
+  link are all kept. I re-checked every number the README cites against the merged tree:
+  - tests: 976 → **1001**
+  - coverage: 94.4% → **94.2%**, because #26 added code at slightly lower branch coverage
+  - `tests/sandbox`: 265 (unchanged)
+  - BM25 on the 33 benchmark cases: 1.000 / 1.000 / 1.000
+  - oracle on all 80 tasks: 100% on 64 gradable (unchanged)
+  - UI e2e: 24/24
+  - The README cites no image sizes. `docs/deploy.md` now has the v0.1.0 sizes next to #27's.
+  - #24's span tree was captured at `planner@1.1.0`. I regenerated it at 1.2.0 with the same
+    command, and the layout is identical.
+  - The README called that tree "the same run" as the screenshots. It is a CLI dry run with
+    the same flags, so the caption now says so.
+- **Planner prompt 1.1.0 → 1.2.0.** #26 warned that L3 scores will drop under the key-numbers
+  rule. The planner now has one more rule: *"Put every figure you cite in the report, prose
+  included, into key_numbers as well."*
+  - `tests/test_prompts.py` pins `("1.2.0", "108ef068a7b7")`.
+  - `docs/architecture.md`, `docs/observability.md` (its example), `docs/report-and-memory.md`
+    (version table) and `docs/benchmark.md` were updated.
+  - Runs before and after this change are not comparable on L3, which is also true of the judge
+    change itself.
+
+### Other changes in this round
+
+- `CHANGELOG.md`, new.
+- `docs/eval-runbook.md`: pre-flight now includes `judge-calibrate --judge-samples 3`. #26 asked
+  for that run before merging, but it needs a key, so it is a runbook step.
+- README:
+  - the eval paragraph describes judge 2.0.0 and its calibration
+  - the measured-numbers table gains the calibration row
+  - the roadmap's done items are grouped together
+  - the repository map lists the vocabulary, the calibration set and the newer docs
+
+### Verification (all local)
+
+- **`ask --dry-run` flag matrix:** all 32 combinations of routing × semantic layer × approval
+  (auto, row threshold 0) × structured report × memory. The trace store was on in all of them,
+  and JSON logs in half.
+  - **32/32 `completed`**, every answer "North America", 32 span trees
+  - one approval node in each of the 16 approval-on runs, none in the others
+- **`eval run --agent dry-run --limit 5 --batch` with all ten `AGENT_*_ENABLED` flags on.** That
+  is routing, semantic, structured, memory, approval, Langfuse, samples, trace store, JSON logs
+  and judge batch. It ran against a throwaway local fake of `/v1/messages` and
+  `/v1/messages/batches` with the real SDK client, as in round 5.
+  - 5/5 `ok`, exit 0
+  - **one batch of 2 requests**, no direct calls:
+    `judge_batch = {batches: 1, batched_requests: 2, direct_requests: 0, fallback: null}`
+  - `spend_usd` 0.006 and 5 span trees
+  - `meta.json` prompts include `planner@1.2.0`, `rubric_judge@2.0.0` and
+    `behavior_judge@1.0.0`
+  - With `--judge-samples 3`: one batch of 4, and a *Judge variance* table in the report.
+  - L1/L2 fail scoring, as in round 5: the dry-run agent's answers are not analyses.
+- **`eval judge-calibrate --fake`:**
+  - 24 samples, 0 errors
+  - verdict agreement 100%, κ 1.000; point agreement 100%, κ 1.000
+  - confusion: 8 pass / 16 fail
+  - This is the oracle fake, so it checks the plumbing only.
+- **`python -m analyst_agent.semantic eval`:**
+  - BM25, benchmark cases (33): top-1 **1.000**, top-3 1.000, MRR 1.000
+  - paraphrases (10): 0.600 / 0.900 / 0.758
+  - all 43: 0.907 / 0.977 / 0.944
+  - embedding and hybrid skipped: no extra
+- **`scripts/preflight.sh --dry-run`:** the same as round 5. Every check is `ok` except two:
+  `extra [embeddings]` FAILs (expected with `--no-extra embeddings`) and Message Batches WARNs.
+  Exit 1. The estimate is unchanged: $142.58 for all experiments, $213.87 capped.
+- **CI jobs, run as in the workflows:**
+  - **`ci.yml` test:** `uv lock --check` passed, `uv sync --locked --all-extras --no-extra
+    embeddings`, lint, format, `pytest --cov` (1001 passed). Gate: overall 94.24% (≥ 92),
+    `sandbox/` 99.38% (≥ 97), `core/loop.py` 100% (≥ 98). `eval/` is 92.39%.
+  - **`ci.yml` eval-smoke:**
+    - oracle `--limit 5`: 100%
+    - dry run (3): ok
+    - dry run with every flag (5): ok, 5 span trees, 101 JSON log lines carrying `task_id`
+  - **`ui-e2e.yml`:** `scripts/ui-e2e/run.sh` gave **24/24**.
+  - **`nightly.yml`:** kernel 6.18, Landlock ABI 7. The fuzzer passed with the fixed seed and
+    with a new seed (20261105), about 175 s each.
+  - **`docker.yml` `images`:** this session had a Docker 29.9.2 daemon. I used #27's two
+    build-arg substitutions: `UV_IMAGE` held the host's uv 0.11.32, and `PYTHON_IMAGE` was the
+    official slim-bookworm image plus the proxy CA. I also passed `--network host`, so the
+    build reaches the session proxy. The Dockerfile is unchanged.
+    - `api` 984 MB / 222 MB compressed; `frontend` 832 MB / 191 MB
+    - `scripts/sandbox-probes/run.sh analyst-agent-api:local`: all ok (H1/H2 through
+      `POST /ask`, seccomp and Landlock kernel checks)
+    - `scripts/ui-e2e/run.sh --docker`: **24/24**
+  - **`docker.yml` `embeddings-image`:** **not run**, because the proxy refuses
+    `download.pytorch.org` (and `huggingface.co`).
+
+### #27's own notes: Docker verification (`chore/docker-verify`, 2026-11-04)
+
+Written by #27 and kept as it was. First build of the real images, with a Docker 29.9.2 daemon. Details, sizes and the sandbox's
 runtime requirements are in [deploy.md](deploy.md); this is what broke and what changed.
 
 - **Restricted network, not the Dockerfile.** `ghcr.io` blobs are blocked here and TLS is
@@ -28,6 +163,81 @@ runtime requirements are in [deploy.md](deploy.md); this is what broke and what 
 - **Embeddings image: CPU-only torch.** The build installs the locked torch version from
   `TORCH_INDEX_URL` (default: the CPU index) and the rest of the extra pinned to `uv.lock`,
   without the CUDA packages. `uv.lock` is unchanged.
+
+### Branches
+
+Not deleted from this session (round 5 explains why: the git proxy refuses `git push --delete`).
+These remote branches belong to merged PRs and are contained in `main`:
+
+- from round 5: `docs/eval-runbook`, `docs/final`, `test/coverage-and-properties`,
+  `test/sandbox-fuzz`, `fix/review-2` and `chore/first-run`
+- from this round: `chore/docker-verify`, `feat/semantic-tuning`, `feat/eval-judge-quality` and
+  `docs/demo-assets`
+
+To delete them with repository write access:
+
+```bash
+git push origin --delete docs/eval-runbook docs/final test/coverage-and-properties test/sandbox-fuzz fix/review-2 chore/first-run chore/docker-verify feat/semantic-tuning feat/eval-judge-quality docs/demo-assets
+```
+
+### Still open at v0.1.0
+
+This is the complete list. It replaces the *Still open* lists of earlier rounds, which are kept
+below as history.
+
+1. **No live-model run at all.** The README *Results* table is empty, and so is the runbook's
+   *Benchmark results* section. Filling them needs `ANTHROPIC_API_KEY` and
+   `scripts/run_experiments.sh`: an estimated $142.58 for the 8 arms, capped at $213.87.
+2. **The real judge's agreement with human labels is not measured.** Run
+   `eval judge-calibrate --judge-samples 3` before trusting L3. The calibration set has 24
+   samples over 8 of the 16 L3 tasks.
+3. **The L3 baseline needs re-measuring.** Judge 2.0.0 and planner 1.2.0 both change L3 scores.
+   No earlier L3 number exists to compare with, but any run before this tag is not comparable.
+4. **The cost estimate predates judge 2.0.0.** Preflight's token profiles (±50%) do not account
+   for the longer v2 judge prompt and its evidence quotes, or for `--judge-samples N`, which
+   multiplies L3 judge spend N times. Compare after the baseline, as the runbook says.
+5. **Embedding and hybrid retrieval are not measured,** and the hybrid weight is not swept.
+   The proxy refuses `download.pytorch.org` and `huggingface.co`. The commands are in
+   `docs/semantic-layer.md`. `AGENT_SEMANTIC_HYBRID_WEIGHT` stays at 0.5.
+6. **BM25 paraphrases:** 4 of the 10 held-out paraphrases still miss top-1 (0.600). The
+   benchmark questions score 1.000, but the vocabulary was tuned with them in view.
+7. **The embeddings Docker image (CPU torch) has never been built.** Its size is not recorded.
+   The `embeddings-image` CI job is the first real build.
+8. **The Docker images have only been built with substituted base images** (uv binary, proxy
+   CA). The `images` CI job is the first build from the official images on a clean network.
+9. **Cloud Run is not tested.** This includes gen2 Landlock/seccomp and `PR_SET_PDEATHSIG`
+   under gVisor. `docs/deploy.md` has a `sandbox-check` job for it.
+10. **Message Batches have only run against a local fake.** The first real `--batch` run is the
+    check. If batches fail, the runner falls back to direct calls and records `fallback`.
+11. **In-flight spend at a hard kill is not recorded** (at most `--concurrency` tasks).
+12. **When Landlock is unavailable, the warning goes only to the sandbox child's stderr.**
+    Operators never see it. A startup self-check that logs it is a follow-up from #27.
+13. **The dry run ignores denials** (it is scripted up front), and with several `--data` files it
+    uses only the first table.
+14. **The approval row gate can understate:** DuckDB prints no cardinality for some operators
+    (`Cross Product`), so the gate fails open (review L13). The 30 s SQL timeout still bounds
+    the cost.
+15. **Dev tools read the source checkout:** `semantic eval` and `judge-calibrate` do not work
+    from an installed wheel.
+16. **`prompt_versions()` is static.** It lists every prompt, including those of flags that
+    are off, and now the judge prompts in eval `meta.json`.
+17. **The frontend's `AGENT_API_URL` and `AGENT_API_ID_TOKEN` are not in `Settings`.** The UI
+    image ships without the agent package. Both are documented separately.
+18. **Accepted Low findings:**
+    - review.md L1–L24: no app-level auth (L1), shared artifact directory (L2), one worker per
+      store (L14), no job-level wall-clock timeout (L15), retries ignore `Retry-After` (L16), …
+    - review-2.md L2–L16: MCP `structuredContent` unfenced, no trace retention, memory shared
+      across API users, memory not forced off in eval, …
+    - Each has a reason recorded, and none is fixed in this release.
+19. **Housekeeping:**
+    - the ten merged branches above are not deleted
+    - `httpx` is listed twice
+    - `docs/kickoff/*.md` are historical
+    - the dry-run structured report has an empty `charts` list
+    - `st.image` captions go through `safe_md`
+    - Langfuse with the flag on and no keys logs one warning per eval task
+
+---
 
 ## Round 5: #23, #22 (2026-11-04)
 

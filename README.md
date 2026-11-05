@@ -4,7 +4,8 @@ Ask a question in plain English about a CSV, Parquet, SQLite or DuckDB file, and
 inspects the schema, writes and runs SQL and Python in a kernel-confined sandbox, has a second
 model check the answer, and returns a Markdown report with charts. It is built on a hand-written
 Anthropic Messages API loop, and every change to it is gated by an 80-task benchmark, an
-adversarial prompt-injection set and offline CI checks.
+adversarial prompt-injection set and offline CI checks. Current release: **v0.1.0**
+([CHANGELOG.md](CHANGELOG.md)).
 
 ## See it run
 
@@ -129,8 +130,11 @@ tool output contains.
 rubric) and 16 ADV, over seeded synthetic data whose ground truth is computed by the generator.
 Each task runs in its own child process, and on timeout the whole process group is killed.
 `report` and `compare` cover accuracy by tier and tag, cost, p50/p95 latency, critic correction
-rate, routing and prompt diffs. CI makes no API calls. It runs lint, the format check and 976
-tests (Hypothesis property tests included) under a branch-coverage gate, then the oracle agent
+rate, routing and prompt diffs. L3 is graded by an LLM judge (prompt 2.0.0) that must quote the
+sentence behind each rubric point and credits a figure only if it is also in `key_numbers`;
+`eval judge-calibrate` measures it against 24 hand-labelled reports
+([docs/benchmark.md](docs/benchmark.md)). CI makes no API calls. It runs lint, the format check
+and 1001 tests (Hypothesis property tests included) under a branch-coverage gate, then the oracle agent
 (must score 100%), then a dry run of the real loop and sandbox with a scripted LLM, and then the
 same dry run with **every** feature flag on. A headless-browser UI e2e test runs on API/UI PRs,
 and the sandbox escape fuzzer runs nightly.
@@ -245,13 +249,14 @@ The offline numbers that *are* measured:
 
 | Check | Result | Command |
 |---|---|---|
-| Unit, integration and property tests | 976 passed, 0 skipped (1 slow test deselected) | `make test` |
-| Branch coverage (CI gate) | 94.4% overall (floor 92) · `sandbox/` 99.4% (floor 97) · `core/loop.py` 100% (floor 98) | `make coverage` |
+| Unit, integration and property tests | 1001 passed, 0 skipped (1 slow test deselected) | `make test` |
+| Branch coverage (CI gate) | 94.2% overall (floor 92) · `sandbox/` 99.4% (floor 97) · `core/loop.py` 100% (floor 98) | `make coverage` |
 | Oracle on all 80 tasks (harness self-check) | 100% on the 64 gradable tasks (L3 needs a judge) | `uv run python -m analyst_agent.eval run --agent oracle --no-judge` |
 | Semantic retrieval, BM25, 33 scored benchmark-task cases | top-1 1.000 · top-3 1.000 · MRR 1.000 (was 0.848 · 0.909 · 0.896; [tuning](docs/semantic-layer.md)) | `uv run python -m analyst_agent.semantic eval` |
 | Sandbox escape and unit tests | 265 passed | `uv run pytest tests/sandbox` |
 | Sandbox escape fuzzer (default seed, nightly) | 500 of 500 snippets blocked or killed | `uv run pytest -m slow tests/sandbox/test_fuzz_escape.py` |
-| UI e2e (approve and deny flows) | 24 checks per run | `make e2e` |
+| UI e2e (approve and deny flows) | 24 of 24 checks, locally and against the compose stack | `make e2e` |
+| Judge calibration plumbing (oracle fake) | 100% agreement on 24 samples, κ 1.000; the real-judge figure is not measured yet | `uv run python -m analyst_agent.eval judge-calibrate --fake` |
 
 ## API
 
@@ -281,15 +286,18 @@ what the sandbox needs from Docker / Cloud Run: [docs/deploy.md](docs/deploy.md)
 | `src/analyst_agent/semantic/` | metric definitions, BM25 / embedding / hybrid retrieval, retrieval eval |
 | `src/analyst_agent/eval/` | runner, process isolation, scorers, LLM judge, report and compare |
 | `src/analyst_agent/api/`, `frontend/` | FastAPI service, Streamlit UI |
-| `benchmarks/` | generator, synthetic data, 80 task YAMLs, governed metrics |
-| `docs/` | architecture, sandbox threat model, review, integration notes, interview notes |
+| `benchmarks/` | generator, synthetic data, 80 task YAMLs, governed metrics and analyst vocabulary, judge calibration set |
+| `docs/` | architecture, sandbox threat model, reviews, deploy, semantic layer, eval runbook, integration notes, interview notes |
 
 ## Roadmap
 
 - [x] Agent core, sandbox, eval harness, API/UI, MCP server
 - [x] Routing, semantic layer, HITL approval, structured reports, insight memory (all flagged)
-- [x] Hostile review: all High and Medium findings fixed with regression tests
+- [x] Two hostile reviews: all High and Medium findings fixed with regression tests
 - [x] Tracing (Langfuse + local trace store), prompt versioning, 80-task benchmark v2
+- [x] Tune the semantic-layer synonyms and add an analyst phrase table ([semantic-layer.md](docs/semantic-layer.md))
+- [x] Docker images verified (CPU-only torch for embeddings, sandbox probes in the container, Docker CI)
+- [x] LLM-judge calibration set and judge 2.0.0 (citations, key-numbers rule, `--judge-samples`)
 - [ ] **Publish the Results table** from live runs, including the routing and semantic-layer A/B
 - [ ] Container-level isolation per job (gVisor or Firecracker, `--network none`) for multi-tenant use
 - [ ] App-level auth and per-tenant artifact directories (review L1/L2; today the boundary is Cloud Run IAM)
@@ -297,5 +305,5 @@ what the sandbox needs from Docker / Cloud Run: [docs/deploy.md](docs/deploy.md)
 - [ ] Shared job store and approval broker (Postgres/Redis) so the API scales past one instance
 - [ ] Harder benchmark: messy real-world schemas, Parquet/SQLite inputs, multi-turn injections
 - [ ] Warehouse connectors (Postgres, BigQuery) behind the same `run_sql` contract
-- [x] Tune the semantic-layer synonyms and add an analyst phrase table ([semantic-layer.md](docs/semantic-layer.md))
+- [ ] Measure the real judge against the calibration set (`judge-calibrate --judge-samples 3`)
 - [ ] Measure embedding / hybrid retrieval and sweep the hybrid weight (commands in [semantic-layer.md](docs/semantic-layer.md#embedding-and-hybrid-not-measured-yet))

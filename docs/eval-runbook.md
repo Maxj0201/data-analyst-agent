@@ -103,6 +103,18 @@ Check:
 Rehearse without a key or network with `scripts/preflight.sh --dry-run` (the API checks go to
 the scripted FakeLLM).
 
+Then check the L3 judge against the hand-labelled calibration set (72 judge calls; rehearse
+offline with `--fake`):
+
+```bash
+uv run python -m analyst_agent.eval judge-calibrate --judge-samples 3 --out runs/judge-calibration.md
+```
+
+Read the verdict agreement and kappa, and every listed disagreement, before trusting L3 numbers.
+A `subtly_wrong` sample the judge passes is the failure that matters. See
+[benchmark.md](benchmark.md#judge-prompt-v2-rubric_judge200) and
+`benchmarks/judge_calibration/README.md`.
+
 ### 2. Smoke test: 8 tasks, baseline only (~$2.31, cap $3.47)
 
 ```bash

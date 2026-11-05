@@ -61,8 +61,8 @@ what a registry stores and Cloud Run pulls), linux/amd64:
 
 | Image | On disk | Content (compressed) | Measured |
 |---|---|---|---|
-| `api` (default) | 983 MB | 221 MB | 2026-11-04, Docker 29.9.2 |
-| `frontend` | 831 MB | 190 MB | 2026-11-04, Docker 29.9.2 |
+| `api` (default) | 984 MB | 222 MB | 2026-11-05 (v0.1.0), Docker 29.9.2; 983 / 221 MB on 2026-11-04 |
+| `frontend` | 832 MB | 191 MB | 2026-11-05 (v0.1.0), Docker 29.9.2; 831 / 190 MB on 2026-11-04 |
 | `api`, `INSTALL_EMBEDDINGS=true` (CPU torch) | not measured yet | not measured yet | needs `download.pytorch.org`; the `embeddings-image` CI job prints it in its summary |
 
 Both measured images were built from `python:3.11-slim-bookworm` (198 MB of the above). See
@@ -166,7 +166,7 @@ CI runs both, plus the embeddings build, on every PR that touches `Dockerfile`,
 `.dockerignore`, `docker-compose.yml`, `pyproject.toml` or `uv.lock`
 (`.github/workflows/docker.yml`).
 
-## Verification status (2026-11-04)
+## Verification status (2026-11-04; re-run 2026-11-05 at v0.1.0)
 
 Run in a cloud sandbox with a Docker 29.9.2 daemon, kernel 6.18 (Landlock ABI 7), cgroup v1:
 
@@ -178,6 +178,11 @@ Run in a cloud sandbox with a Docker 29.9.2 daemon, kernel 6.18 (Landlock ABI 7)
 | `scripts/sandbox-probes/run.sh` | all pass under the default profile, `no-new-privileges` + `cap-drop ALL`, `--read-only`, `seccomp=unconfined`; fallback verified with a profile hiding `landlock_*`; fail-closed verified with a profile denying `seccomp` |
 | `INSTALL_EMBEDDINGS=true` build | **not run**: `download.pytorch.org` is blocked there. The step's mechanics were exercised with `TORCH_INDEX_URL=https://pypi.org/simple` |
 | Cloud Run | not run |
+
+Re-run on 2026-11-05 at the v0.1.0 merge (same daemon, kernel and build-arg substitutions, with
+`docker build --network host` so the build reaches the session proxy): both images build, the
+sandbox probes pass under the default profile, and `scripts/ui-e2e/run.sh --docker` gives 24/24.
+The embeddings image is still not built (`download.pytorch.org` is refused).
 
 That environment's egress policy also blocks `ghcr.io` blob downloads and re-signs TLS with
 its own CA, so two build args were overridden, with no change to the `Dockerfile`:
