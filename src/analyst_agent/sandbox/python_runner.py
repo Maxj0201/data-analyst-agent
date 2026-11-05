@@ -19,6 +19,7 @@ Layers (see docs/sandbox.md for the threat model):
 from __future__ import annotations
 
 import json
+import logging
 import os
 import signal
 import site
@@ -26,6 +27,7 @@ import subprocess
 import sys
 import sysconfig
 import tempfile
+import threading
 import time
 import uuid
 from collections.abc import Mapping
@@ -38,6 +40,8 @@ import pandas as pd
 from . import PyResult
 from . import _errors as T
 from ._loaders import DataSources, load_dataframes, normalize_sources, safe_identifier
+
+log = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_S = 60.0
 DEFAULT_MEMORY_LIMIT_MB = 1024
@@ -347,6 +351,7 @@ def run_python(
     if prof is not None:
         prof["parent_end"] = time.perf_counter()
 
+    _log_confinement_warnings(payload)
     base: dict[str, Any] = dict(stdout=stdout, stderr=stderr, artifacts=artifacts)
 
     if timed_out:
@@ -386,6 +391,33 @@ def run_python(
         return _failure(kind, msg, start, **base)
 
     return PyResult(ok=True, duration_ms=_ms_since(start), **base)
+
+
+_MAX_WARNING_CHARS = 500
+_logged_warnings: set[str] = set()
+_logged_warnings_lock = threading.Lock()
+
+
+def _log_confinement_warnings(payload: Any) -> None:
+    """Log the child's confinement warnings (e.g. "Landlock unavailable") in this process.
+
+    The child also writes them to its stderr, but that only reaches the model. A degraded
+    sandbox is an operator matter, so it goes to the parent's log. Each distinct message is
+    logged once per process: it is a property of the kernel, and repeating it on every call
+    would drown the log.
+    """
+    warnings = payload.get("sandbox_warnings") if isinstance(payload, dict) else None
+    if not isinstance(warnings, list):
+        return
+    for warning in warnings:
+        if not isinstance(warning, str) or not warning:
+            continue
+        warning = warning[:_MAX_WARNING_CHARS]
+        with _logged_warnings_lock:
+            if warning in _logged_warnings:
+                continue
+            _logged_warnings.add(warning)
+        log.warning("sandbox confinement degraded: %s", warning)
 
 
 def _ms_since(start: float) -> int:

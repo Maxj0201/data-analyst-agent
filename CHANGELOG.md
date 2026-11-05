@@ -2,6 +2,26 @@
 
 All notable changes to this project. Versions follow [SemVer](https://semver.org/); dates are UTC.
 
+## [Unreleased]
+
+### Added
+- `LICENSE` (MIT), `SECURITY.md` (reporting, sandbox guarantees and limits) and a pull request
+  template that mirrors `CLAUDE.md`.
+- `.pre-commit-config.yaml` (`make hooks`): ruff, ruff format, `uv lock --check`, and
+  `scripts/check_prompt_versions.py`, which fails when a prompt's text changes without a version
+  bump.
+
+### Changed
+- CI now runs `make lint`, `make coverage` and `make eval`; `make check` runs `install` first, so
+  it is exactly what CI runs.
+- The "Landlock unavailable" warning is logged once per process by the parent
+  (`analyst_agent.sandbox.python_runner`, `WARNING`), not only written to the child's stderr.
+- `docs/kickoff/` moved to `docs/history/kickoff/` (historical).
+
+### Removed
+- The committed `traces/` run outputs; `traces/`, `*.sqlite3` and images outside `docs/assets/`
+  are now git-ignored. The duplicate `httpx` dev dependency.
+
 ## [0.1.0] - 2026-11-05
 
 The first release. Pull requests #1–#27 were integrated in six rounds; each round is

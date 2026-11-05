@@ -47,7 +47,6 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "ruff",
-    "httpx",
     "pytest-cov>=7.1.0",
     "hypothesis>=6.170.14",
 ]

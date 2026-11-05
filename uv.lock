@@ -69,7 +69,6 @@ mcp = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "hypothesis" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -103,7 +102,6 @@ provides-extras = ["api", "frontend", "mcp", "embeddings"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx" },
     { name = "hypothesis", specifier = ">=6.170.14" },
     { name = "pytest" },
     { name = "pytest-asyncio" },

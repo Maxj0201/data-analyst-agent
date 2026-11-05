@@ -118,11 +118,13 @@ def main() -> int:
     # pyarrow's own file I/O), so the kernel enforces the same boundary before user code.
     cfg = json.loads(os.environ["ANALYST_SANDBOX_CONFIG"])
     mark("confine_start")
+    confine_warnings: list[str] = []
     try:
         import _oslock
 
         mark("oslock_imported")
-        for warning in _oslock.confine(cfg["read_roots"], [work_dir], marks=marks):
+        confine_warnings = _oslock.confine(cfg["read_roots"], [work_dir], marks=marks)
+        for warning in confine_warnings:
             sys.stderr.write(f"[sandbox] {warning}\n")
     except Exception as exc:  # noqa: BLE001 - fail closed
         _write_result(
@@ -183,6 +185,9 @@ def main() -> int:
         sys.stderr.write(f"[sandbox] could not save figures: {exc}\n")
 
     mark("figures_done")
+    # Also hand the warnings to the parent in the result file, so it can log them (stderr is
+    # only returned to the model, never to an operator's log).
+    payload["sandbox_warnings"] = confine_warnings
     if marks is not None:
         payload["profile"] = dict(marks)
     sys.stdout.flush()

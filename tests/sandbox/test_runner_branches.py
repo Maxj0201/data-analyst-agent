@@ -413,3 +413,36 @@ def test_run_python_profile_real_child_reports_confinement_phases(monkeypatch) -
     assert res.ok, res.error
     assert {"site_start", "site_end", "boot_start", "seccomp_done"} <= set(prof)
     assert prof["spawn"] < prof["site_start"] < prof["seccomp_done"] < prof["exited"]
+
+
+# --------------------------------------------------------------------------- confinement warnings
+
+
+def test_confinement_warnings_reach_the_parent_log_once(fake_child, caplog, monkeypatch) -> None:
+    monkeypatch.setattr(python_runner, "_logged_warnings", set())
+    msg = (
+        "Landlock unavailable (not supported by this kernel); file access relies on the audit hook"
+    )
+    result = json.dumps({"ok": True, "error": None, "sandbox_warnings": [msg, 7, "", msg]})
+    with caplog.at_level("WARNING", logger=python_runner.log.name):
+        assert fake_child({"result": result}).ok
+        assert fake_child({"result": result}).ok  # second call: same kernel, same message
+    records = [r for r in caplog.records if r.name == python_runner.log.name]
+    assert [r.getMessage() for r in records] == [f"sandbox confinement degraded: {msg}"]
+    assert records[0].levelname == "WARNING"
+
+
+@pytest.mark.parametrize("value", [None, "Landlock", {"a": 1}, []])
+def test_malformed_confinement_warnings_are_ignored(fake_child, caplog, value) -> None:
+    result = json.dumps({"ok": True, "error": None, "sandbox_warnings": value})
+    with caplog.at_level("WARNING", logger=python_runner.log.name):
+        assert fake_child({"result": result}).ok
+    assert not caplog.records
+
+
+def test_real_child_reports_warnings_list_in_result(monkeypatch) -> None:
+    """End to end: the child's result carries ``sandbox_warnings`` (empty when Landlock works)."""
+    seen: list[Any] = []
+    monkeypatch.setattr(python_runner, "_log_confinement_warnings", seen.append)
+    assert python_runner.run_python("print('hi')", timeout_s=60).ok
+    assert len(seen) == 1 and isinstance(seen[0].get("sandbox_warnings"), list)

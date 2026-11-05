@@ -1,6 +1,8 @@
 # Developer entry points. Every target except eval-live and demo runs offline: no API key, no
 # LLM calls (ANTHROPIC_BASE_URL points at a dead port, as in CI).
 #   make help
+# CI (.github/workflows/ci.yml) runs `make lint`, `make coverage` and `make eval`, so `make check`
+# is what CI runs by construction. Do not duplicate those commands in the workflow.
 
 UV      ?= uv
 RUNS    ?= runs/make
@@ -11,13 +13,16 @@ OFFLINE := ANTHROPIC_API_KEY= ANTHROPIC_BASE_URL=http://127.0.0.1:9
 EVAL    := $(UV) run python -m analyst_agent.eval
 
 .DEFAULT_GOAL := help
-.PHONY: help install lint format test coverage fuzz check eval eval-live e2e demo clean
+.PHONY: help install hooks lint format test coverage fuzz check eval eval-live e2e demo clean
 
-help: ## list targets
-	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
+help: ## list every target with a one-line description
+	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
 
 install: ## uv sync with the extras CI uses (no torch)
 	$(UV) sync --locked --all-extras --no-extra embeddings
+
+hooks: ## install the pre-commit hooks (ruff, ruff format, uv lock check, prompt version bump)
+	uvx pre-commit install
 
 lint: ## ruff lint + format check (what CI runs)
 	$(UV) run ruff check .
@@ -39,7 +44,7 @@ coverage: ## tests with branch coverage + CI's coverage gate (slow tests deselec
 fuzz: ## sandbox escape fuzzer, default seed (slow, ~3 min; nightly in CI)
 	$(OFFLINE) $(UV) run pytest -m slow -q -p no:cacheprovider tests/sandbox/test_fuzz_escape.py
 
-check: lint coverage eval ## everything the CI test + eval-smoke jobs run
+check: install lint coverage eval ## exactly what CI runs: install, lint, coverage gate, offline eval gate
 
 eval: ## offline eval gate, same three steps as CI's eval-smoke job
 	$(OFFLINE) $(EVAL) run --agent oracle --no-judge --limit 5 \
