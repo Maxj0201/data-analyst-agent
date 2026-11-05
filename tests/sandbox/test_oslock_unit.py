@@ -77,6 +77,7 @@ def test_landlock_abi_reports_zero_on_error(monkeypatch) -> None:
         L.apply_landlock(["/"], [])
 
 
+@pytest.mark.linux_only
 def test_apply_landlock_rules(syscalls, tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -105,6 +106,7 @@ def test_apply_landlock_rules(syscalls, tmp_path: Path) -> None:
     assert syscalls.closed == [999]
 
 
+@pytest.mark.linux_only
 @pytest.mark.parametrize(("abi", "fields"), [(1, 1), (3, 1), (4, 2), (5, 2)])
 def test_apply_landlock_attr_size_by_abi(syscalls, abi: int, fields: int) -> None:
     syscalls.abi["value"] = abi
@@ -115,6 +117,7 @@ def test_apply_landlock_attr_size_by_abi(syscalls, abi: int, fields: int) -> Non
     assert len(create[1].raw) == fields * 8
 
 
+@pytest.mark.linux_only
 def test_apply_landlock_skips_rules_with_no_handled_rights(syscalls, monkeypatch) -> None:
     syscalls.abi["value"] = 1
     monkeypatch.setattr(L, "_READ", 1 << 20)  # a right this ABI does not handle
@@ -122,6 +125,7 @@ def test_apply_landlock_skips_rules_with_no_handled_rights(syscalls, monkeypatch
     assert _rules(syscalls) == []
 
 
+@pytest.mark.linux_only
 def test_apply_seccomp_installs_filter(syscalls) -> None:
     L.apply_seccomp("x86_64")
     nr = L._ARCH["x86_64"][1]["seccomp"]
@@ -130,11 +134,13 @@ def test_apply_seccomp_installs_filter(syscalls) -> None:
     assert ("no_new_privs",) in syscalls
 
 
+@pytest.mark.linux_only
 def test_build_filter_unknown_arch() -> None:
     with pytest.raises(L.ConfinementError, match="no seccomp filter"):
         L.build_filter("sparc")
 
 
+@pytest.mark.linux_only
 def test_build_filter_jump_out_of_range(monkeypatch) -> None:
     monkeypatch.setattr(L, "_DENIED", tuple(f"x{i}" for i in range(300)) + ("execve",))
     arch, nrs = L._ARCH["aarch64"]
@@ -146,7 +152,10 @@ def test_build_filter_jump_out_of_range(monkeypatch) -> None:
 
 def test_confine_non_linux(monkeypatch) -> None:
     monkeypatch.setattr(L.sys, "platform", "darwin")
-    assert L.confine([], []) == ["no kernel confinement on darwin; only the audit hook applies"]
+    assert L.confine([], []) == [
+        "no kernel confinement on darwin; only the audit hook applies, "
+        "and there is no memory limit (RLIMIT_AS is Linux-only)"
+    ]
 
 
 def test_confine_landlock_optional_seccomp_required(monkeypatch) -> None:
@@ -171,6 +180,7 @@ def test_confine_landlock_optional_seccomp_required(monkeypatch) -> None:
         L.confine(["/"], ["/tmp"])
 
 
+@pytest.mark.linux_only
 def test_raw_syscall_and_prctl_errors(monkeypatch) -> None:
     """The ctypes wrappers translate a -1 return into OSError with errno."""
 
@@ -239,12 +249,14 @@ def bpf(request: pytest.FixtureRequest) -> Any:
     return run
 
 
+@pytest.mark.linux_only
 def test_filter_size_matches_docs() -> None:
     # docs/sandbox.md and docs/sandbox-performance.md cite the x86_64 size.
     assert len(L.build_filter("x86_64", pid=1)) // 8 == 115
     assert len(L.build_filter("aarch64", pid=1)) // 8 == 103
 
 
+@pytest.mark.linux_only
 def test_syscall_tables_are_consistent() -> None:
     for machine in ("x86_64", "aarch64"):
         nrs = L._ARCH[machine][1]
@@ -261,16 +273,19 @@ def test_syscall_tables_are_consistent() -> None:
     assert set(L._DENIED) <= set(L._ARCH["x86_64"][1])
 
 
+@pytest.mark.linux_only
 def test_every_denied_syscall_is_eperm(bpf: Any) -> None:
     denied = [n for n in L._DENIED if n in bpf.nrs]
     assert denied and all(bpf(n) == _EPERM for n in denied), [n for n in denied if bpf(n) != _EPERM]
 
 
+@pytest.mark.linux_only
 @pytest.mark.parametrize("domain", [1, 2, 10, 16, 17])  # AF_UNIX, INET, INET6, NETLINK, PACKET
 def test_every_socket_domain_is_refused(bpf: Any, domain: int) -> None:
     assert bpf("socket", domain, 1, 0) == _EPERM
 
 
+@pytest.mark.linux_only
 def test_clone_threads_only_and_clone3_enosys(bpf: Any) -> None:
     thread_flags = 0x3D0F00  # glibc pthread_create: VM|FS|FILES|SIGHAND|THREAD|SYSVSEM|...
     assert bpf("clone", thread_flags) == _ALLOW
@@ -279,6 +294,7 @@ def test_clone_threads_only_and_clone3_enosys(bpf: Any) -> None:
     assert bpf("clone3", 0) == _ENOSYS
 
 
+@pytest.mark.linux_only
 @pytest.mark.parametrize("name", list(L._SELF_ONLY))
 def test_signals_only_to_self(bpf: Any, name: str) -> None:
     assert bpf(name, _PID, 0) == _ALLOW
@@ -288,6 +304,7 @@ def test_signals_only_to_self(bpf: Any, name: str) -> None:
     assert bpf(name, -1, 0) == _EPERM  # kill(-1, ...): every process we may signal
 
 
+@pytest.mark.linux_only
 def test_ioctl_denylist(bpf: Any) -> None:
     for request in L._IOCTL_DENIED:
         assert bpf("ioctl", 3, request) == _EPERM, hex(request)
@@ -296,6 +313,7 @@ def test_ioctl_denylist(bpf: Any) -> None:
         assert bpf("ioctl", 3, request) == _ALLOW, hex(request)
 
 
+@pytest.mark.linux_only
 def test_unreviewed_and_foreign_syscalls(bpf: Any) -> None:
     for nr in (L._FIRST_UNREVIEWED_NR, 469, 1000, 0x3FFFFFFF):
         assert bpf(nr) == _ENOSYS
@@ -305,6 +323,7 @@ def test_unreviewed_and_foreign_syscalls(bpf: Any) -> None:
         assert bpf(L._X32_SYSCALL_BIT | 1) == _EPERM  # x32 ABI write()
 
 
+@pytest.mark.linux_only
 def test_ordinary_syscalls_are_allowed(bpf: Any) -> None:
     # read, write, openat, mmap, futex, getpid, exit_group, rt_sigaction, landlock_*
     common = {
@@ -315,6 +334,7 @@ def test_ordinary_syscalls_are_allowed(bpf: Any) -> None:
         assert bpf(nr) == _ALLOW, nr
 
 
+@pytest.mark.linux_only
 def test_apply_seccomp_passes_a_program_scoped_to_this_pid(monkeypatch) -> None:
     seen: list[bytes] = []
     nr_seccomp = L._ARCH["x86_64"][1]["seccomp"]

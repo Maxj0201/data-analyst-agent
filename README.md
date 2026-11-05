@@ -184,6 +184,8 @@ off, behaviour is byte-for-byte the pre-flag path, so each feature can be A/B'd 
 ## Quickstart
 
 Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). The first two runs need no API key.
+Kernel isolation (Landlock, seccomp, memory limit) is Linux-only; on macOS the sandbox runs its
+weaker fallback and says so, which is fine for development (see [docs/sandbox.md](docs/sandbox.md)).
 
 ```bash
 git clone https://github.com/maxj0201/data-analyst-agent.git && cd data-analyst-agent

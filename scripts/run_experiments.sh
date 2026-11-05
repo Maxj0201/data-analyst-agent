@@ -69,6 +69,13 @@ RESUME=0
 BATCH_ARGS=()
 
 die() { echo "error: $*" >&2; exit 2; }
+# bash 3.2 (macOS /bin/bash) has no mapfile, and with set -u it rejects "${a[@]}" on an empty
+# array: hence lines_into and the ${a[@]+"${a[@]}"} expansions below.
+lines_into() {  # $1 = array name; stdin, one element per line (mapfile -t)
+  local _line
+  eval "$1=()"
+  while IFS= read -r _line; do eval "$1+=(\"\$_line\")"; done
+}
 need() { [[ $# -ge 2 && -n "$2" ]] || die "$1 needs a value"; }
 
 while [[ $# -gt 0 ]]; do
@@ -98,7 +105,7 @@ done
 
 [[ $AGENT == core || $AGENT == dry-run ]] || die "--agent must be core or dry-run"
 EXPERIMENTS=(baseline critic semantic routing structured)
-for e in "${ONLY[@]}"; do
+for e in ${ONLY[@]+"${ONLY[@]}"}; do
   [[ " ${EXPERIMENTS[*]} " == *" $e "* ]] || die "unknown experiment '$e'"
 done
 [[ ${#ONLY[@]} -gt 0 ]] || ONLY=("${EXPERIMENTS[@]}")
@@ -185,9 +192,10 @@ LIMIT_ARGS=()
 estimate_cap() {  # $1 = overrides
   if [[ -n $FIXED_BUDGET ]]; then echo "$FIXED_BUDGET"; return; fi
   local env_lines
-  mapfile -t env_lines < <(arm_env "$1")
+  lines_into env_lines < <(arm_env "$1")
   env "${env_lines[@]}" "${PY[@]}" -m analyst_agent.eval.experiments estimate \
-    --format usd --factor "$CAP_FACTOR" "${LIMIT_ARGS[@]}" "${BATCH_ARGS[@]}"
+    --format usd --factor "$CAP_FACTOR" \
+    ${LIMIT_ARGS[@]+"${LIMIT_ARGS[@]}"} ${BATCH_ARGS[@]+"${BATCH_ARGS[@]}"}
 }
 
 latest_run() { ls -1d "$1"/*/ 2>/dev/null | sort | tail -n 1 | sed 's:/$::'; }
@@ -204,13 +212,14 @@ eval_cmd() {  # $1 = exp-arm, $2 = overrides, $3 = cap -> prints the command, on
   prev=$(resumable_run "$1")
   if [[ -n $prev ]]; then  # task list, agent, judge, flags and timeout come from its meta.json
     printf '%s\n' "${PY[@]}" -m analyst_agent.eval run --resume "$prev" \
-      --concurrency "$CONCURRENCY" --budget-usd "$3" "${BATCH_ARGS[@]}"
+      --concurrency "$CONCURRENCY" --budget-usd "$3" ${BATCH_ARGS[@]+"${BATCH_ARGS[@]}"}
     return
   fi
-  mapfile -t flags < <(flag_for "$2")
+  lines_into flags < <(flag_for "$2")
   printf '%s\n' "${PY[@]}" -m analyst_agent.eval run --agent "$AGENT" \
     --judge-model "$JUDGE" --concurrency "$CONCURRENCY" --timeout "$TIMEOUT" \
-    --budget-usd "$3" "${flags[@]}" "${LIMIT_ARGS[@]}" "${BATCH_ARGS[@]}" --runs-dir "$OUT/$1"
+    --budget-usd "$3" "${flags[@]}" ${LIMIT_ARGS[@]+"${LIMIT_ARGS[@]}"} \
+    ${BATCH_ARGS[@]+"${BATCH_ARGS[@]}"} --runs-dir "$OUT/$1"
 }
 
 # ---- pre-flight
@@ -244,7 +253,7 @@ echo "  sum of caps \$$TOTAL_CAP; stop starting arms at \$$MAX_TOTAL"
 if [[ $PRINT_ONLY == 1 ]]; then
   for i in "${!ARMS[@]}"; do
     IFS='|' read -r exp arm role label overrides <<< "${ARMS[$i]}"
-    mapfile -t cmd < <(eval_cmd "$arm" "$overrides" "${CAPS[$i]}")
+    lines_into cmd < <(eval_cmd "$arm" "$overrides" "${CAPS[$i]}")
     echo
     echo "# $exp / $arm ($label)"
     printf '%s \\\n' "$(arm_env "$overrides" | tr '\n' ' ')"
@@ -285,8 +294,8 @@ for i in "${!ARMS[@]}"; do
   fi
   echo
   echo "== $exp / $arm ($label), cap \$${CAPS[$i]}"
-  mapfile -t env_lines < <(arm_env "$overrides")
-  mapfile -t cmd < <(eval_cmd "$arm" "$overrides" "${CAPS[$i]}")
+  lines_into env_lines < <(arm_env "$overrides")
+  lines_into cmd < <(eval_cmd "$arm" "$overrides" "${CAPS[$i]}")
   mkdir -p "$OUT/$arm"
   rc=0
   prev=$(resumable_run "$arm")

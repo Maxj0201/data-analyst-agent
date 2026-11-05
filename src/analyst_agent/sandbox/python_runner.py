@@ -192,14 +192,21 @@ def _child_env(work_dir: str, rlimits: dict[str, int] | None = None) -> dict[str
 
 
 def _rlimits(memory_mb: int, cpu_s: int) -> dict[str, int]:
-    """Resource limits the child applies to itself at start-up (see ``sitecustomize``)."""
-    return {
-        "RLIMIT_AS": memory_mb * 1024 * 1024,
+    """Resource limits the child applies to itself at start-up (see ``sitecustomize``).
+
+    ``RLIMIT_AS`` is Linux-only here: macOS refuses to lower it below the address space a
+    process has already reserved (far above any useful cap on arm64), so setting it would
+    abort the child. The child reports the missing memory limit as a confinement warning.
+    """
+    limits = {
         "RLIMIT_CPU": cpu_s,
         "RLIMIT_FSIZE": MAX_FILE_BYTES,
         "RLIMIT_NOFILE": 256,
         "RLIMIT_CORE": 0,
     }
+    if sys.platform == "linux":
+        limits["RLIMIT_AS"] = memory_mb * 1024 * 1024
+    return limits
 
 
 def _read_capped(path: Path) -> str:

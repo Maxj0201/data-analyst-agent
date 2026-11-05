@@ -36,9 +36,28 @@ from collections.abc import Iterable
 
 # --------------------------------------------------------------------------- syscalls
 
-_libc = ctypes.CDLL(None, use_errno=True)
-_libc.syscall.restype = ctypes.c_long
-_libc.prctl.restype = ctypes.c_int
+
+class ConfinementError(RuntimeError):
+    pass
+
+
+# Resolved on first use, and only on Linux: ``prctl`` (and the raw syscall numbers below) do not
+# exist elsewhere, and looking them up at import time crashed the child on macOS before
+# ``confine()`` could fall back to the audit hook.
+_libc: ctypes.CDLL | None = None
+
+
+def _linux_libc() -> ctypes.CDLL:
+    global _libc
+    if _libc is None:
+        if sys.platform != "linux":
+            raise ConfinementError(f"kernel confinement is Linux-only (running on {sys.platform})")
+        libc = ctypes.CDLL(None, use_errno=True)
+        libc.syscall.restype = ctypes.c_long
+        libc.prctl.restype = ctypes.c_int
+        _libc = libc
+    return _libc
+
 
 PR_SET_NO_NEW_PRIVS = 38
 
@@ -244,12 +263,8 @@ _SYS_LANDLOCK_ADD_RULE = 445
 _SYS_LANDLOCK_RESTRICT_SELF = 446
 
 
-class ConfinementError(RuntimeError):
-    pass
-
-
 def _syscall(nr: int, *args: object) -> int:
-    res = _libc.syscall(ctypes.c_long(nr), *args)
+    res = _linux_libc().syscall(ctypes.c_long(nr), *args)
     if res < 0:
         err = ctypes.get_errno()
         raise OSError(err, os.strerror(err))
@@ -257,7 +272,7 @@ def _syscall(nr: int, *args: object) -> int:
 
 
 def _no_new_privs() -> None:
-    if _libc.prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0:
+    if _linux_libc().prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0:
         err = ctypes.get_errno()
         raise OSError(err, os.strerror(err))
 
@@ -307,7 +322,7 @@ def landlock_abi() -> int:
     """Landlock ABI version of the running kernel (0 = unavailable)."""
     try:
         return _syscall(_SYS_LANDLOCK_CREATE_RULESET, None, ctypes.c_size_t(0), ctypes.c_uint32(1))
-    except OSError:
+    except (OSError, ConfinementError):
         return 0
 
 
@@ -595,8 +610,11 @@ def confine(
     from time import perf_counter
 
     warnings: list[str] = []
-    if not sys.platform.startswith("linux"):
-        return [f"no kernel confinement on {sys.platform}; only the audit hook applies"]
+    if sys.platform != "linux":
+        return [
+            f"no kernel confinement on {sys.platform}; only the audit hook applies, "
+            "and there is no memory limit (RLIMIT_AS is Linux-only)"
+        ]
     try:
         apply_landlock(list(read_roots), list(write_roots))
     except (OSError, ConfinementError) as exc:

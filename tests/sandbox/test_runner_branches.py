@@ -173,7 +173,13 @@ def test_runner_maps_engine_exceptions(data_files: dict[str, Path]) -> None:
                 def execute(self, q: str) -> None:
                     if outer.fire_timer:  # the watchdog fires just before the error surfaces
                         for t in threading.enumerate():
-                            if isinstance(t, threading.Timer) and t not in outer.old_threads:
+                            # Only this call's live watchdog (#32 and #33 fixed the same flake):
+                            # it was created during this call and is not cancelled.
+                            if (
+                                isinstance(t, threading.Timer)
+                                and t not in outer.old_threads
+                                and not t.finished.is_set()
+                            ):
                                 t.function()  # type: ignore[attr-defined]
                     raise outer.exc
 
@@ -409,6 +415,7 @@ def test_run_python_profile_without_child_payload(fake_child, monkeypatch) -> No
     assert set(prof) == _PARENT_MARKS
 
 
+@pytest.mark.linux_only
 def test_run_python_profile_real_child_reports_confinement_phases(monkeypatch) -> None:
     prof: dict[str, float] = {}
     monkeypatch.setattr(python_runner, "_PROFILE", prof)
