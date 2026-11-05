@@ -1,0 +1,33 @@
+name: macOS
+
+# The sandbox's kernel layers are Linux-only; on macOS it must fall back to rlimits + the audit
+# hook rather than crash (it once failed at import on the Linux-only `prctl`). Lint and the full
+# suite, no coverage gate: `@pytest.mark.linux_only` tests skip here. macOS runners are slow and
+# costly, so this runs on release tags and on demand, not on every PR or push (ci.yml).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-macos:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      ANTHROPIC_API_KEY: ""
+      ANTHROPIC_BASE_URL: "http://127.0.0.1:9"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --no-extra embeddings
+      - name: Lint (ruff check + ruff format --check + scripts/check_docs.py)
+        run: make lint
+      - name: Unit tests (Linux-only kernel-layer tests skip)
+        run: make test
