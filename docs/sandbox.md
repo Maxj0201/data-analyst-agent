@@ -283,8 +283,9 @@ Be honest about this before exposing the agent to untrusted users:
   Each call says so: the child's stderr carries `[sandbox] no kernel confinement on darwin;
   ...`, and the server log gets `sandbox confinement degraded: ...` once per process. Use macOS
   for development only and deploy on Linux. Tests that need the kernel layers are marked
-  `@pytest.mark.linux_only` (`tests/conftest.py`) and are skipped elsewhere; CI runs the suite
-  on `macos-latest` too, so the fallback path stays working.
+  `@pytest.mark.linux_only` (`tests/conftest.py`) and are skipped elsewhere. The fallback path
+  is checked on `macos-latest` by `.github/workflows/macos.yml`, on release tags (`v*`) and on
+  demand (`gh workflow run macos.yml`), not on every PR.
 
 ## Tuning
 
