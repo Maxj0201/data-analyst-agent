@@ -8,7 +8,10 @@
 # Opt-in build arg for the API image:
 #   --build-arg INSTALL_EMBEDDINGS=true   adds the `embeddings` extra (sentence-transformers,
 #                                         torch) so AGENT_SEMANTIC_BACKEND=embedding|hybrid
-#                                         works. Off by default: it adds several GB.
+#                                         works. torch comes from the CPU-only PyTorch index
+#                                         (TORCH_INDEX_URL), not PyPI, whose Linux wheel pulls
+#                                         several GB of CUDA libraries. Off by default.
+#   --build-arg TORCH_INDEX_URL=...       another PyTorch index, e.g. .../whl/cu128 for GPUs.
 
 ARG PYTHON_IMAGE=python:3.11-slim-bookworm
 ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.11.32
@@ -26,19 +29,37 @@ WORKDIR /app
 
 FROM builder-base AS builder-api
 ARG INSTALL_EMBEDDINGS=false
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 # Dependencies first (cached unless pyproject.toml / uv.lock change), then the project itself.
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-install-project --extra api \
-        $( [ "$INSTALL_EMBEDDINGS" = "true" ] && echo --extra embeddings )
+    uv sync --frozen --no-dev --no-install-project --extra api
+# Optional embeddings extra. uv.lock resolves torch from PyPI, whose Linux wheel depends on
+# ~20 nvidia-*/cuda-* packages and triton (several GB). Instead: install the rest of the extra
+# exactly as locked (minus torch, triton and the CUDA packages), then the locked torch version
+# from TORCH_INDEX_URL with whatever that build itself requires (the CPU build: nothing beyond
+# the packages already installed). The lock stays universal, so a GPU dev machine still gets
+# CUDA torch from `uv sync --extra embeddings`.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    if [ "$INSTALL_EMBEDDINGS" = "true" ]; then \
+      uv export --frozen --no-dev --extra api --extra embeddings --no-emit-project \
+          --no-hashes --no-header --no-annotate -o /tmp/locked.txt \
+   && grep -v -E '^(torch|triton|nvidia-|cuda-)' /tmp/locked.txt > /tmp/no-torch.txt \
+   && uv pip install --python /app/.venv/bin/python --no-deps -r /tmp/no-torch.txt \
+   && uv pip install --python /app/.venv/bin/python --index-url "$TORCH_INDEX_URL" \
+          "$(grep -E '^torch==' /tmp/locked.txt | cut -d' ' -f1)" \
+   && uv pip check --python /app/.venv/bin/python; \
+    fi
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 # Built into the wheel as analyst_agent/semantic/metrics (pyproject force-include).
 COPY benchmarks/metrics ./benchmarks/metrics
+# --inexact keeps the embeddings packages installed above (they are not in the `api` extra).
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-editable --extra api \
-        $( [ "$INSTALL_EMBEDDINGS" = "true" ] && echo --extra embeddings )
+    uv sync --frozen --no-dev --no-editable --inexact --extra api
 
 FROM builder-base AS builder-frontend
 # The UI only talks HTTP to the API: install just streamlit + httpx (and their deps), pinned to
@@ -83,13 +104,17 @@ COPY --chown=app:app benchmarks/data ./benchmarks/data
 RUN mkdir -p /app/data/uploads /app/artifacts && chown -R app:app /app/data /app/artifacts
 USER app
 # Cloud Run injects PORT=8080; locally and in compose it defaults to 8000.
-# Feature flags (AGENT_ROUTING_ENABLED, AGENT_SEMANTIC_LAYER_ENABLED, AGENT_APPROVAL_ENABLED)
-# stay off unless set at run time; see docs/configuration.md.
+# Feature flags (every AGENT_*_ENABLED) stay off unless set at run time; see
+# docs/configuration.md.
 # HF_HOME: where the embeddings backend (INSTALL_EMBEDDINGS=true) caches its model; on the
 # data volume so it survives restarts.
+# AGENT_TRACES_DIR: the default (`traces/`, relative to /app) is root-owned and not writable by
+# `app`, so AGENT_TRACE_STORE_ENABLED=true failed every save; keep it on the data volume like
+# everything else the service writes (jobs, memory, uploads, embeddings).
 ENV PORT=8000 \
     HF_HOME=/app/data/huggingface \
-    AGENT_SAMPLES_DIR=/app/benchmarks/data
+    AGENT_SAMPLES_DIR=/app/benchmarks/data \
+    AGENT_TRACES_DIR=/app/data/traces
 EXPOSE 8000
 VOLUME ["/app/data", "/app/artifacts"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
