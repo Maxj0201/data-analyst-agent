@@ -170,7 +170,9 @@ def test_runner_maps_engine_exceptions(data_files: dict[str, Path]) -> None:
                 def execute(self, q: str) -> None:
                     if outer.fire_timer:  # the watchdog fires just before the error surfaces
                         for t in threading.enumerate():
-                            if isinstance(t, threading.Timer):
+                            # Only this call's live watchdog: an earlier case's cancelled timer
+                            # can still be alive, and its cursor is already closed (flaky).
+                            if isinstance(t, threading.Timer) and not t.finished.is_set():
                                 t.function()  # type: ignore[attr-defined]
                     raise outer.exc
 
