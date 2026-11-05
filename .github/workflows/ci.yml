@@ -24,7 +24,10 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --all-extras --no-extra embeddings
       # The commands live in the Makefile so that `make check` locally is what CI runs.
-      - name: Lint (ruff check + ruff format --check)
+      - name: Lint (ruff check + ruff format --check + scripts/check_docs.py)
+        # check_docs.py: every relative link and anchor in the Markdown resolves, every path in
+        # backticks exists, every AGENT_* name is a Settings field, every documented CLI
+        # command parses with --help, and no TODO/TBD/placeholder text is left in the docs.
         run: make lint
       - name: Unit tests with branch coverage, then the coverage gate
         # pyproject's addopts deselect `slow` tests (the sandbox fuzzer, run by nightly.yml).

@@ -24,9 +24,10 @@ install: ## uv sync with the extras CI uses (no torch)
 hooks: ## install the pre-commit hooks (ruff, ruff format, uv lock check, prompt version bump)
 	uvx pre-commit install
 
-lint: ## ruff lint + format check (what CI runs)
+lint: ## ruff lint + format check + docs check (links, paths, AGENT_* names, CLI flags)
 	$(UV) run ruff check .
 	$(UV) run ruff format --check .
+	$(OFFLINE) $(UV) run python scripts/check_docs.py
 
 format: ## apply ruff format and autofixable lint fixes
 	$(UV) run ruff format .

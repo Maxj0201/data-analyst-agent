@@ -30,7 +30,7 @@ make check      # install + lint + format check + tests + coverage gate + offlin
 | Target | What it runs | Needs |
 |---|---|---|
 | `make hooks` | installs the pre-commit hooks (see below) | — |
-| `make lint` | `ruff check` + `ruff format --check` (line length 100) | — |
+| `make lint` | `ruff check` + `ruff format --check` (line length 100) + `scripts/check_docs.py` (below) | — |
 | `make format` | applies `ruff format` and autofixable lint fixes | — |
 | `make test` | `pytest` with the API key blanked and the base URL pointed at a dead port | — |
 | `make coverage` | `make test` with branch coverage, then CI's gate: overall ≥ 92 %, `sandbox/` ≥ 97 %, `core/loop.py` ≥ 98 % | — |
@@ -74,7 +74,7 @@ enforces all three. There are no other settings classes.
 **New features go behind a flag.** Use an `AGENT_<FEATURE>_ENABLED` flag that defaults to
 `false`. With the flag off, behaviour must stay byte-for-byte the same: same prompts, same tool
 schemas, no extra calls. Add the flag to the `ask --dry-run` matrix in `tests/test_cli.py` and to
-the "every flag on" step in `.github/workflows/ci.yml` (and the Makefile's `eval` target).
+the "every flag on" step of the Makefile's `eval` target, which CI runs.
 
 **Prompts are versioned.** If you change the text of any prompt in `core/prompts.py`, including
 the shared untrusted-data notice:
@@ -133,5 +133,12 @@ Check each one that applies:
 - Fill in the PR template (`.github/PULL_REQUEST_TEMPLATE.md`). The description says what changed, how you verified it (commands and results) and anything
   you edited outside your area.
 - If your change affects documented behaviour, update `README.md` and the matching `docs/*.md`
-  in the same PR. `docs/architecture.md` describes `main`. If you change the diagram, check that
+  in the same PR. `make lint` runs `scripts/check_docs.py`, which fails on a relative link or
+  `#anchor` that does not resolve, a path in backticks that does not exist, an `AGENT_*` name
+  that is not a `Settings` field, a project command (`analyst-agent ...`, `eval run ...`,
+  `scripts/*.sh ...`, `make ...`) whose subcommand or option does not exist, and a sentence with
+  `TODO`, `TBD`, `placeholder` or a double-brace template slot outside `docs/resume.md` and
+  `docs/eval-runbook.md`. A line that has to
+  quote something stale (a dated record citing an old command) can end with
+  `<!-- check-docs: ignore -->`. `docs/architecture.md` describes `main`. If you change the diagram, check that
   it still renders: mermaid 11.4.1, the version GitHub uses.

@@ -33,7 +33,7 @@ AGENT_APPROVAL_ROW_THRESHOLD=0 AGENT_TRACE_STORE_ENABLED=true scripts/demo.sh
 | 1:35 | Point at **CRITIC: pass** (or `revise`), then the **Report** tab: key numbers, table, chart. | "A separate call reviews the draft. It sees the SQL and the result tables but not the planner's reasoning. A deterministic check runs first and flags headline numbers that no tool output contains." |
 | 2:00 | Switch to the terminal: `uv run analyst-agent trace show <run_id>` (or `trace ls`, then show the newest). Use `docs/assets/trace-example.txt` as a backup. | "Same run as a span tree." |
 | 2:10 | Point at, in order: `route L2 → …`; `semantic_retrieval`; `tool:run_sql` with `approval:run_sql approved by …` under it; `critic round=1 verdict=…`; the last two lines (total cost and `prompts:` versions). | "Every node has cost, model, tier and prompt version. The prompt list at the bottom is pinned: a test fails if a prompt's text changes without a version bump, so I can diff two eval runs by prompt." |
-| 2:40 | Say the closing line. Open the README results table only if asked. | "Confinement is kernel-level (seccomp + Landlock) and all of this is gated by an 80-task benchmark in CI. I haven't published live-model accuracy numbers yet; that is the first roadmap item, and I'd rather say so than quote a number I haven't measured." |
+| 2:40 | Say the closing line. Open the README results table only if asked. | "Confinement is kernel-level (seccomp + Landlock), and CI runs the real loop offline against an 80-task benchmark harness with a scripted model. I haven't published live-model accuracy numbers yet; that is the first roadmap item, and I'd rather say so than quote a number I haven't measured." |
 
 ## Likely follow-ups (one-line answers)
 

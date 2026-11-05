@@ -1138,10 +1138,10 @@ final suite: 309 passed, 0 skipped).
 
 #### `README.md` (#1 docs vs #4 api-deploy)
 - Base is the `docs/architecture` version. The **Serving (API + UI)** section from api-deploy
-  now sits right after Quickstart and replaces the "once the API layer lands…" placeholder.
+  now sits right after Quickstart and replaces the "once the API layer lands…" stub.
 - I also fixed statements the merge had made wrong:
   - status banner and roadmap checkboxes
-  - eval commands: the docs used `python -m analyst_agent.eval.runner …` and
+  - eval commands: the docs used `python -m analyst_agent.eval.runner …` and <!-- check-docs: ignore -->
     `… eval.report compare`, but the real CLI is `python -m analyst_agent.eval run|report|compare`
   - `uv sync --all-extras`
   - a link to `docs/sandbox.md`
