@@ -6,6 +6,47 @@ model check the answer, and returns a Markdown report with charts. It is built o
 Anthropic Messages API loop, and every change to it is gated by an 80-task benchmark, an
 adversarial prompt-injection set and offline CI checks.
 
+## See it run
+
+The Streamlit UI pausing for human approval, then finishing with a checked report. These
+screenshots come from the scripted-LLM e2e run (`scripts/ui-e2e/run.sh`), so the cost is $0 and
+the model is labelled `dry-run`; the loop, tools, sandbox, approval gate and critic path are real.
+
+| Waiting for approval | Report, key numbers and chart |
+|---|---|
+| ![UI paused on an approval request for a run_sql step, with Approve and Deny buttons](docs/assets/ui-approve-approval.png) | ![UI after approval: timeline, critic verdict, key numbers, table and chart](docs/assets/ui-approve-report.png) |
+
+The same run as a span tree (`analyst-agent trace show`, full file in
+[`docs/assets/trace-example.txt`](docs/assets/trace-example.txt)):
+
+```text
+✓ run run_c81ae13aa8424e95 status=completed tier=L2                           +   0.00s    639ms
+├─ ✓ route L2 → claude-opus-5-5                                               +   0.03s      0ms
+│  └─ ✓ llm:router dry-run in=0 out=0 prompt=router@1.0.0                     +   0.03s      0ms
+├─ ✓ semantic_retrieval                                                       +   0.10s      0ms
+├─ ✓ turn 1 model=claude-opus-5-5 tier=L2                                     +   0.10s     10ms
+│  ├─ ✓ llm:agent dry-run [L2] in=0 out=0 prompt=planner@1.1.0                +   0.10s      0ms
+│  ├─ ✓ plan "1. Inspect `subscriptions`. 2. Aggregate SUM("mrr") by `regi…"  +   0.10s      0ms
+│  └─ ✓ tool:inspect_schema                                                   +   0.10s     10ms
+├─ ✓ turn 2 model=claude-opus-5-5 tier=L2                                     +   0.11s      5ms
+│  ├─ ✓ llm:agent dry-run [L2] in=0 out=0 prompt=planner@1.1.0                +   0.11s      0ms
+│  └─ ✓ tool:run_sql                                                          +   0.11s      5ms
+│     └─ ✓ approval:run_sql approved by auto                                  +   0.12s      0ms
+├─ ✓ turn 3 model=claude-opus-5-5 tier=L2                                     +   0.12s    520ms
+│  ├─ ✓ llm:agent dry-run [L2] in=0 out=0 prompt=planner@1.1.0                +   0.12s      0ms
+│  └─ ✓ tool:make_chart                                                       +   0.12s    519ms
+└─ ✓ turn 4 model=claude-opus-5-5 tier=L2                                     +   0.64s      1ms
+   ├─ ✓ llm:agent dry-run [L2] in=0 out=0 prompt=planner@1.1.0                +   0.64s      0ms
+   ├─ ✓ tool:final_report                                                     +   0.64s      0ms
+   └─ ✓ critic round=1 verdict=pass                                           +   0.64s      0ms
+      └─ ✓ llm:critic dry-run in=0 out=0 prompt=critic@1.1.0                  +   0.64s      0ms
+
+total 639ms | $0.0000 | 6 LLM calls | 4 tool calls | models: dry-run
+prompts: critic@1.1.0, memory_rules@1.0.0, planner@1.1.0, report_writer@1.0.0, router@1.0.0, semantic_layer_rules@1.0.0, structured_report_rules@1.0.0
+```
+
+Giving a live demo? See the [3-minute walkthrough](docs/assets/demo-script.md).
+
 ## Architecture
 
 ```mermaid
