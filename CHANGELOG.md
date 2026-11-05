@@ -10,6 +10,10 @@ All notable changes to this project. Versions follow [SemVer](https://semver.org
 - `.pre-commit-config.yaml` (`make hooks`): ruff, ruff format, `uv lock --check`, and
   `scripts/check_prompt_versions.py`, which fails when a prompt's text changes without a version
   bump.
+- `scripts/check_docs.py`, run by `make lint` (and so by CI): every relative link and anchor in
+  the Markdown resolves, every path in backticks exists, every `AGENT_*` name is a `Settings`
+  field, every documented CLI command and option parses, and no `TODO`, `TBD`, `placeholder` or
+  double-brace template text is left outside `docs/resume.md` and `docs/eval-runbook.md`.
 
 ### Changed
 - CI now runs `make lint`, `make coverage` and `make eval`; `make check` runs `install` first, so
