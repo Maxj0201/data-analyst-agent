@@ -1,6 +1,7 @@
 # Deploying to Google Cloud Run
 
-Two Cloud Run services from one Dockerfile:
+Two Cloud Run services from one Dockerfile (build args, image sizes and the sandbox's kernel
+requirements: [docs/deploy.md](../docs/deploy.md)):
 
 | Service              | Docker target | Port   | Access                                        |
 |----------------------|---------------|--------|-----------------------------------------------|
@@ -131,6 +132,7 @@ gcloud run deploy analyst-agent-api \
   --set-secrets "$SECRETS" \
   --set-env-vars AGENT_DATA_DIR=/app/data,AGENT_ARTIFACTS_DIR=/app/artifacts,AGENT_JOB_DB_PATH=/app/data/jobs.sqlite3 \
   --cpu 2 --memory 2Gi \
+  --execution-environment gen2 \
   --no-cpu-throttling \
   --min-instances 0 --max-instances 1 \
   --concurrency 40 \
@@ -139,6 +141,9 @@ gcloud run deploy analyst-agent-api \
 
 Why these flags:
 
+* `--execution-environment gen2`: a full Linux kernel, so the Python sandbox can install its
+  seccomp filter and, where the kernel has it, Landlock. Check what an environment supports
+  with the `sandbox-check` job in [docs/deploy.md](../docs/deploy.md#cloud-run).
 * `--no-cpu-throttling`: jobs run in background threads *after* `POST /ask` has returned. With
   the default request-based billing, Cloud Run throttles CPU between requests and jobs stall.
 * `--max-instances 1`: the job store is per instance (memory plus a local SQLite file). A

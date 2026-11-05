@@ -226,7 +226,8 @@ The offline numbers that *are* measured:
 | `GET /jobs/{id}/report` | the final report as `text/markdown` |
 | `GET /artifacts/{path}` | chart images |
 
-Deployment to Cloud Run: [deploy/cloudrun.md](deploy/cloudrun.md).
+Deployment to Cloud Run: [deploy/cloudrun.md](deploy/cloudrun.md). Image build args, sizes and
+what the sandbox needs from Docker / Cloud Run: [docs/deploy.md](docs/deploy.md).
 
 ## Repository map
 

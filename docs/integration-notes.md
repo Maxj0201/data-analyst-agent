@@ -1,5 +1,34 @@
 # Integration notes
 
+## Docker verification (`chore/docker-verify`, 2026-11-04)
+
+First build of the real images, with a Docker 29.9.2 daemon. Details, sizes and the sandbox's
+runtime requirements are in [deploy.md](deploy.md); this is what broke and what changed.
+
+- **Restricted network, not the Dockerfile.** `ghcr.io` blobs are blocked here and TLS is
+  re-signed by the egress proxy, so `UV_IMAGE` (same `uv` 0.11.32 binary, from PyPI) and
+  `PYTHON_IMAGE` (official image + proxy CA) were overridden as build args. The
+  `download.pytorch.org` index is blocked too, so the embeddings image was not built.
+  `.github/workflows/docker.yml` builds everything with the official images on a clean runner.
+- **Trace store broken in the image (fixed).** `AGENT_TRACES_DIR` defaulted to `traces/`, i.e.
+  root-owned `/app/traces`, so with `AGENT_TRACE_STORE_ENABLED=true` every job logged
+  "Tracing failed while finishing job". The image now sets `AGENT_TRACES_DIR=/app/data/traces`.
+- **Compose passed only three of the eight runtime flags (fixed).** Structured reports, memory,
+  Langfuse, trace store and JSON logs set in the shell never reached the container.
+- **UI e2e harness ignored `AGENT_STRUCTURED_REPORT_ENABLED` (fixed).** `dryrun_api.py` always
+  scripted a Markdown report; with the flag on the loop rejects it and the script runs out
+  ("no scripted response left"). `run.sh` now turns on every `AGENT_*_ENABLED` flag (Langfuse
+  keyless), locally and in the new `--docker` mode: 24/24 both ways.
+- **Sandbox in the container.** New `scripts/sandbox-probes/`: H1/H2 through `POST /ask` in the
+  API image, plus Landlock + seccomp on their own via `docker exec`. All pass under the default
+  seccomp profile, `no-new-privileges` + `cap-drop ALL`, `--read-only`, `seccomp=unconfined`.
+  A profile hiding `landlock_*` gives the documented fallback; one denying `seccomp` fails
+  closed (`SandboxSetupError`). The API image has no pyarrow (only streamlit pulls it in), so
+  the H2 vector does not exist there; the kernel check is what proves Landlock works.
+- **Embeddings image: CPU-only torch.** The build installs the locked torch version from
+  `TORCH_INDEX_URL` (default: the CPU index) and the rest of the extra pinned to `uv.lock`,
+  without the CUDA packages. `uv.lock` is unchanged.
+
 ## Round 5: #23, #22 (2026-11-04)
 
 Merged into `main` in this order, both as merge commits. After each merge I ran
