@@ -363,6 +363,7 @@ def render_report(
     rt = summarize_routing(results)
     if rt is not None:
         lines += _routing_lines(rt)
+    lines += _judge_variance_lines(results)
     lines += [
         "",
         "## Tasks",
@@ -379,6 +380,36 @@ def render_report(
         )
     lines += ["", "_Critic column: rounds / revise verdicts._", ""]
     return "\n".join(lines)
+
+
+def _judge_variance_lines(results: list[dict[str, Any]]) -> list[str]:
+    """Per-task spread of the rubric judge when the run used ``--judge-samples N``."""
+    rows = [
+        (r, js)
+        for r in results
+        if isinstance(js := (r.get("score_details") or {}).get("judge_samples"), dict)
+    ]
+    if not rows:
+        return []
+    split = sum(not js.get("unanimous", True) for _, js in rows)
+    mean_std = sum(js.get("std", 0.0) for _, js in rows) / len(rows)
+    lines = [
+        "",
+        "## Judge variance",
+        "",
+        f"{len(rows)} tasks judged {rows[0][1].get('n')} times each; mean std of the rubric "
+        f"score {mean_std:.3f}; {split} task(s) with a split pass/fail verdict.",
+        "",
+        "| Task | Mean | Std | Min | Max | Pass rate | Samples ok |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for r, js in sorted(rows, key=lambda x: x[0]["task_id"]):
+        lines.append(
+            f"| {r['task_id']} | {_num(js.get('mean'))} | {_num(js.get('std'), '{:.3f}')} | "
+            f"{_num(js.get('min'))} | {_num(js.get('max'))} | {_pct(js.get('pass_rate'))} | "
+            f"{js.get('ok')}/{js.get('n')} |"
+        )
+    return lines
 
 
 def _mark(r: dict[str, Any]) -> str:
