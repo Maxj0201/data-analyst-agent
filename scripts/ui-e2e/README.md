@@ -1,8 +1,8 @@
 # UI end-to-end check
 
 Drives the Streamlit UI in headless Chromium against the real API, `AgentLoop`, sandbox and
-`ApprovalBroker`, with routing, the semantic layer, approval (every `SELECT` gated) and the bundled
-samples all on. Only the LLM is scripted (`dry_run_llm` via `dryrun_api.py`), so no API key is
+`ApprovalBroker`, with every `AGENT_*_ENABLED` flag on (routing, semantic layer, structured reports, memory,
+approval with every `SELECT` gated, Langfuse without keys, trace store, JSON logs, samples). Only the LLM is scripted (`dry_run_llm` via `dryrun_api.py`), so no API key is
 needed. CI runs it on every PR that touches `frontend/`, `src/analyst_agent/api/`,
 `core/approval.py`, `core/fake_llm.py` or this directory (`.github/workflows/ui-e2e.yml`).
 
@@ -28,6 +28,15 @@ Finally both jobs are cross-checked through `GET /jobs/{id}`: `approved: true` /
 `decided_by: human` and the deny note. Screenshots (`*.png`) and server logs land in the output
 directory (uploaded as a CI artifact).
 
-Against the Docker stack, override the API command to `uvicorn --app-dir /harness dryrun_api:app`
-with this directory mounted at `/harness`, and run
-`UI=http://127.0.0.1:8501 API=http://127.0.0.1:8000 node scripts/ui-e2e/ui_e2e.js <csv> <out> [api log]`.
+Against the Docker images instead:
+
+```bash
+scripts/ui-e2e/run.sh --docker /tmp/ui-e2e-docker
+```
+
+This builds both targets and starts the compose stack (project `analyst-agent-e2e`, ports
+8000/8501) with `docker-compose.e2e.yml` on top, which mounts this directory at `/harness`, runs
+`uvicorn --app-dir /harness dryrun_api:app` in the API container and turns every flag on. The
+stack and its volumes are removed afterwards; `compose.log` keeps both containers' logs. Base
+images can be overridden with `PYTHON_IMAGE` / `UV_IMAGE` (see `docs/deploy.md`). CI runs this
+mode in `.github/workflows/docker.yml`.

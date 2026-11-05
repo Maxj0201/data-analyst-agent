@@ -19,7 +19,12 @@ _local = threading.local()
 
 
 def _scripted_llm(settings: Any) -> Any:
-    return dry_run_llm(_local.question, _local.table, _local.sb.run_sql)
+    return dry_run_llm(
+        _local.question,
+        _local.table,
+        _local.sb.run_sql,
+        structured_report=settings.structured_report_enabled,
+    )
 
 
 def dry_runner(*, dataset_path: Path, question: str, emit: Any, approver: Any = None):

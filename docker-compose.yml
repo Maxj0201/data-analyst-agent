@@ -7,8 +7,12 @@ services:
       context: .
       target: api
       args:
-        # true adds sentence-transformers/torch for AGENT_SEMANTIC_BACKEND=embedding|hybrid
+        # true adds sentence-transformers/torch (CPU build) for AGENT_SEMANTIC_BACKEND=embedding|hybrid
         INSTALL_EMBEDDINGS: ${INSTALL_EMBEDDINGS:-false}
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+        # Base-image overrides, e.g. a registry mirror when ghcr.io / Docker Hub are unreachable.
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.11-slim-bookworm}
+        UV_IMAGE: ${UV_IMAGE:-ghcr.io/astral-sh/uv:0.11.32}
     image: analyst-agent-api:local
     env_file:
       - path: .env
@@ -21,7 +25,12 @@ services:
       #   AGENT_SEMANTIC_LAYER_ENABLED=true docker compose up --build
       AGENT_ROUTING_ENABLED: ${AGENT_ROUTING_ENABLED:-false}
       AGENT_SEMANTIC_LAYER_ENABLED: ${AGENT_SEMANTIC_LAYER_ENABLED:-false}
+      AGENT_STRUCTURED_REPORT_ENABLED: ${AGENT_STRUCTURED_REPORT_ENABLED:-false}
+      AGENT_MEMORY_ENABLED: ${AGENT_MEMORY_ENABLED:-false}
       AGENT_APPROVAL_ENABLED: ${AGENT_APPROVAL_ENABLED:-false}
+      AGENT_LANGFUSE_ENABLED: ${AGENT_LANGFUSE_ENABLED:-false}
+      AGENT_TRACE_STORE_ENABLED: ${AGENT_TRACE_STORE_ENABLED:-false}
+      AGENT_LOG_JSON_ENABLED: ${AGENT_LOG_JSON_ENABLED:-false}
       # Bundled sample datasets + example questions in the UI sidebar (demo); on locally.
       AGENT_SAMPLES_ENABLED: ${AGENT_SAMPLES_ENABLED:-true}
     ports:
@@ -38,6 +47,9 @@ services:
     build:
       context: .
       target: frontend
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.11-slim-bookworm}
+        UV_IMAGE: ${UV_IMAGE:-ghcr.io/astral-sh/uv:0.11.32}
     image: analyst-agent-frontend:local
     environment:
       AGENT_API_URL: http://api:8000

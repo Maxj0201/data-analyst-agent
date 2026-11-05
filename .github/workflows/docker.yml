@@ -1,0 +1,91 @@
+name: Docker
+
+# Builds the real images (official base images, no workarounds) whenever something that changes
+# them changes, then checks them: the H1/H2 sandbox probes inside the API image, and the UI e2e
+# against the compose stack with every flag on. A second job builds the embeddings variant and
+# fails if any CUDA package got in. Sizes go to the job summary (record them in docs/deploy.md).
+on:
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "scripts/ui-e2e/**"
+      - "scripts/sandbox-probes/**"
+      - ".github/workflows/docker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PLAYWRIGHT_VERSION: "1.63.0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build api image
+        run: docker build --target api -t analyst-agent-api:local .
+      - name: Build frontend image
+        run: docker build --target frontend -t analyst-agent-frontend:local .
+      - name: Image sizes
+        run: |
+          {
+            echo "| image | size |"
+            echo "|---|---|"
+            docker image ls --format '| {{.Repository}}:{{.Tag}} | {{.Size}} |' 'analyst-agent-*'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Sandbox probes in the API image (H1/H2, seccomp + Landlock)
+        run: |
+          echo "runner kernel: $(uname -r)"
+          scripts/sandbox-probes/run.sh analyst-agent-api:local
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Playwright + Chromium
+        working-directory: scripts/ui-e2e
+        run: |
+          npm install --no-save --no-package-lock "playwright@${PLAYWRIGHT_VERSION}"
+          npx playwright install --with-deps chromium
+      - name: UI e2e against the compose stack (every flag on)
+        run: scripts/ui-e2e/run.sh --docker "${{ runner.temp }}/ui-e2e"
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-ui-e2e
+          path: |
+            ${{ runner.temp }}/ui-e2e/*.png
+            ${{ runner.temp }}/ui-e2e/*.log
+          if-no-files-found: ignore
+
+  embeddings-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build api image with INSTALL_EMBEDDINGS=true (CPU-only torch)
+        run: >-
+          docker build --target api --build-arg INSTALL_EMBEDDINGS=true
+          -t analyst-agent-api:embeddings .
+      - name: No CUDA packages, torch is the CPU build, the backend imports
+        run: |
+          docker run --rm analyst-agent-api:embeddings python -c "
+          import importlib.metadata as md, torch, sentence_transformers
+          cuda = sorted(d.metadata['Name'] for d in md.distributions()
+                        if d.metadata['Name'].lower().startswith(('nvidia-', 'cuda-', 'triton')))
+          print('torch', torch.__version__, 'cuda', torch.version.cuda, 'extra:', cuda)
+          assert torch.version.cuda is None and not cuda, cuda
+          "
+      - name: Image size
+        run: |
+          docker image ls --format '| {{.Repository}}:{{.Tag}} | {{.Size}} |' \
+            analyst-agent-api:embeddings | tee -a "$GITHUB_STEP_SUMMARY"
