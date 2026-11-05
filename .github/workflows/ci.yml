@@ -54,7 +54,7 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --locked --all-extras --no-extra embeddings
-      - name: Lint (ruff check + ruff format --check)
+      - name: Lint (ruff check + ruff format --check + scripts/check_docs.py)
         run: make lint
       - name: Unit tests (Linux-only kernel-layer tests skip)
         run: make test
