@@ -3,9 +3,10 @@
 Ask a question in plain English about a CSV, Parquet, SQLite or DuckDB file, and the agent
 inspects the schema, writes and runs SQL and Python in a kernel-confined sandbox, has a second
 model check the answer, and returns a Markdown report with charts. It is built on a hand-written
-Anthropic Messages API loop, and every change to it is gated by an 80-task benchmark, an
-adversarial prompt-injection set and offline CI checks. Current release: **v0.1.0**
-([CHANGELOG.md](CHANGELOG.md)).
+Anthropic Messages API loop and ships with an 80-task benchmark (16 of them adversarial:
+prompt injection, PII, exfiltration) and offline CI gates. **It has not been scored against a
+live model yet:** every number below comes from offline runs with a scripted LLM (see
+[Results](#results)). Current version: **0.1.0** ([CHANGELOG.md](CHANGELOG.md)).
 
 ## See it run
 
@@ -134,7 +135,7 @@ rate, routing and prompt diffs. L3 is graded by an LLM judge (prompt 2.0.0) that
 sentence behind each rubric point and credits a figure only if it is also in `key_numbers`;
 `eval judge-calibrate` measures it against 24 hand-labelled reports
 ([docs/benchmark.md](docs/benchmark.md)). CI makes no API calls. It runs lint, the format check
-and 1001 tests (Hypothesis property tests included) under a branch-coverage gate, then the oracle agent
+and 1002 tests (Hypothesis property tests included) under a branch-coverage gate, then the oracle agent
 (must score 100%), then a dry run of the real loop and sandbox with a scripted LLM, and then the
 same dry run with **every** feature flag on. A headless-browser UI e2e test runs on API/UI PRs,
 and the sandbox escape fuzzer runs nightly.
@@ -249,7 +250,7 @@ The offline numbers that *are* measured:
 
 | Check | Result | Command |
 |---|---|---|
-| Unit, integration and property tests | 1001 passed, 0 skipped (1 slow test deselected) | `make test` |
+| Unit, integration and property tests | 1002 passed, 0 skipped (1 slow test deselected) | `make test` |
 | Branch coverage (CI gate) | 94.2% overall (floor 92) · `sandbox/` 99.4% (floor 97) · `core/loop.py` 100% (floor 98) | `make coverage` |
 | Oracle on all 80 tasks (harness self-check) | 100% on the 64 gradable tasks (L3 needs a judge) | `uv run python -m analyst_agent.eval run --agent oracle --no-judge` |
 | Semantic retrieval, BM25, 33 scored benchmark-task cases | top-1 1.000 · top-3 1.000 · MRR 1.000 (was 0.848 · 0.909 · 0.896; [tuning](docs/semantic-layer.md)) | `uv run python -m analyst_agent.semantic eval` |
