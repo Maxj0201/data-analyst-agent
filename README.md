@@ -258,7 +258,7 @@ The offline numbers that *are* measured:
 
 | Check | Result | Command |
 |---|---|---|
-| Unit, integration and property tests all pass, 0 skipped (1 slow test deselected); run `make test` for the current number | `make test` |
+| Unit, integration and property tests | all pass, 0 skipped (1 slow test deselected); run `make test` for the current number | `make test` |
 | Branch coverage (CI gate) | 94.2% overall (floor 92) · `sandbox/` 99.4% (floor 97) · `core/loop.py` 100% (floor 98) | `make coverage` |
 | Oracle on all 80 tasks (harness self-check) | 100% on the 64 gradable tasks (L3 needs a judge) | `uv run python -m analyst_agent.eval run --agent oracle --no-judge` |
 | Semantic retrieval, BM25, 33 scored benchmark-task cases | top-1 1.000 · top-3 1.000 · MRR 1.000 (was 0.848 · 0.909 · 0.896; [tuning](docs/semantic-layer.md)) | `uv run python -m analyst_agent.semantic eval` |
@@ -296,7 +296,7 @@ what the sandbox needs from Docker / Cloud Run: [docs/deploy.md](docs/deploy.md)
 | `src/analyst_agent/eval/` | runner, process isolation, scorers, LLM judge, report and compare |
 | `src/analyst_agent/api/`, `frontend/` | FastAPI service, Streamlit UI |
 | `benchmarks/` | generator, synthetic data, 80 task YAMLs, governed metrics and analyst vocabulary, judge calibration set |
-| `docs/` | architecture, sandbox threat model, reviews, deploy, semantic layer, eval runbook, integration notes, interview notes |
+| `docs/` | architecture, design decisions, sandbox threat model, reviews, deploy, semantic layer, eval runbook, integration notes |
 
 ## Roadmap
 

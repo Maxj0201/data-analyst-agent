@@ -18,7 +18,7 @@
 - [ ] Tests mock the LLM (`FakeLLM`); nothing calls the real API
 - [ ] All LLM calls go through `core/llm.py`
 - [ ] New `AGENT_*` setting: field on `core/config.py:Settings` with a default, a row in `docs/configuration.md`, a line in `.env.example`
-- [ ] New feature sits behind an `AGENT_<FEATURE>_ENABLED` flag that defaults to `false`; with it off, behaviour is unchanged (added to the `ask --dry-run` matrix in `tests/test_cli.py`, the CI "every flag on" step and `make eval`)
+- [ ] New feature sits behind an `AGENT_<FEATURE>_ENABLED` flag that defaults to `false`; with it off, behaviour is unchanged (added to the `ask --dry-run` matrix in `tests/test_cli.py` and the "every flag on" step of `make eval`, which CI runs)
 - [ ] Concurrent callers (API jobs, eval, MCP) use `tools.create_sandbox(...)` and `ToolContext(sandbox=sb)`, not the module-level `sandbox.run_*`
 - [ ] Type hints on new code; ruff clean (line length 100)
 - [ ] Prompt text changed? Version bumped in `core/prompts.py`, pin updated in `tests/test_prompts.py`, and an `eval compare` before/after is below (or N/A)

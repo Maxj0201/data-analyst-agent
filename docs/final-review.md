@@ -67,7 +67,8 @@ next to it.
 
 Checked and found clean:
 
-- **TODO / FIXME / XXX / HACK:** none in `src/`, `tests/`, `scripts/`, `frontend/` or the docs.
+- **Leftover work markers** (to-do, fix-me and hack comments): none in `src/`, `tests/`,
+  `scripts/`, `frontend/` or the docs.
 - **Tests that test nothing:** an AST scan of every `test_*` function found 5 without a
   literal `assert`. Four call the `_blocked(...)` helper, which asserts. The fifth,
   `tests/api/test_observability.py::test_tracer_errors_never_propagate`, tests that a call does
