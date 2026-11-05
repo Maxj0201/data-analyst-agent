@@ -14,11 +14,21 @@ dist/
 .coverage
 htmlcov/
 
-# Project
+# Project: run outputs. Never commit these; docs reference the examples in docs/assets/.
 data/uploads/
 data/embeddings/
 runs/
 artifacts/
+traces/
+*.sqlite3
+.DS_Store
+
+# Screenshots and other images are only tracked under docs/assets/.
+*.png
+*.jpg
+*.jpeg
+*.gif
+!docs/assets/*.png
 
 # Override global gitignore: CLAUDE.md is shared project guidance
 !CLAUDE.md
