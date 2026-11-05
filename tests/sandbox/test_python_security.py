@@ -77,6 +77,7 @@ def test_output_flood_is_truncated():
 # --- memory bombs --------------------------------------------------------------------------
 
 
+@pytest.mark.linux_only
 @pytest.mark.parametrize(
     "code",
     [
@@ -311,6 +312,7 @@ print('spawned')
 """
 
 
+@pytest.mark.linux_only
 def test_fork_exec_via_module_attribute_is_blocked(tmp_path):
     """``_posixsubprocess.fork_exec`` is reachable without an import and raises no audit event;
     before the seccomp filter it spawned a shell with network and full file access."""
@@ -321,6 +323,7 @@ def test_fork_exec_via_module_attribute_is_blocked(tmp_path):
     assert not marker.exists()
 
 
+@pytest.mark.linux_only
 def test_native_file_read_outside_roots_is_blocked(tmp_path):
     """pyarrow's C++ I/O bypasses the audit hook's ``open`` event; Landlock stops it."""
     secret = tmp_path / "secret.txt"
@@ -334,6 +337,7 @@ def test_native_file_read_outside_roots_is_blocked(tmp_path):
     assert "TOPSECRET" not in res.stdout
 
 
+@pytest.mark.linux_only
 def test_native_file_write_outside_work_dir_is_blocked(tmp_path):
     target = tmp_path / "escaped.parquet"
     res = run_python(f"pd.DataFrame({{'a': [1]}}).to_parquet({str(target)!r})", timeout_s=30)
@@ -352,6 +356,7 @@ def test_native_io_inside_work_dir_still_works():
     assert res.stdout.split() == ["3", "0.5"]
 
 
+@pytest.mark.linux_only
 def test_rlimits_applied_without_preexec_fn(monkeypatch):
     """Limits are set by the child itself: ``preexec_fn`` is unsafe in a threaded server."""
     import subprocess
@@ -399,7 +404,7 @@ def _alive(pid: int) -> bool:
     return state != "Z"
 
 
-@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="PR_SET_PDEATHSIG is Linux-only")
+@pytest.mark.linux_only  # PR_SET_PDEATHSIG
 def test_child_dies_with_its_parent(tmp_path):
     """Review-2 M3: the child runs in its own session, so killing the caller's process group
     (an eval task timeout) or the API process left it running with no wall-clock limit."""
@@ -436,6 +441,7 @@ def test_child_dies_with_its_parent(tmp_path):
             parent.wait()
 
 
+@pytest.mark.linux_only
 def test_seccomp_filter_program_is_well_formed():
     from analyst_agent.sandbox._child import _oslock
 
@@ -477,6 +483,7 @@ def test_user_phase_checks_survive_traceback_tampering(attack):
     _blocked(res, "PermissionDenied")
 
 
+@pytest.mark.linux_only
 @pytest.mark.parametrize(
     "call",
     [
@@ -516,7 +523,7 @@ def kernel_only(monkeypatch, tmp_path):
     return run
 
 
-@pytest.mark.skipif(not os.path.exists("/proc/self/status"), reason="Linux only")
+@pytest.mark.linux_only
 def test_kernel_layer_blocks_unix_socket_connect(kernel_only, tmp_path):
     """Landlock (ABI <= 7) does not mediate connect() to a pathname UNIX socket, and seccomp
     allowed AF_UNIX: e.g. /var/run/docker.sock was reachable once the audit hook was bypassed."""
@@ -545,7 +552,7 @@ def _syscall_numbers() -> dict[str, int]:
     return _oslock._ARCH[__import__("platform").machine()][1]
 
 
-@pytest.mark.skipif(not os.path.exists("/proc/self/status"), reason="Linux only")
+@pytest.mark.linux_only
 def test_kernel_layer_refuses_host_wide_and_cross_process_syscalls(kernel_only):
     """Syscalls Landlock does not cover. The service often runs as root in a container, where
     these reached the kernel: reboot, module loading, hostname and clock changes, mounts, the
@@ -586,7 +593,7 @@ def test_kernel_layer_refuses_host_wide_and_cross_process_syscalls(kernel_only):
         victim.wait()
 
 
-@pytest.mark.skipif(not os.path.exists("/proc/self/status"), reason="Linux only")
+@pytest.mark.linux_only
 def test_kernel_layer_blocks_metadata_changes_on_readable_files(kernel_only):
     """Landlock grants reads under the read roots but does not mediate chmod/chown/utimes,
     xattrs or chattr ioctls, so a read-only fd was enough to change a file's metadata."""
@@ -621,6 +628,7 @@ def test_kernel_layer_blocks_metadata_changes_on_readable_files(kernel_only):
         target.unlink()
 
 
+@pytest.mark.linux_only
 def test_seccomp_signal_rule_embeds_the_child_pid():
     import struct
 

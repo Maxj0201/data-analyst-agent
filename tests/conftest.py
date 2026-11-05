@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,26 @@ from analyst_agent.core.fake_llm import (
 from analyst_agent.tools import ToolContext
 
 __all__ = ["FakeLLM", "critic_json", "resp", "text", "tool_use"]
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "linux_only: needs the Linux kernel layers (Landlock, seccomp, prctl, /proc, RLIMIT_AS); "
+        "skipped elsewhere, where the sandbox runs its rlimits + audit-hook fallback",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """``@pytest.mark.linux_only`` is ``skipif(sys.platform != "linux")``, defined once here."""
+    if sys.platform == "linux":
+        return
+    skip = pytest.mark.skipif(
+        sys.platform != "linux", reason=f"Linux-only kernel layer; {sys.platform} runs the fallback"
+    )
+    for item in items:
+        if item.get_closest_marker("linux_only"):
+            item.add_marker(skip)
 
 
 @pytest.fixture

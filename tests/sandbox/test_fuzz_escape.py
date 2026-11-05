@@ -48,7 +48,6 @@ import random
 import socket
 import stat
 import subprocess
-import sys
 import textwrap
 import threading
 import time
@@ -1269,7 +1268,8 @@ def test_fuzz_corpus_is_valid_and_covers_every_attack() -> None:
 
 
 @pytest.mark.slow
-@pytest.mark.skipif(not sys.platform.startswith("linux") or not NR, reason="Linux x86_64/arm64")
+@pytest.mark.linux_only
+@pytest.mark.skipif(not NR, reason="x86_64/arm64 only")
 def test_fuzz_escape_attempts_are_blocked_or_killed(
     env: Env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

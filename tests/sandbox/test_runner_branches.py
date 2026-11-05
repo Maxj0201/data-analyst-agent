@@ -408,6 +408,7 @@ def test_run_python_profile_without_child_payload(fake_child, monkeypatch) -> No
     assert set(prof) == _PARENT_MARKS
 
 
+@pytest.mark.linux_only
 def test_run_python_profile_real_child_reports_confinement_phases(monkeypatch) -> None:
     prof: dict[str, float] = {}
     monkeypatch.setattr(python_runner, "_PROFILE", prof)
