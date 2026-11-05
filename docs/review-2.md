@@ -206,7 +206,7 @@ wall-clock timeout) and the rest of review.md's Low list. None of this round's f
 
 ## Docs audit
 
-Every claim in `README.md` and `docs/*.md` (not `docs/kickoff/`, which is historical) was
+Every claim in `README.md` and `docs/*.md` (not `docs/history/kickoff/`, which is historical) was
 checked against the code. Fixed statements, by file:
 
 - **`architecture.md`**
