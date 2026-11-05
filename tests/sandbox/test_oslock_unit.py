@@ -146,7 +146,10 @@ def test_build_filter_jump_out_of_range(monkeypatch) -> None:
 
 def test_confine_non_linux(monkeypatch) -> None:
     monkeypatch.setattr(L.sys, "platform", "darwin")
-    assert L.confine([], []) == ["no kernel confinement on darwin; only the audit hook applies"]
+    assert L.confine([], []) == [
+        "no kernel confinement on darwin; only the audit hook applies, "
+        "and there is no memory limit (RLIMIT_AS is Linux-only)"
+    ]
 
 
 def test_confine_landlock_optional_seccomp_required(monkeypatch) -> None:
