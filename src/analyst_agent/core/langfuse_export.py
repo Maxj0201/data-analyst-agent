@@ -34,6 +34,7 @@ import uuid
 from typing import Any
 
 from analyst_agent.core.tracing import Span, clip
+from analyst_agent.extras import MissingExtraError
 
 log = logging.getLogger(__name__)
 
@@ -58,7 +59,13 @@ def make_langfuse_client() -> Any | None:
     """``langfuse.Langfuse()`` from the standard ``LANGFUSE_*`` env vars, or None on failure."""
     try:
         from langfuse import Langfuse  # optional dependency
-
+    except ImportError:
+        log.warning(
+            "AGENT_LANGFUSE_ENABLED is set, but %s; Langfuse tracing is off for this run",
+            MissingExtraError("api", "Langfuse tracing"),
+        )
+        return None
+    try:
         return Langfuse()
     except Exception:  # noqa: BLE001
         log.exception("AGENT_LANGFUSE_ENABLED is set but Langfuse could not be initialised")

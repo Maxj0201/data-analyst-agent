@@ -20,7 +20,7 @@ dependencies = [
 
 [project.scripts]
 analyst-agent = "analyst_agent.cli:app"
-analyst-agent-mcp = "analyst_agent.mcp_server:main"
+analyst-agent-mcp = "analyst_agent.extras:mcp_main"
 
 [project.optional-dependencies]
 api = [

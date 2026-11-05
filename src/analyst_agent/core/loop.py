@@ -58,6 +58,7 @@ from analyst_agent.core.router import (
     schema_summary,
 )
 from analyst_agent.core.tracing import new_run_id
+from analyst_agent.extras import MissingExtraError
 from analyst_agent.tools.base import ToolContext, ToolResult
 from analyst_agent.tools.registry import TERMINAL_TOOL, ToolRegistry, wrap_untrusted
 
@@ -329,6 +330,10 @@ class AgentLoop:
                     hybrid_weight=s.semantic_hybrid_weight,
                 )
             hits = retriever.retrieve(state.question, k=s.semantic_top_k, tables=self.ctx.tables)
+        except MissingExtraError as exc:  # e.g. AGENT_SEMANTIC_BACKEND=embedding without torch
+            log.warning("semantic layer off for this run: %s", exc)
+            state.semantic_error = f"{type(exc).__name__}: {exc}"
+            hits = []
         except Exception as exc:  # noqa: BLE001 - optional context must not break the run
             log.exception("semantic layer retrieval failed")
             state.semantic_error = f"{type(exc).__name__}: {exc}"
