@@ -7,11 +7,13 @@ from pathlib import Path
 import httpx
 import pytest
 
-from analyst_agent.api.app import create_app
-from analyst_agent.api.samples import SampleCatalog, sample_id
-from analyst_agent.core.config import Settings
+pytest.importorskip("fastapi", reason="needs the 'api' extra: uv sync --extra api")
 
-from .conftest import wait_for_job
+from analyst_agent.api.app import create_app  # noqa: E402
+from analyst_agent.api.samples import SampleCatalog, sample_id  # noqa: E402
+from analyst_agent.core.config import Settings  # noqa: E402
+
+from .conftest import wait_for_job  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 

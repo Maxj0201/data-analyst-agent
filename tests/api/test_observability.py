@@ -8,20 +8,22 @@ from pathlib import Path
 import httpx
 import pytest
 
-import tests.conftest as core_conftest
-from analyst_agent.api.app import create_app
-from analyst_agent.api.observability import (
+pytest.importorskip("fastapi", reason="needs the 'api' extra: uv sync --extra api")
+
+import tests.conftest as core_conftest  # noqa: E402
+from analyst_agent.api.app import create_app  # noqa: E402
+from analyst_agent.api.observability import (  # noqa: E402
     LangfuseTracerFactory,
     NoopTracerFactory,
     RecorderTracerFactory,
     make_tracer_factory,
 )
-from analyst_agent.core.config import Settings
-from analyst_agent.core.logs import configure_logging
-from analyst_agent.core.tracing import find_trace, load_trace
-from tests.fake_langfuse import FakeLangfuse
+from analyst_agent.core.config import Settings  # noqa: E402
+from analyst_agent.core.logs import configure_logging  # noqa: E402
+from analyst_agent.core.tracing import find_trace, load_trace  # noqa: E402
+from tests.fake_langfuse import FakeLangfuse  # noqa: E402
 
-from .conftest import upload, wait_for_job
+from .conftest import upload, wait_for_job  # noqa: E402
 
 
 def test_every_llm_and_tool_call_becomes_a_span():

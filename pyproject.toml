@@ -43,12 +43,17 @@ embeddings = [
 ]
 
 [dependency-groups]
+# Test-only packages live here, not in an extra, so a plain `uv sync` can run the core suite.
+# httpx: FastAPI's TestClient and the frontend's mock API. pyarrow: tests that write Parquet
+# (the agent itself reads Parquet through DuckDB and does not need it).
 dev = [
     "pytest",
     "pytest-asyncio",
     "ruff",
     "pytest-cov>=7.1.0",
     "hypothesis>=6.170.14",
+    "httpx>=0.28.1",
+    "pyarrow>=26.0.1",
 ]
 
 [build-system]
