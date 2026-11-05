@@ -204,7 +204,7 @@ The output was confusing. In a shell with **no** `ANTHROPIC_API_KEY`, `--dry-run
   [WARN] Message Batches API                           not available in this client: eval run --batch falls back to direct judge calls
 ```
 
-The key was a placeholder that `--dry-run` injects, the "Messages call" went to the FakeLLM,
+The key was the dummy value that `--dry-run` injects, the "Messages call" went to the FakeLLM,
 and the Batches warning describes the FakeLLM, not the real client. After:
 
 ```
@@ -237,7 +237,7 @@ Timer present.
 | ID | Observation | Why not fixed |
 |---|---|---|
 | O1 | In clone A, preflight still FAILs `[api]`, `[frontend]` and `[mcp]` (`PRE-FLIGHT FAILED: 3 check(s): extra [api], extra [frontend], extra [mcp]`). | The pre-flight gates the paid benchmark run, whose documented setup is `uv sync --locked --all-extras`. Its message already names the fix. The request was specifically to soften the `embeddings` check. Whether the other extras should become warnings is the owner's call. |
-| O2 | `uv run python -m analyst_agent.api.app` without the `api` extra prints a `ModuleNotFoundError: No module named 'fastapi'` traceback. | Not a supported entry point. The server is started with `uvicorn analyst_agent.api.app:app` (Dockerfile), and uvicorn is itself in the `api` extra, so without the extra there is no command to run. |
+| O2 | Running the `analyst_agent.api.app` module directly with `python -m` without the `api` extra prints a `ModuleNotFoundError: No module named 'fastapi'` traceback. | Not a supported entry point. The server is started with `uvicorn analyst_agent.api.app:app` (Dockerfile), and uvicorn is itself in the `api` extra, so without the extra there is no command to run. |
 | O3 | Every `uv` command printed `warning: The UV_NATIVE_TLS environment variable is deprecated … Use UV_SYSTEM_CERTS instead.` | Comes from this session's environment, not the project. A reviewer will not see it. |
 | O4 | The `ask --dry-run` and eval oracle output is identical in A, B and C (North America, 1,290,124; 4/4 gradable tasks pass, 1 L3 skip). | Nothing to fix; recorded as confirmation that a plain install is enough for the demo path. |
 | O5 | In a plain install, sandboxed user code that calls `DataFrame.to_parquet` fails, because pyarrow is not a runtime dependency. | Reading Parquet works through DuckDB. Writing Parquet from `run_python` is an edge case. Promoting pyarrow (about 50 MB) to a core dependency is a product decision. |
