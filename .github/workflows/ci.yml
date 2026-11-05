@@ -23,22 +23,16 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --locked --all-extras --no-extra embeddings
-      - name: Ruff lint
-        run: uv run ruff check .
-      - name: Ruff format
-        run: uv run ruff format --check .
-      - name: Unit tests (with branch coverage)
+      # The commands live in the Makefile so that `make check` locally is what CI runs.
+      - name: Lint (ruff check + ruff format --check)
+        run: make lint
+      - name: Unit tests with branch coverage, then the coverage gate
         # pyproject's addopts deselect `slow` tests (the sandbox fuzzer, run by nightly.yml).
-        # The gate below measures this default run only: every line under src/ must be
-        # reachable from a fast test, so a slow-only code path shows up as missing here.
-        run: uv run pytest -q --cov=analyst_agent --cov-report=term-missing:skip-covered
-      - name: Coverage gate
-        # Floors are the levels reached when the gate was added, minus 2 points
-        # (overall 94%, sandbox/ 99%, core/loop.py 100%). Raise them as coverage improves.
-        run: |
-          uv run coverage report --fail-under=92 > /dev/null
-          uv run coverage report --include='*/analyst_agent/sandbox/*' --fail-under=97
-          uv run coverage report --include='*/analyst_agent/core/loop.py' --fail-under=98
+        # The gate measures this default run only: every line under src/ must be reachable from
+        # a fast test, so a slow-only code path shows up as missing here. Floors (overall 92%,
+        # sandbox/ 97%, core/loop.py 98%) are the Makefile's `coverage` target; raise them there
+        # as coverage improves.
+        run: make coverage
 
   eval-smoke:
     # Offline end-to-end checks: no API key, no network to the LLM. Catches prompt / loop /
@@ -57,34 +51,14 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --locked --all-extras --no-extra embeddings
-      - name: Harness smoke (oracle agent must score 100%)
-        # Without a judge, L3 rubric tasks are reported as skipped and excluded from accuracy.
-        run: >-
-          uv run python -m analyst_agent.eval run --agent oracle --no-judge --limit 5
-          --fail-under 1.0 --fail-on-error --runs-dir ${{ runner.temp }}/runs/oracle
-      - name: Core agent dry run (scripted FakeLLM, 3 tasks)
-        # Real agent loop, tools and sandbox; only the LLM is scripted. Every task must run to
-        # completion (no error, timeout, max_turns or budget stop). Answers are not scored.
-        run: >-
-          uv run python -m analyst_agent.eval run --agent dry-run --no-score --limit 3
-          --timeout 120 --fail-on-error --runs-dir ${{ runner.temp }}/runs/dry-run
-      - name: Core agent dry run with every feature flag on
-        # Routing + semantic layer + structured reports + insight memory + human-in-the-loop +
-        # trace store + JSON logs. Every SELECT is gated (threshold 0) and the eval runner
-        # auto-approves (no human in CI); the run must still complete.
-        env:
-          AGENT_ROUTING_ENABLED: "true"
-          AGENT_SEMANTIC_LAYER_ENABLED: "true"
-          AGENT_STRUCTURED_REPORT_ENABLED: "true"
-          AGENT_MEMORY_ENABLED: "true"
-          AGENT_MEMORY_DB_PATH: ${{ runner.temp }}/memory.sqlite3
-          AGENT_APPROVAL_ENABLED: "true"
-          AGENT_APPROVAL_ROW_THRESHOLD: "0"
-          AGENT_TRACE_STORE_ENABLED: "true"
-          AGENT_LOG_JSON_ENABLED: "true"
-        run: >-
-          uv run python -m analyst_agent.eval run --agent dry-run --no-score --limit 5
-          --timeout 120 --fail-on-error --runs-dir ${{ runner.temp }}/runs/dry-run-flags
+      - name: Offline eval gate (make eval)
+        # Three steps, defined in the Makefile:
+        #  1. oracle agent must score 100% (no judge: L3 rubric tasks are skipped);
+        #  2. core agent dry run, scripted FakeLLM, 3 tasks: real loop, tools and sandbox, every
+        #     task must complete (no error, timeout, max_turns or budget stop);
+        #  3. the same with every feature flag on (routing, semantic layer, structured reports,
+        #     memory, approval gating every SELECT with auto-approve, trace store, JSON logs).
+        run: make eval RUNS=${{ runner.temp }}/runs
       - name: Upload eval runs
         if: always()
         uses: actions/upload-artifact@v4
