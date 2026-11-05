@@ -111,3 +111,6 @@ exists at `3071120`), N4 (`interview-notes.md` is now
 `make test` instead of a count). `docs/kickoff/` moved to `docs/history/kickoff/` (#29), with
 F8's README inside it. The rest is unchanged; see
 [integration-notes.md, round 7](integration-notes.md#still-open).
+
+N9 is resolved by the [fresh-clone audit](fresh-clone-audit.md): a plain `uv sync` now runs the
+core suite, and tests that need an extra skip with the install command as the reason.
