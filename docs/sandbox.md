@@ -94,8 +94,8 @@ data: the sandbox never interpolates data values into SQL.
 |---|---|---|
 | Separate interpreter | A fresh `python -s -B` subprocess for every call, in its own session/process group | OS boundary |
 | Wall-clock timeout | 60 s (configurable), then `SIGKILL` to the whole process group. Ignoring signals or catching exceptions doesn't help | OS |
-| Dies with its parent | The child sets `PR_SET_PDEATHSIG(SIGKILL)` at start-up (and exits if its parent is already gone), so it cannot outlive the process that enforces its timeout: an eval task killed on timeout or a crashed API takes its sandbox child with it. It runs in its own session, so killing the parent's process group alone would not reach it | OS |
-| Memory | `RLIMIT_AS` (default 1 GiB) via `resource.setrlimit`, applied by the child's `sitecustomize` before any other code (no `preexec_fn`, which can deadlock in a threaded server). Allocation bombs raise `MemoryError` → `MemoryLimitExceeded` | OS |
+| Dies with its parent | On Linux, the child sets `PR_SET_PDEATHSIG(SIGKILL)` at start-up (and exits if its parent is already gone), so it cannot outlive the process that enforces its timeout: an eval task killed on timeout or a crashed API takes its sandbox child with it. It runs in its own session, so killing the parent's process group alone would not reach it | OS |
+| Memory | `RLIMIT_AS` (default 1 GiB; Linux only, see *Not portable*) via `resource.setrlimit`, applied by the child's `sitecustomize` before any other code (no `preexec_fn`, which can deadlock in a threaded server). Allocation bombs raise `MemoryError` → `MemoryLimitExceeded` | OS |
 | Other rlimits | `RLIMIT_CPU` (timeout + 5 s), `RLIMIT_FSIZE` 64 MiB (a full disk or giant files), `RLIMIT_NOFILE` 256, no core dumps. Hard limit = soft limit, and seccomp blocks `setrlimit`/`prlimit64`, so the child cannot raise them | OS |
 | seccomp-bpf (`_child/_oslock.py`) | Installed on every thread just before user code. These fail with `EPERM`: `execve`/`execveat`, `fork`/`vfork`, `clone` without `CLONE_THREAD`; **every** `socket()`, `AF_UNIX` included; `ptrace`, `process_vm_*`, `pidfd_*`, `kcmp`; signals to any process but itself (`kill`/`tgkill`/`rt_*sigqueueinfo` are checked against the child's pid); rlimit, priority and scheduler changes; namespace and mount syscalls; `chmod`/`chown`/`utimes`/xattr changes (path and fd forms) and `chattr`-style `ioctl`s; and host-wide syscalls that need a capability the service may hold as root (`reboot`, `init_module`, `kexec_*`, `sethostname`, `settimeofday`/`clock_settime`, `syslog`, `swapon`, `acct`, `iopl`, …). `clone3` and every syscall numbered 463 or higher (newer than anything the interpreter uses) get `ENOSYS`. Foreign-ABI (i386/x32) syscalls are refused. The full list is `_DENIED` / `_SELF_ONLY` / `_IOCTL_DENIED` in `_oslock.py`; the program is 115 BPF instructions on x86_64 and 103 on aarch64 (which lacks the legacy `fork`/`chmod`/`utime` syscalls). Required on Linux: if it cannot be installed, the bootstrap refuses to run | Kernel |
 | Landlock (`_child/_oslock.py`) | Same moment. Reads only under the read roots (interpreter, site-packages, fonts, tzdata, matplotlib cache), writes only in the temp dir, no `execve` of anything, no TCP bind/connect (ABI 4+), no signals to outside processes (ABI 6+). Best effort: kernels without Landlock (< 5.13, some gVisor setups) log `[sandbox] Landlock unavailable` to the child's stderr (which the model sees) and, once per process, a `WARNING` on the `analyst_agent.sandbox.python_runner` logger in the parent, then fall back to the audit hook | Kernel |
@@ -267,9 +267,24 @@ Be honest about this before exposing the agent to untrusted users:
 - **Side channels and timing** (e.g. inferring host load) are out of scope.
 - **DuckDB engine bugs**, if a crafted `SELECT` could trigger one in a read-only, locked
   database, are out of scope; we rely on upstream DuckDB.
-- **Not portable:** the kernel layers are Linux-only (x86_64 and aarch64). On macOS the
-  runner still works with rlimits and the Python guards only, and says so on stderr
-  (rlimit behaviour on macOS is weaker, especially `RLIMIT_AS`).
+- **Not portable:** the kernel layers are Linux-only (x86_64 and aarch64). On macOS (and any
+  other non-Linux platform) the runner falls back to the Python guards (audit hook, import
+  allowlist, socket block) plus the timeout, scrubbed env, temp dir and the `RLIMIT_CPU` /
+  `RLIMIT_FSIZE` / `RLIMIT_NOFILE` / `RLIMIT_CORE` limits. Missing there:
+  - **No Landlock or seccomp**, so the native-code bypasses above are open:
+    `_posixsubprocess.fork_exec` can start processes, pyarrow's C++ I/O can read and write
+    outside the roots, and `setpriority` can renice other processes of the same user.
+  - **No memory limit.** macOS refuses to lower `RLIMIT_AS` below the address space a process
+    has already reserved, so the runner doesn't set it; an allocation bomb runs until the
+    wall-clock timeout or until the host runs out of memory.
+  - **No `PR_SET_PDEATHSIG`**: a child whose parent is killed keeps running until its own
+    timeout.
+
+  Each call says so: the child's stderr carries `[sandbox] no kernel confinement on darwin;
+  ...`, and the server log gets `sandbox confinement degraded: ...` once per process. Use macOS
+  for development only and deploy on Linux. Tests that need the kernel layers are marked
+  `@pytest.mark.linux_only` (`tests/conftest.py`) and are skipped elsewhere; CI runs the suite
+  on `macos-latest` too, so the fallback path stays working.
 
 ## Tuning
 
