@@ -1,0 +1,24 @@
+id: l3_hr_expense_anomalies__off_topic
+task_id: l3_hr_expense_anomalies
+kind: off_topic
+note: Breaks spend down by category; no irregularities are looked for.
+report: |
+  ## Expense spend by category
+
+  Travel is the largest expense category at $91,857.34 across 425 claims, followed by Training ($27,242.80), Meals ($21,332.95), Software ($17,964.62) and Office ($11,636.74).
+
+  Travel alone is more than half of all claimed spend.
+key_numbers:
+  travel_usd: 91857.34
+  travel_claims: 425
+  training_usd: 27242.80
+  meals_usd: 21332.95
+  software_usd: 17964.62
+  office_usd: 11636.74
+labels:
+  passed: false
+  points:
+    - {score: 0, reason: Duplicates are not looked for.}
+    - {score: 0, reason: No employee is flagged.}
+    - {score: 0, reason: The approval threshold is not mentioned.}
+    - {score: 0, reason: No controls recommended.}

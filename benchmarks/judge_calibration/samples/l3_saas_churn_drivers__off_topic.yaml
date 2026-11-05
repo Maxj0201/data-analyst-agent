@@ -1,0 +1,25 @@
+id: l3_saas_churn_drivers__off_topic
+task_id: l3_saas_churn_drivers
+kind: off_topic
+note: Reports active MRR by region; churn is never analysed.
+report: |
+  ## Active MRR by region
+
+  North America holds the most active MRR at $1,100,920, followed by EMEA ($715,198), APAC ($357,384) and LATAM ($318,790).
+
+  Total active MRR is $2,492,292.
+key_numbers:
+  north_america_active_mrr: 1100920
+  emea_active_mrr: 715198
+  apac_active_mrr: 357384
+  latam_active_mrr: 318790
+  active_mrr: 2492292
+labels:
+  passed: false
+  points:
+    - {score: 0, reason: No churn rate.}
+    - {score: 0, reason: Plans are not compared on churn.}
+    - {score: 0, reason: Billing cycles are not discussed.}
+    - {score: 0, reason: Regions are compared on MRR, not churn; APAC is not identified.}
+    - {score: 0, reason: Churn reasons are not discussed.}
+    - {score: 0, reason: No retention recommendation.}

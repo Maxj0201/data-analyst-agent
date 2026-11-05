@@ -10,6 +10,15 @@ from analyst_agent.eval.judge import JudgeError
 from analyst_agent.eval.schema import Expected, Task
 
 
+def report_quote(user: str) -> str:
+    """The first non-empty line of the ``<report>`` block of a rubric-judge prompt (a quote
+    the scorer's citation check accepts)."""
+    if "<report>" not in user:
+        return ""
+    report = user.split("<report>", 1)[1].split("</report>", 1)[0]
+    return next((ln.strip() for ln in report.splitlines() if ln.strip()), "")
+
+
 class MockJudge:
     """Deterministic stand-in for the LLM judge; records every call."""
 
@@ -29,9 +38,17 @@ class MockJudge:
         if "points" in schema["properties"]:
             n = user.split("<rubric>")[1].split("</rubric>")[0].strip().count("\n") + 1
             scores = self.rubric_scores if self.rubric_scores is not None else [1] * n
+            quote = report_quote(user)
             return {
                 "points": [
-                    {"index": i, "score": s, "justification": "mock"} for i, s in enumerate(scores)
+                    {
+                        "index": i,
+                        "evidence": [quote] if quote else [],
+                        "unmatched_numbers": [],
+                        "score": s,
+                        "justification": "mock",
+                    }
+                    for i, s in enumerate(scores)
                 ]
             }
         return {"passed": self.behavior_pass, "justification": "mock"}

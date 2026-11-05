@@ -55,7 +55,7 @@ from analyst_agent.eval.agent import (
 from analyst_agent.eval.isolation import AgentTimeout, check_picklable, run_in_subprocess
 from analyst_agent.eval.judge import BatchJudge, Judge
 from analyst_agent.eval.schema import Task
-from analyst_agent.eval.scorers import Score, score_task
+from analyst_agent.eval.scorers import Score, judge_prompt_versions, score_task
 
 Isolation = Literal["process", "inline"]
 
@@ -85,6 +85,9 @@ class RunConfig:
     # (estimated with core.llm's price table). Tasks already running finish, so a run can
     # overshoot by up to ``concurrency`` tasks. None = no cap.
     budget_usd: float | None = None
+    # Ask the L3 rubric judge this many times per task and score the mean (judge variance;
+    # eval run --judge-samples). The spread is recorded in score_details["judge_samples"].
+    judge_samples: int = 1
 
 
 @dataclass
@@ -258,9 +261,11 @@ async def _execute(
     return _Execution(out, status, error, latency, started, trace_id)
 
 
-async def _score(task: Task, ex: _Execution, judge: Judge | None, score: bool) -> Score:
+async def _score(
+    task: Task, ex: _Execution, judge: Judge | None, score: bool, judge_samples: int = 1
+) -> Score:
     if ex.status == "ok" and score:
-        return await score_task(task, ex.out, judge)
+        return await score_task(task, ex.out, judge, judge_samples=judge_samples)
     if ex.status == "ok":
         return Score(False, 0.0, "unscored", {})
     return Score(False, 0.0, "not_run", {"reason": ex.status})
@@ -581,7 +586,7 @@ async def run_tasks(
             "task_ids": [t.id for t in tasks],
             "config": asdict(config),
             "settings": snapshot,
-            "prompts": prompt_versions(),
+            "prompts": {**prompt_versions(), **judge_prompt_versions()},
         }
         results_path = run_dir / "results.jsonl"
     assert run_dir is not None
@@ -602,6 +607,7 @@ async def run_tasks(
     # --batch: verdicts are queued and sent together once every unfinished task waits on them.
     batch_judge = judge if isinstance(judge, BatchJudge) else None
     unfinished = total
+    waiting = 0  # tasks whose scorer is waiting on the batch judge
     flushing = False
     # Set when the run is being cancelled (Ctrl-C): no new batch may be sent then, since nobody
     # would wait for its verdicts and their (paid) spend would never be recorded.
@@ -612,7 +618,7 @@ async def run_tasks(
         nonlocal flushing
         if batch_judge is None or flushing or stopping or not batch_judge.pending:
             return
-        if batch_judge.pending >= unfinished:
+        if waiting >= unfinished:
             flushing = True
             t = asyncio.ensure_future(do_flush())
             flushes.add(t)
@@ -643,7 +649,7 @@ async def run_tasks(
         _write_meta(run_dir, meta)
 
     async def one(task: Task) -> TaskResult:
-        nonlocal done, agent_spend, unfinished, stopping
+        nonlocal done, agent_spend, unfinished, stopping, waiting
         action = plan[task.id]
         trace_id = new_trace_id() if langfuse is not None and action == "run" else None
         new_spend = 0.0
@@ -668,7 +674,8 @@ async def run_tasks(
                         )
                         new_spend = ex.out.cost_usd
                     if ex is not None and batch_judge is None:
-                        res = _result(task, ex, await _score(task, ex, judge, config.score))
+                        sc = await _score(task, ex, judge, config.score, config.judge_samples)
+                        res = _result(task, ex, sc)
                 if ex is None:
                     res = over_budget_result(task, budget or 0.0)
                 elif batch_judge is not None:
@@ -685,7 +692,12 @@ async def run_tasks(
                             agent_spend += new_spend
                             new_spend = 0.0
                             write(pending)
-                    res = _result(task, ex, await _score(task, ex, judge, config.score))
+                    waiting += 1
+                    try:
+                        sc = await _score(task, ex, judge, config.score, config.judge_samples)
+                    finally:
+                        waiting -= 1
+                    res = _result(task, ex, sc)
                 if res.status != "over_budget" and action == "run":
                     _publish_trace(res, task, run_dir, langfuse, save_traces)
             async with lock:

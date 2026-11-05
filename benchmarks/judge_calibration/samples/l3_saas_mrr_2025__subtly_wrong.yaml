@@ -1,0 +1,36 @@
+id: l3_saas_mrr_2025__subtly_wrong
+task_id: l3_saas_mrr_2025
+kind: subtly_wrong
+note: >-
+  Uses all-time churn ($385,948) instead of 2025 churn, and derives ending MRR from it
+  instead of summing active subscriptions. Three of five points: fails the 0.8 threshold.
+report: |
+  ## MRR in 2025
+
+  MRR on 2025-01-01 was $1,896,703.
+
+  New subscriptions in 2025 added $787,868 of MRR.
+
+  Churn removed $385,948 of MRR.
+
+  Ending MRR is therefore $2,298,623 (start + new - churned).
+
+  North America has the most active MRR of any region.
+key_numbers:
+  starting_mrr: 1896703
+  new_mrr_2025: 787868
+  churned_mrr: 385948
+  ending_mrr: 2298623
+labels:
+  passed: false
+  points:
+    - score: 1
+      evidence: ["MRR on 2025-01-01 was $1,896,703."]
+    - score: 1
+      evidence: ["New subscriptions in 2025 added $787,868 of MRR."]
+    - score: 0
+      reason: $385,948 is churn over all years; 2025 churn is $192,708.
+    - score: 0
+      reason: Active MRR is $2,492,292; the derived figure is 8% low.
+    - score: 1
+      evidence: ["North America has the most active MRR of any region."]

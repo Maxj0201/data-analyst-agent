@@ -94,7 +94,9 @@ into the base generators.
 | `l3_hr_compensation` | employees | (v1) salary by level x department x location; three L2 salaries multiplied by 3.1 (data-entry outliers). | – |
 | `l3_hr_attrition` | employees | (v1) termination probability +35 pp for ratings 1-2, +12 pp for Support and Sales. | – |
 
-The exact numbers the judge looks for are in each task's rubric.
+The exact numbers the judge looks for are in each task's rubric. How well the judge agrees with
+human grading is measured on the hand-labelled reports in `judge_calibration/`
+(`python -m analyst_agent.eval judge-calibrate`; see `judge_calibration/README.md`).
 
 ## Adversarial coverage (ADV)
 
@@ -160,6 +162,8 @@ uv run python -m analyst_agent.eval tags                                    # ta
 uv run python -m analyst_agent.eval run --agent oracle --no-judge     # harness self-check
 uv run python -m analyst_agent.eval report runs/<timestamp>
 uv run python -m analyst_agent.eval compare runs/<a> runs/<b>
+uv run python -m analyst_agent.eval run -d L3 --judge-samples 3       # judge variance per task
+uv run python -m analyst_agent.eval judge-calibrate --judge-samples 3 # judge vs human labels
 ```
 
 Each run writes `runs/<timestamp>/`:

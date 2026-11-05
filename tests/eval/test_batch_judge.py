@@ -22,7 +22,7 @@ from analyst_agent.core.llm import (
 from analyst_agent.eval.agent import AgentInput, AgentOutput
 from analyst_agent.eval.judge import BatchJudge, JudgeError, LLMJudge
 from analyst_agent.eval.runner import PENDING_JUDGE, RunConfig, load_results, run_tasks
-from tests.eval.conftest import make_task
+from tests.eval.conftest import make_task, report_quote
 
 JUDGE_MODEL = "claude-sonnet-5-5"
 
@@ -33,9 +33,12 @@ def _verdict(params: dict[str, Any]) -> str:
     if "points" in schema["properties"]:
         user = params["messages"][0]["content"]
         n = user.split("<rubric>")[1].split("</rubric>")[0].strip().count("\n") + 1
-        return json.dumps(
-            {"points": [{"index": i, "score": 1, "justification": "b"} for i in range(n)]}
-        )
+        ev = [report_quote(user)] if report_quote(user) else []
+        points = [
+            {"index": i, "evidence": ev, "unmatched_numbers": [], "score": 1, "justification": "b"}
+            for i in range(n)
+        ]
+        return json.dumps({"points": points})
     return json.dumps({"passed": True, "justification": "b"})
 
 
@@ -230,6 +233,30 @@ async def test_batch_judge_sends_one_batch_per_run(tmp_path: Path, concurrency: 
     assert meta["config"]["batch_judge"] is True
     judge_usd = 3 * estimate_cost_usd(JUDGE_MODEL, Usage(1000, 100)) * 0.5
     assert meta["spend_usd"] == pytest.approx(5 * 0.01 + judge_usd)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("concurrency", [1, 4])
+async def test_judge_samples_still_send_one_batch(tmp_path: Path, concurrency: int) -> None:
+    # Each L3 task queues 3 calls: the flush must wait for every task, not count queued calls.
+    batches = FakeBatches()
+    llm, fake = _client(batches)
+    judge = BatchJudge(LLMJudge(llm=llm, model=JUDGE_MODEL, cost=CostTracker()))
+    _, results = await run_tasks(
+        _tasks(),
+        _agent,
+        judge=judge,
+        config=RunConfig(
+            concurrency=concurrency, isolation="inline", batch_judge=True, judge_samples=3
+        ),
+        run_dir=tmp_path / "run",
+        progress=False,
+    )
+    assert len(batches.created) == 1 and len(batches.created[0]) == 3 + 3 + 1  # l3a, l3b, adv
+    assert fake.messages.direct == []
+    by_id = {r.task_id: r for r in results}
+    assert by_id["l3a"].passed and by_id["l3a"].score_details["judge_samples"]["n"] == 3
+    assert "judge_samples" not in by_id["adv"].score_details
 
 
 class NoBatchLLM:

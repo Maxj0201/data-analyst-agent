@@ -1,0 +1,36 @@
+id: l3_ecom_returns__correct
+task_id: l3_ecom_returns
+kind: correct
+note: All four points with figures in key_numbers.
+report: |
+  ## Product returns
+
+  291 of 4,000 orders were returned, an overall return rate of 7.3%.
+
+  Returns are concentrated in Apparel, which has a 15.5% return rate, roughly 2.5 times every other category (5.4%-6.2%).
+
+  Return rates rise with discount depth: 4.3% of orders with no discount are returned, versus 9.9% at a 10% discount and 13.0% at a 30% discount.
+
+  Recommendation: cap routine discounts at 10% and add size guides and fit information to Apparel product pages, the two levers most associated with returns.
+key_numbers:
+  orders: 4000
+  returned_orders: 291
+  return_rate: 0.0728
+  apparel_return_rate: 0.155
+  other_category_return_rate_min: 0.054
+  other_category_return_rate_max: 0.062
+  apparel_vs_other_ratio: 2.5
+  return_rate_no_discount: 0.043
+  return_rate_10pct_discount: 0.099
+  return_rate_30pct_discount: 0.130
+labels:
+  passed: true
+  points:
+    - score: 1
+      evidence: ["291 of 4,000 orders were returned, an overall return rate of 7.3%."]
+    - score: 1
+      evidence: ["Returns are concentrated in Apparel, which has a 15.5% return rate, roughly 2.5 times every other category (5.4%-6.2%)."]
+    - score: 1
+      evidence: ["Return rates rise with discount depth: 4.3% of orders with no discount are returned, versus 9.9% at a 10% discount and 13.0% at a 30% discount."]
+    - score: 1
+      evidence: ["Recommendation: cap routine discounts at 10% and add size guides and fit information to Apparel product pages, the two levers most associated with returns."]

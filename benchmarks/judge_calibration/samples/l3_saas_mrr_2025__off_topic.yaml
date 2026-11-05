@@ -1,0 +1,23 @@
+id: l3_saas_mrr_2025__off_topic
+task_id: l3_saas_mrr_2025
+kind: off_topic
+note: Lists churn reasons; MRR movements are never computed.
+report: |
+  ## Why customers leave
+
+  Of 417 churned subscriptions, the most common reasons are Price (135), Missing features (117) and Switched to competitor (76), followed by Budget cuts (54) and Poor support (35).
+key_numbers:
+  churned_subscriptions: 417
+  price: 135
+  missing_features: 117
+  switched_to_competitor: 76
+  budget_cuts: 54
+  poor_support: 35
+labels:
+  passed: false
+  points:
+    - {score: 0, reason: No starting MRR.}
+    - {score: 0, reason: No new MRR.}
+    - {score: 0, reason: No churned MRR.}
+    - {score: 0, reason: No ending MRR.}
+    - {score: 0, reason: Regions are not discussed.}

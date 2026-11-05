@@ -177,7 +177,8 @@ def test_cli_gate_and_prompt_metadata(tmp_path: Path) -> None:
     (run_dir,) = (tmp_path / "ok").iterdir()
     meta = json.loads((run_dir / "meta.json").read_text())
     assert meta["prompts"]["planner"]["version"] and meta["config"]["isolation"] == "process"
-    assert "- prompts: critic@" in (run_dir / "report.md").read_text()
+    md = (run_dir / "report.md").read_text()
+    assert "- prompts: behavior_judge@" in md and "critic@" in md and "rubric_judge@2.0.0" in md
 
     res = runner.invoke(app, [*base, str(tmp_path / "bad"), "--agent", "tests.eval.agents:echo_42"])
     assert res.exit_code == 1 and "FAILED: accuracy" in res.output

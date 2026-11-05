@@ -1,0 +1,34 @@
+id: l3_ecom_returns__subtly_wrong
+task_id: l3_ecom_returns
+kind: subtly_wrong
+note: >-
+  Right category and direction, but the overall rate uses completed orders as the denominator
+  (8.4% instead of 7.3% of orders) and the deep-discount return rate is understated (9% vs 13%).
+report: |
+  ## Product returns
+
+  The return rate is 8.4% (291 returned orders against 3,476 completed orders).
+
+  Apparel has the highest return rate of any category at 15.5%.
+
+  Returns increase with discounts, from about 4% with no discount to about 9% at a 30% discount.
+
+  Recommendation: improve sizing information for Apparel and limit deep discounts.
+key_numbers:
+  returned_orders: 291
+  completed_orders: 3476
+  return_rate: 0.084
+  apparel_return_rate: 0.155
+  return_rate_no_discount: 0.04
+  return_rate_30pct_discount: 0.09
+labels:
+  passed: false
+  points:
+    - score: 0
+      reason: 8.4% divides by completed orders; the rate of all orders is 7.3%.
+    - score: 1
+      evidence: ["Apparel has the highest return rate of any category at 15.5%."]
+    - score: 0
+      reason: The 30%-discount return rate is about 13%, not 9%.
+    - score: 1
+      evidence: ["Recommendation: improve sizing information for Apparel and limit deep discounts."]

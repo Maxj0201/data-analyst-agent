@@ -1,0 +1,33 @@
+id: l3_ecom_carrier_performance__subtly_wrong
+task_id: l3_ecom_carrier_performance
+kind: subtly_wrong
+note: >-
+  Ranks the carriers correctly but puts ParcelNow's decline in the summer instead of
+  November-December, and quotes the late-shipment split (183 of 316) in prose without it being
+  in key_numbers (the key-numbers rule).
+report: |
+  ## Carrier reliability
+
+  On-time rates: SwiftShip 95.8%, PostCo 94.8%, ParcelNow 79.7%, so ParcelNow is the least reliable carrier.
+
+  ParcelNow's performance slips in the summer, falling to about 70% on time for July-August orders, while the other carriers are stable through the year.
+
+  ParcelNow accounts for 183 of the 316 late shipments.
+
+  Recommendation: shift ParcelNow volume to SwiftShip during the summer months and review its SLA.
+key_numbers:
+  swiftship_on_time_rate: 0.958
+  postco_on_time_rate: 0.948
+  parcelnow_on_time_rate: 0.797
+  parcelnow_on_time_jul_aug: 0.70
+labels:
+  passed: false
+  points:
+    - score: 1
+      evidence: ["On-time rates: SwiftShip 95.8%, PostCo 94.8%, ParcelNow 79.7%, so ParcelNow is the least reliable carrier."]
+    - score: 0
+      reason: Places the decline in July-August; the real collapse is November-December (about 52%).
+    - score: 0
+      reason: 183 and 316 are right but appear only in the prose, not in key_numbers.
+    - score: 1
+      evidence: ["Recommendation: shift ParcelNow volume to SwiftShip during the summer months and review its SLA."]

@@ -1,4 +1,4 @@
-"""Eval CLI: ``python -m analyst_agent.eval {run,report,compare,list}``."""
+"""Eval CLI: ``python -m analyst_agent.eval {run,report,compare,list,tags,judge-calibrate}``."""
 
 from __future__ import annotations
 
@@ -11,6 +11,14 @@ import typer
 
 from analyst_agent.core.config import Settings
 from analyst_agent.eval.agent import load_agent
+from analyst_agent.eval.calibration import (
+    DEFAULT_CALIBRATION_ROOT,
+    CalibrationError,
+    OracleJudgeLLM,
+    load_samples,
+    render_calibration,
+    run_calibration,
+)
 from analyst_agent.eval.judge import BatchJudge, LLMJudge, judge_configured
 from analyst_agent.eval.report import compare_runs, report_run, summarize
 from analyst_agent.eval.runner import (
@@ -115,6 +123,14 @@ def run(
         ),
     ] = False,
     no_score: bool = False,
+    judge_samples: Annotated[
+        int,
+        typer.Option(
+            min=1,
+            help="ask the L3 rubric judge N times per task and score the mean; the report "
+            "shows the spread (judge variance). Costs N times the L3 judge spend",
+        ),
+    ] = 1,
     isolation: Annotated[
         str,
         typer.Option(help="process: each task in a child process killed on timeout | inline"),
@@ -217,6 +233,7 @@ def run(
         routing = cfg.get("routing_enabled", routing)
         semantic_layer = cfg.get("semantic_layer_enabled", semantic_layer)
         auto_approve = cfg.get("auto_approve", auto_approve)
+        judge_samples = cfg.get("judge_samples", judge_samples)
         if budget_usd is None:
             budget_usd = cfg.get("budget_usd")
         difficulty, tag, task, limit, all_tags = (
@@ -263,6 +280,7 @@ def run(
         auto_approve=auto_approve,
         budget_usd=budget_usd,
         batch_judge=isinstance(judge, BatchJudge),
+        judge_samples=judge_samples,
         filters={
             "difficulty": difficulty,
             "tag": tag,
@@ -345,6 +363,78 @@ def compare(run_a: Path, run_b: Path, out: Path | None = None) -> None:
     if out:
         out.write_text(md)
     typer.echo(md)
+
+
+@app.command("judge-calibrate")
+def judge_calibrate(
+    judge_samples: Annotated[
+        int,
+        typer.Option(
+            min=1, help="ask the judge N times per sample; reports mean and spread (variance)"
+        ),
+    ] = 1,
+    judge_model: Annotated[
+        str | None, typer.Option(help="default: AGENT_JUDGE_MODEL, else AGENT_MODEL")
+    ] = SETTINGS.judge_model,
+    fake: Annotated[
+        bool,
+        typer.Option(
+            help="offline: a fake judge LLM that answers with the human labels (checks the "
+            "pipeline, agrees 100% by construction; no API calls)"
+        ),
+    ] = False,
+    concurrency: Annotated[int, typer.Option(min=1)] = SETTINGS.eval_concurrency,
+    task: TaskId = None,
+    calibration_dir: Path = DEFAULT_CALIBRATION_ROOT,
+    benchmarks: Path = DEFAULT_BENCHMARK_ROOT,
+    out: Annotated[Path | None, typer.Option(help="write the Markdown report here")] = None,
+    json_out: Annotated[
+        Path | None, typer.Option("--json", help="write the full results (JSON) here")
+    ] = None,
+    fail_under: Annotated[
+        float | None,
+        typer.Option(help="exit 1 if verdict agreement with the human labels is below this (0-1)"),
+    ] = None,
+) -> None:
+    """Run the L3 rubric judge over hand-labelled reports and report agreement with humans."""
+    try:
+        samples, tasks = load_samples(calibration_dir, benchmarks)
+    except CalibrationError as e:
+        typer.secho(str(e), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=2) from e
+    if task:
+        samples = [s for s in samples if s.task_id in set(task)]
+        if not samples:
+            raise typer.BadParameter("no calibration samples for these tasks", param_hint="--task")
+    if fake:
+        judge = LLMJudge(llm=OracleJudgeLLM(samples), model=judge_model)
+    elif not judge_configured():
+        typer.secho(
+            "no judge configured (set ANTHROPIC_API_KEY, or pass --fake)",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    else:
+        judge = LLMJudge(model=judge_model, effort=SETTINGS.judge_effort)
+    summary = asyncio.run(
+        run_calibration(samples, tasks, judge, n_samples=judge_samples, concurrency=concurrency)
+    )
+    summary["judge_model"] = "fake" if fake else (judge_model or "AGENT_MODEL")
+    summary["judge_cost"] = judge.cost_summary()
+    md = render_calibration(summary)
+    if out:
+        out.write_text(md)
+    if json_out:
+        json_out.write_text(json.dumps(summary, indent=2, default=str))
+    typer.echo(md)
+    agreement = summary["verdict_agreement"]
+    if summary["errors"]:
+        typer.secho(f"{summary['errors']} sample(s) not graded", fg=typer.colors.YELLOW, err=True)
+    if fail_under is not None and (agreement is None or agreement < fail_under):
+        acc = "n/a" if agreement is None else f"{agreement:.1%}"
+        typer.secho(f"FAILED: agreement {acc} < {fail_under:.1%}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":

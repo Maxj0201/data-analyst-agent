@@ -1,0 +1,41 @@
+id: l3_saas_churn_drivers__subtly_wrong
+task_id: l3_saas_churn_drivers
+kind: subtly_wrong
+note: >-
+  Names North America as the worst region (APAC is), and quotes the billing-cycle rates in
+  prose without putting them in key_numbers (the key-numbers rule). Four of six points: fails
+  the 0.67 threshold.
+report: |
+  ## Subscription churn drivers
+
+  27.8% of subscriptions have churned.
+
+  Basic has the highest churn rate (39.8%), and churn falls on higher tiers down to 11.6% for Enterprise.
+
+  Monthly subscriptions churn more than annual ones (34% vs 18%).
+
+  North America has the highest churn rate of any region at 28.3%.
+
+  Price is the most common churn reason.
+
+  Recommendations: move monthly Basic customers to annual plans with a discount and invest in North American customer success.
+key_numbers:
+  churn_rate: 0.278
+  basic_churn_rate: 0.398
+  enterprise_churn_rate: 0.116
+  north_america_churn_rate: 0.283
+labels:
+  passed: false
+  points:
+    - score: 1
+      evidence: ["27.8% of subscriptions have churned."]
+    - score: 1
+      evidence: ["Basic has the highest churn rate (39.8%), and churn falls on higher tiers down to 11.6% for Enterprise."]
+    - score: 0
+      reason: 34% and 18% are right but are not in key_numbers.
+    - score: 0
+      reason: APAC (31.7%) has the highest churn rate, not North America.
+    - score: 1
+      evidence: ["Price is the most common churn reason."]
+    - score: 1
+      evidence: ["Recommendations: move monthly Basic customers to annual plans with a discount and invest in North American customer success."]

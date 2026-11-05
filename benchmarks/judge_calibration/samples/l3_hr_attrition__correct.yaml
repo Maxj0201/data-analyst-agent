@@ -1,0 +1,38 @@
+id: l3_hr_attrition__correct
+task_id: l3_hr_attrition
+kind: correct
+note: All four points with figures in key_numbers.
+report: |
+  ## Employee attrition
+
+  60 employees left in 2025 against 376 employed at the start of the year, an attrition rate of 16.0%.
+
+  Termination rates (terminated / everyone ever employed in the department) are highest in Sales (33.8%, 26 of 77) and Support (32.6%, 29 of 89); Marketing is lowest at 7.9%.
+
+  Performance matters most: employees rated 1-2 have a 47.8% termination rate versus 16.9% for those rated 3-5.
+
+  Recommendations: run stay interviews and review workload and pay in Sales and Support, and pair low performers with structured improvement plans and coaching before they reach the exit stage.
+key_numbers:
+  terminations_2025: 60
+  headcount_start_2025: 376
+  attrition_rate_2025: 0.16
+  sales_termination_rate: 0.338
+  sales_terminated: 26
+  sales_ever_employed: 77
+  support_termination_rate: 0.326
+  support_terminated: 29
+  support_ever_employed: 89
+  marketing_termination_rate: 0.079
+  low_rating_termination_rate: 0.478
+  other_rating_termination_rate: 0.169
+labels:
+  passed: true
+  points:
+    - score: 1
+      evidence: ["60 employees left in 2025 against 376 employed at the start of the year, an attrition rate of 16.0%."]
+    - score: 1
+      evidence: ["Termination rates (terminated / everyone ever employed in the department) are highest in Sales (33.8%, 26 of 77) and Support (32.6%, 29 of 89); Marketing is lowest at 7.9%."]
+    - score: 1
+      evidence: ["Performance matters most: employees rated 1-2 have a 47.8% termination rate versus 16.9% for those rated 3-5."]
+    - score: 1
+      evidence: ["Recommendations: run stay interviews and review workload and pay in Sales and Support, and pair low performers with structured improvement plans and coaching before they reach the exit stage."]
