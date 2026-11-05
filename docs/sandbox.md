@@ -98,7 +98,7 @@ data: the sandbox never interpolates data values into SQL.
 | Memory | `RLIMIT_AS` (default 1 GiB) via `resource.setrlimit`, applied by the child's `sitecustomize` before any other code (no `preexec_fn`, which can deadlock in a threaded server). Allocation bombs raise `MemoryError` → `MemoryLimitExceeded` | OS |
 | Other rlimits | `RLIMIT_CPU` (timeout + 5 s), `RLIMIT_FSIZE` 64 MiB (a full disk or giant files), `RLIMIT_NOFILE` 256, no core dumps. Hard limit = soft limit, and seccomp blocks `setrlimit`/`prlimit64`, so the child cannot raise them | OS |
 | seccomp-bpf (`_child/_oslock.py`) | Installed on every thread just before user code. These fail with `EPERM`: `execve`/`execveat`, `fork`/`vfork`, `clone` without `CLONE_THREAD`; **every** `socket()`, `AF_UNIX` included; `ptrace`, `process_vm_*`, `pidfd_*`, `kcmp`; signals to any process but itself (`kill`/`tgkill`/`rt_*sigqueueinfo` are checked against the child's pid); rlimit, priority and scheduler changes; namespace and mount syscalls; `chmod`/`chown`/`utimes`/xattr changes (path and fd forms) and `chattr`-style `ioctl`s; and host-wide syscalls that need a capability the service may hold as root (`reboot`, `init_module`, `kexec_*`, `sethostname`, `settimeofday`/`clock_settime`, `syslog`, `swapon`, `acct`, `iopl`, …). `clone3` and every syscall numbered 463 or higher (newer than anything the interpreter uses) get `ENOSYS`. Foreign-ABI (i386/x32) syscalls are refused. The full list is `_DENIED` / `_SELF_ONLY` / `_IOCTL_DENIED` in `_oslock.py`; the program is 115 BPF instructions on x86_64 and 103 on aarch64 (which lacks the legacy `fork`/`chmod`/`utime` syscalls). Required on Linux: if it cannot be installed, the bootstrap refuses to run | Kernel |
-| Landlock (`_child/_oslock.py`) | Same moment. Reads only under the read roots (interpreter, site-packages, fonts, tzdata, matplotlib cache), writes only in the temp dir, no `execve` of anything, no TCP bind/connect (ABI 4+), no signals to outside processes (ABI 6+). Best effort: kernels without Landlock (< 5.13, some gVisor setups) log `[sandbox] Landlock unavailable` to stderr and fall back to the audit hook | Kernel |
+| Landlock (`_child/_oslock.py`) | Same moment. Reads only under the read roots (interpreter, site-packages, fonts, tzdata, matplotlib cache), writes only in the temp dir, no `execve` of anything, no TCP bind/connect (ABI 4+), no signals to outside processes (ABI 6+). Best effort: kernels without Landlock (< 5.13, some gVisor setups) log `[sandbox] Landlock unavailable` to the child's stderr (which the model sees) and, once per process, a `WARNING` on the `analyst_agent.sandbox.python_runner` logger in the parent, then fall back to the audit hook | Kernel |
 | Scrubbed environment | Only `PATH`, `HOME`/`TMPDIR` (= the temp dir), locale, matplotlib and thread settings. **No** API keys, proxy variables or cloud credentials reach the child | OS |
 | Temp cwd | A new `TemporaryDirectory`, deleted after the run. Only allowlisted file types are copied out, never via symlinks | OS |
 | Output caps | stdout/stderr go to files (bounded by `RLIMIT_FSIZE`) and only the first 64 KiB is read back | OS |
@@ -250,8 +250,9 @@ Be honest about this before exposing the agent to untrusted users:
   Cloud Run with egress restricted to a VPC that has no route out), or wrap the child in a
   network namespace (nsjail, bubblewrap, gVisor).
 - **Filesystem isolation depends on Landlock.** On kernels without it, only the audit hook
-  limits file access, and native code can bypass the hook (see above). Check stderr for
-  `[sandbox] Landlock unavailable`. Use a read-only root filesystem, a non-root user, and
+  limits file access, and native code can bypass the hook (see above). Look for the
+  `sandbox confinement degraded: Landlock unavailable` warning in the server log (it is logged
+  once per process; the child's stderr also carries `[sandbox] Landlock unavailable`). Use a read-only root filesystem, a non-root user, and
   mount only the data directory you intend to expose. Don't run as root.
 - **Reads from the Python installation are allowed** (libraries need them). Don't install
   secrets inside the venv.
