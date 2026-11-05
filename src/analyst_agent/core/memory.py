@@ -31,6 +31,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from analyst_agent.sandbox import quote_ident
+
 if TYPE_CHECKING:
     from analyst_agent.tools.base import ToolContext
 
@@ -39,10 +41,6 @@ log = logging.getLogger(__name__)
 MAX_FINDINGS_CHARS = 600
 
 # --------------------------------------------------------------------------- fingerprint
-
-
-def _q(name: str) -> str:
-    return '"' + name.replace('"', '""') + '"'
 
 
 def dataset_fingerprint(ctx: ToolContext) -> str:
@@ -66,10 +64,10 @@ def dataset_fingerprint(ctx: ToolContext) -> str:
         if not cols.ok or not cols.rows:
             raise RuntimeError(cols.error or f"cannot read schema of {table!r}")
         schema = ",".join(f"{r['column_name']}:{r['data_type']}" for r in cols.rows)
-        row = ", ".join(_q(str(r["column_name"])) for r in cols.rows)
+        row = ", ".join(quote_ident(str(r["column_name"])) for r in cols.rows)
         stats = ctx.run_sql(
             f"SELECT COUNT(*) AS n, COALESCE(SUM(hash(row({row}))), 0)::VARCHAR AS h "
-            f"FROM {_q(table)}"
+            f"FROM {quote_ident(table)}"
         )
         if not stats.ok or not stats.rows:
             raise RuntimeError(

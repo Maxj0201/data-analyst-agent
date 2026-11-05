@@ -101,7 +101,8 @@ def validate_query(con: duckdb.DuckDBPyConnection, query: str) -> None:
     raise StatementNotAllowed(f"Statement type {stmt_type.name} is not allowed. {_ALLOWED_MSG}")
 
 
-def _ms_since(start: float) -> int:
+def ms_since(start: float) -> int:
+    """Milliseconds elapsed since a ``time.monotonic()`` reading (shared with python_runner)."""
     return int((time.monotonic() - start) * 1000)
 
 
@@ -240,7 +241,7 @@ class DuckDBRunner:
         start = time.monotonic()
 
         def fail(kind: str, message: str) -> SqlResult:
-            return SqlResult(ok=False, error=T.fmt(kind, message), duration_ms=_ms_since(start))
+            return SqlResult(ok=False, error=T.fmt(kind, message), duration_ms=ms_since(start))
 
         if self._conn is None:
             return fail(T.NO_DATA, "No database is open; load data first.")
@@ -294,5 +295,5 @@ class DuckDBRunner:
             row_count=total,
             truncated=total > len(rows),
             markdown_preview=to_markdown(columns, rows, total),
-            duration_ms=_ms_since(start),
+            duration_ms=ms_since(start),
         )

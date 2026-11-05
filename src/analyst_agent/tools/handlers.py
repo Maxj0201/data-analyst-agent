@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from analyst_agent.sandbox import quote_ident
 from analyst_agent.tools.base import Tool, ToolContext, ToolResult
 from analyst_agent.tools.formatting import rows_to_markdown
 from analyst_agent.tools.make_chart import CHART_TYPES, MAKE_CHART, make_chart
@@ -26,10 +27,6 @@ __all__ = [
 # --------------------------------------------------------------------------- inspect_schema
 
 
-def _quote_ident(name: str) -> str:
-    return '"' + name.replace('"', '""') + '"'
-
-
 def _describe_table(table: str, ctx: ToolContext) -> tuple[str, dict[str, Any]]:
     lit = table.replace("'", "''")
     cols = ctx.run_sql(
@@ -44,9 +41,9 @@ def _describe_table(table: str, ctx: ToolContext) -> tuple[str, dict[str, Any]]:
 
     counts_sql = ", ".join(
         ["COUNT(*) AS __n"]
-        + [f"COUNT({_quote_ident(c)}) AS c{i}" for i, (c, _) in enumerate(columns)]
+        + [f"COUNT({quote_ident(c)}) AS c{i}" for i, (c, _) in enumerate(columns)]
     )
-    counts = ctx.run_sql(f"SELECT {counts_sql} FROM {_quote_ident(table)}")
+    counts = ctx.run_sql(f"SELECT {counts_sql} FROM {quote_ident(table)}")
     if not counts.ok:
         raise RuntimeError(counts.error or "failed to count rows")
     crow = counts.rows[0]
@@ -55,7 +52,7 @@ def _describe_table(table: str, ctx: ToolContext) -> tuple[str, dict[str, Any]]:
         c: (round(1 - int(crow[f"c{i}"]) / n, 4) if n else 0.0) for i, (c, _) in enumerate(columns)
     }
 
-    sample = ctx.run_sql(f"SELECT * FROM {_quote_ident(table)} LIMIT 5")
+    sample = ctx.run_sql(f"SELECT * FROM {quote_ident(table)} LIMIT 5")
     sample_rows = sample.rows if sample.ok else []
 
     info = {
