@@ -9,7 +9,7 @@ import pytest
 from typer.testing import CliRunner
 
 from analyst_agent.eval.schema import load_tasks
-from analyst_agent.semantic import MetricRetriever, load_metrics
+from analyst_agent.semantic import BM25Backend, MetricRetriever, load_metrics, load_vocabulary
 from analyst_agent.semantic.__main__ import app
 from analyst_agent.semantic.evaluation import (
     DEFAULT_CASES,
@@ -79,18 +79,31 @@ def test_metrics_math() -> None:
 
 def test_bm25_baseline_and_aov_fix() -> None:
     cases = load_cases(DEFAULT_CASES, ROOT, metric_names(METRICS))
-    rep = evaluate(MetricRetriever(METRICS), cases, "bm25")
+    vocab = load_vocabulary(ROOT / "metrics")
+    rep = evaluate(MetricRetriever(METRICS, BM25Backend(vocabulary=vocab)), cases, "bm25")
     aov = next(r for r in rep.results if r.case.id == "l2_ecom_aov_by_segment")
     assert aov.rank == 1
     raw = evaluate(MetricRetriever(METRICS, rerank_mentions=False), cases, "bm25")
     assert next(r for r in raw.results if r.case.id == "l2_ecom_aov_by_segment").rank != 1
-    # Guard against retrieval regressions on the benchmark questions. Calibrated on the 80-task
-    # benchmark (#15: 33 tasks with an intended metric; BM25 measures top-1 0.848, top-3 0.909,
-    # MRR 0.896). The 30-task set measured top-1 >= 0.9; the new misses are "current employees"
-    # questions ranking headcount 4th and retention questions ranking attrition 2nd-3rd.
+    # Guard against retrieval regressions on the benchmark questions (33 of the 80 tasks have an
+    # intended metric). With the tuned synonyms and the analyst vocabulary
+    # (benchmarks/metrics/vocabulary.yaml) BM25 measures top-1 1.000, top-3 1.000, MRR 1.000;
+    # the guard leaves room for one or two misses, never below 0.9.
     bench = rep.summary("benchmark")
-    assert bench.top1 >= 0.84 and bench.top3 >= 0.9 and bench.mrr >= 0.88
+    assert bench.top1 >= 0.9 and bench.top3 >= 0.95 and bench.mrr >= 0.95
     assert rep.summary().top1 >= raw.summary().top1
+
+
+def test_vocabulary_helps_and_metric_yaml_alone_clears_the_guard() -> None:
+    """The phrase table adds on top of the synonyms; neither alone is load-bearing for 0.9."""
+    cases = load_cases(DEFAULT_CASES, ROOT, metric_names(METRICS))
+    vocab = load_vocabulary(ROOT / "metrics")
+    assert vocab
+    with_vocab = evaluate(MetricRetriever(METRICS, BM25Backend(vocabulary=vocab)), cases, "bm25")
+    plain = evaluate(MetricRetriever(METRICS, BM25Backend()), cases, "bm25")
+    assert plain.summary("benchmark").top1 >= 0.9
+    for g in (None, "benchmark", "paraphrase"):
+        assert with_vocab.summary(g).mrr >= plain.summary(g).mrr
 
 
 def test_cli_reports_every_backend(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

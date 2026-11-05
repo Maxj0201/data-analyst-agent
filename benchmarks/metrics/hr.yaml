@@ -11,8 +11,9 @@ metrics:
       (hired on or before the start and not terminated before it), on a 0-100 scale.
       Example below is calendar year 2025.
     tables: [employees]
-    synonyms: [employee turnover, turnover rate, employee churn, separation rate,
-               terminations, leavers, staff turnover]
+    synonyms: [attrition, employee attrition, employee turnover, turnover rate, employee churn,
+               staff churn, separation rate, terminations, leavers, staff turnover,
+               employee retention, retention rate, left the company, people who left, quit rate]
     sql_fragment: |
       WITH start_headcount AS (
         SELECT COUNT(*) AS n
@@ -36,7 +37,8 @@ metrics:
     label: Headcount
     definition: Number of current employees (employment_status = 'active').
     tables: [employees]
-    synonyms: [employees, staff count, workforce size, fte, number of employees, team size]
+    synonyms: [employee count, staff, staff count, workforce, workforce size, fte, team size,
+               people employed, number of staff]
     sql_fragment: |
       SELECT COUNT(*) AS headcount
       FROM employees
@@ -101,7 +103,7 @@ metrics:
       - For overtime hours, sum overtime_hours instead of pay.
 
   - name: average_tenure
-    label: Average tenure of current employees
+    label: Average tenure
     definition: >-
       Mean years between hire_date and the snapshot date (2025-12-31) for active employees.
     tables: [employees]
@@ -119,7 +121,8 @@ metrics:
       Share of everyone ever employed in a group (department, level, rating...) who has a
       termination_date, on a 0-100 scale.
     tables: [employees]
-    synonyms: [attrition by department, who leaves, termination share, departure rate,
+    synonyms: [attrition by department, attrition by group, cohort attrition,
+               retention by cohort, who leaves, termination share, departure rate,
                attrition drivers]
     sql_fragment: |
       SELECT department,
