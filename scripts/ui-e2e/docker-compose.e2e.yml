@@ -1,0 +1,35 @@
+# Override for `scripts/ui-e2e/run.sh --docker`: the real images, but the API container runs the
+# dry-run harness (real API + AgentLoop + sandbox + ApprovalBroker, scripted LLM) instead of the
+# production app, with every AGENT_*_ENABLED flag on and every SELECT gated.
+#   docker compose -f docker-compose.yml -f scripts/ui-e2e/docker-compose.e2e.yml up --build
+services:
+  api:
+    command:
+      - uvicorn
+      - --app-dir
+      - /harness
+      - dryrun_api:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    volumes:
+      - ./scripts/ui-e2e:/harness:ro
+    environment:
+      AGENT_ROUTING_ENABLED: "true"
+      AGENT_SEMANTIC_LAYER_ENABLED: "true"
+      AGENT_STRUCTURED_REPORT_ENABLED: "true"
+      AGENT_MEMORY_ENABLED: "true"
+      AGENT_APPROVAL_ENABLED: "true"
+      AGENT_APPROVAL_ROW_THRESHOLD: "0"
+      AGENT_LANGFUSE_ENABLED: "true"
+      AGENT_TRACE_STORE_ENABLED: "true"
+      AGENT_LOG_JSON_ENABLED: "true"
+      AGENT_SAMPLES_ENABLED: "true"
+      AGENT_JUDGE_BATCH_ENABLED: "true"
+      # The scripted LLM never calls the API; make sure nothing can.
+      ANTHROPIC_API_KEY: ""
+      ANTHROPIC_BASE_URL: http://127.0.0.1:9
+      # Langfuse is on but keyless (the client disables itself), even if .env holds real keys.
+      LANGFUSE_PUBLIC_KEY: ""
+      LANGFUSE_SECRET_KEY: ""
