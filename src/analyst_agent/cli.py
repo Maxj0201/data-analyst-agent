@@ -15,6 +15,9 @@ from analyst_agent.tools.base import table_name_for
 
 app = typer.Typer(add_completion=False, help="Autonomous data analyst agent.")
 
+# Either one lets the Anthropic SDK authenticate (same pair as eval.judge.CREDENTIAL_ENV_VARS).
+_CREDENTIAL_ENV_VARS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
+
 
 @app.callback()
 def _main() -> None:
@@ -99,6 +102,14 @@ def ask(
         }.items()
         if v is not None
     }
+    if not dry_run and not any(os.environ.get(v) for v in _CREDENTIAL_ENV_VARS):
+        typer.secho(
+            "No Anthropic credentials: set ANTHROPIC_API_KEY (or ANTHROPIC_AUTH_TOKEN), "
+            "or add --dry-run to run the whole pipeline offline with a scripted LLM.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2)
     settings = Settings(**overrides)
     # Keep stderr quiet for interactive use unless asked: --verbose, JSON logs or an explicit
     # AGENT_LOG_LEVEL turn the structured log lines (with run_id) on.
