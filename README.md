@@ -13,7 +13,7 @@ live model yet:** every number below comes from offline runs with a scripted LLM
 
 ## How this was built
 
-The architecture, interface contracts, evaluation design and security requirements were specified by me; the implementation was produced by parallel Claude Code sessions working from those specifications, then merged through six integration rounds and two adversarial review rounds that I directed. Every bug and design decision recorded in `docs/` was found and resolved through that process. The original session briefs are in `docs/history/kickoff/`.
+The architecture, interface contracts, evaluation design and security requirements were specified by me; the implementation was produced by parallel Claude Code sessions working from those specifications, then merged through eight integration rounds and two adversarial review rounds that I directed. Every bug and design decision recorded in `docs/` was found and resolved through that process. The original session briefs are in `docs/history/kickoff/`.
 
 ## See it run
 

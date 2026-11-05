@@ -226,7 +226,7 @@ Measurement first, then hardening, then breadth (README roadmap, integration not
 
 ## 4. The five hardest integration bugs (STAR)
 
-Twenty-one branches were built in parallel against a written contract and merged in six rounds
+The branches behind PRs #1–#33 were built in parallel against a written contract and merged in eight rounds
 ([integration-notes.md](integration-notes.md)). Each bug below passed on its own branch. Stories
 1 to 3 surfaced while merging; stories 4 and 5 were found by the hostile review of the merged
 tree. Each story is under 120 words, evidence line included.

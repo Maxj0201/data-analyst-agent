@@ -1,5 +1,111 @@
 # Integration notes
 
+## Round 8: #31, #32, #33 (2026-11-05)
+
+Three post-release PRs. All three branched from `011c0b6`, the end of round 7, and were merged
+into `main` in this order as merge commits. After each merge I ran
+`uv sync --all-extras --no-extra embeddings` and `make check`. Since #31, `make lint` also runs
+`scripts/check_docs.py`, so CI's lint step now checks the docs as well.
+
+| Order | PR | Branch | Merge | Result | Tests after | Coverage (overall / `sandbox/` / `core/loop.py`) |
+|---|---|---|---|---|---|---|
+| 1 | #31 | `chore/docs-consistency` | `e9118b4` | clean | 1062 | 94% / 99% / 100% |
+| 2 | #32 | `chore/fresh-clone-audit` | `2d6c3fe` | clean; `make lint` red, fixed in `b83595c` | 1074 | 94% / 99% / 100% |
+| 3 | #33 | `fix/macos-sandbox` | `44f9196` | 1 conflict, below | 1074 | 94% / 98% / 100% |
+| – | | CI step name (`a02f922`), round-count wording, these notes | this commit | | 1074 | unchanged |
+
+### Collision points
+
+- **#31's `check_docs.py` versus #32's new doc.** The merge was textually clean, but `make lint`
+  went red on two findings in `docs/fresh-clone-audit.md`, which #32 wrote without the checker.
+  Both were false positives in substance. One was the to-do checker's trigger word, used in prose for the
+  dummy key that `--dry-run` injects. The other was O2 quoting `python -m` on the API app module,
+  precisely because it is *not* a supported entry point. I reworded the doc (`b83595c`) and left the checker
+  unchanged, because its rules are right for every other doc.
+- **#32 and #33 both fixed the flaky `test_runner_maps_engine_exceptions`**
+  (`tests/sandbox/test_runner_branches.py`, the one textual conflict). #32 fires only timers
+  that did not exist before the call. #33 fires only timers whose `finished` event is unset.
+  I kept both conditions in one `if`, since each is sufficient on its own and neither changes
+  the other's meaning. #32's `docs/fresh-clone-audit.md` F7 still describes the fix accurately.
+- **#31's `make lint` versus #33's `test-macos` CI job.** The job runs `make lint`, so it now
+  also runs `check_docs.py`, but #33 labelled the step "ruff check + ruff format --check". The
+  label now names the docs check too (`a02f922`). `check_docs.py` uses only the standard
+  library and the project's own CLIs, so nothing in it should differ on macOS. That is
+  untested, because no macOS runner was available here.
+- **`docs/final-review.md`, `README.md`, `CHANGELOG.md`.** #31 and #32 both edited
+  `final-review.md` (#31 reworded a line that its own checker flagged, #32 appended the N9
+  resolution), and #31 and #33 both edited the README. All in different hunks, all kept.
+- **Dependencies.** Only #32 touched them. It moved `httpx` and `pyarrow` into the `dev` group,
+  and changed the `analyst-agent-mcp` entry point to `analyst_agent.extras:mcp_main`.
+  `uv lock --check` passes after every merge.
+- **#32's `docs/eval-runbook.md` and `scripts/preflight.sh` versus #33's
+  `scripts/run_experiments.sh`.** These are different files; both sets of changes are kept as
+  written.
+
+### After #33, on this Linux host
+
+- **No sandbox test is skipped by `linux_only`.** `pytest -rs tests/sandbox`: 271 passed,
+  1 deselected (the slow fuzzer), **0 skipped**. `pytest -m linux_only tests`: 62 passed,
+  0 skipped. The marker's skip is added only when `sys.platform != "linux"`
+  (`tests/conftest.py`), so on Linux the marker is a no-op.
+- **Fuzz regression tests pass.** The *gaps found by the escape fuzzer* block in
+  `tests/sandbox/test_python_security.py` gave 11 passed, 0 skipped, and
+  `tests/sandbox/test_oslock_unit.py` (including the seccomp rules added after the fuzzer)
+  gave 46 passed. The fuzzer itself (`test_fuzz_escape.py`, slow and normally nightly) ran with
+  the default seed, together with its corpus check: 2 passed in 105 s.
+- **`sandbox/` coverage went from 99% to 98%** (floor 97). The uncovered lines are #33's lazy
+  `_linux_libc()` body in `sandbox/_child/_oslock.py`, which runs only inside the sandbox child,
+  where the parent's coverage does not reach it, and the non-Linux branch.
+
+### Edits after the merges
+
+1. **Round count.** README "How this was built", `docs/design-decisions.md` (Part 2) and
+   `docs/resume.md` (§4) said six integration rounds. This file now records **eight**, so all
+   three say eight. The latter two named the range of PRs as well. `design-decisions.md` now says "PRs #1–#33, two to six
+   at a time" (the rounds held 5, 6, 6, 4, 2, 4, 3 and 3 PRs). In `resume.md`, "Twenty-one
+   branches" became "The branches behind PRs #1–#33", because 21 matched no count I could
+   reconstruct. `CHANGELOG.md` keeps "six rounds", because it records v0.1.0, which is
+   accurate for #1–#27.
+2. **`docs/fresh-clone-audit.md`**: the two rewordings above.
+3. **`.github/workflows/ci.yml`**: the macOS lint step name.
+
+### Verification (all local, no API key)
+
+- `make check` green after each merge and after the edits. Lint and format are clean, and
+  `check_docs: 35 Markdown file(s) OK`. 1074 passed, 1 slow deselected, 0 skipped. Coverage is
+  94% overall, 98% `sandbox/` and 100% `core/loop.py`. The oracle scored 5/5 at 100%, and
+  both dry-run eval steps had 0 errors.
+- `uv lock --check`: passes.
+- `scripts/check_docs.py` was run last, after these notes: no findings.
+
+### Branches
+
+The only remote branches are `main` and this round's three: `chore/docs-consistency`,
+`chore/fresh-clone-audit` and `fix/macos-sandbox`. All three are now contained in `main`. The
+round 7 branches are already gone, so final-review N5 is closed except for these three. To delete them with
+repository write access:
+
+```bash
+git push origin --delete chore/docs-consistency chore/fresh-clone-audit fix/macos-sandbox
+```
+
+### Still open after round 8
+
+The round 7 list ([Still open](#still-open)) stands, with these changes:
+
+- **Closed:** final-review N9, plain `uv sync` (#32, see `docs/fresh-clone-audit.md`). Round 7's
+  "wording to check" is also closed (edit 1 above).
+- **New:**
+  - `test-macos` has not run yet, so the first macOS CI run is the first evidence for #33's
+    fallback.
+  - Fresh-clone audit O1 (preflight still FAILs missing `api`, `frontend` and `mcp` extras),
+    O5 (no pyarrow at runtime, so `to_parquet` in `run_python` fails on a plain install) and
+    O6 (the cosmetic `mcp` skip reason) were left for the owner.
+- **Still open:** N1, no live-model numbers, remains the biggest gap. N7 (duplicated parsers)
+  and N8 (large modules) are also open, along with round 6's items 1–11 and 13–19.
+
+---
+
 ## Round 7 (final): #29, #30, #28 and the README provenance edits (2026-11-05)
 
 This is the last integration round. It lands after the `v0.1.0` tag (`3071120`), so the tag and

@@ -354,8 +354,8 @@ one uvicorn worker, and the limitation is documented (review L14).
 
 ## Part 2: Integration stories
 
-Branches for PRs #1–#27, four to six at a time, were built in parallel against a written
-interface contract, then merged in six rounds. After every merge the full suite, lint and format had to be green. The bugs
+Branches for PRs #1–#33, two to six at a time, were built in parallel against a written
+interface contract, then merged in eight rounds. After every merge the full suite, lint and format had to be green. The bugs
 below each passed on their own branch and failed only in combination, which is the argument for
 an integration step that runs *everything* and for regression tests that name the original
 finding.
