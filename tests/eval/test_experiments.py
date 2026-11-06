@@ -13,10 +13,14 @@ from analyst_agent.core.llm import Usage, estimate_cost_usd
 from analyst_agent.eval.experiments import (
     AGENT_PROFILE,
     CONTROL,
+    CRITIC_PROFILE,
     HAIKU,
+    MODEL_PROFILES,
     PLAN,
     SONNET,
+    agent_profile,
     app,
+    critic_profile,
     estimate_run,
     level_counts,
     plan_table,
@@ -62,15 +66,35 @@ def test_estimate_orders_arms_sensibly() -> None:
     assert cost["routing-on"].router_usd > 0 and cost[CONTROL].router_usd == 0
     # the judge is the same model in every arm, so it costs the same everywhere
     assert len({round(c.judge_usd, 6) for c in cost.values()}) == 1
-    # agent cost is the per-task profile at each model's prices (not a plain price ratio:
-    # Sonnet 5.5 reads cache at 0.05x input, Haiku 5.5 at 0.1x)
+    # agent cost is each model's own per-task profile at its prices (Haiku 5.5 has its own
+    # calibrated profile; Sonnet 5.5 uses the default one)
     for arm, model in ((CONTROL, SONNET), ("haiku", HAIKU)):
         expected = sum(
-            n * estimate_cost_usd(model, AGENT_PROFILE[level], single_request=False)
+            n * estimate_cost_usd(model, agent_profile(model, level), single_request=False)
             for level, n in COUNTS.items()
         )
         assert cost[arm].agent_usd == pytest.approx(expected)
     assert cost["haiku"].agent_usd < cost[CONTROL].agent_usd
+
+
+def test_models_without_a_profile_use_the_default_one() -> None:
+    assert agent_profile(SONNET, "L3") == AGENT_PROFILE["L3"]
+    assert critic_profile(SONNET, "L3") == CRITIC_PROFILE["L3"]
+    assert agent_profile("claude-mystery-9", "L1") == AGENT_PROFILE["L1"]
+    # Haiku's own (smoke-calibrated) profile: about twice Sonnet's tool calls on L3
+    haiku, haiku_critic = MODEL_PROFILES[HAIKU]
+    assert agent_profile(HAIKU, "L3") == haiku["L3"] != AGENT_PROFILE["L3"]
+    assert critic_profile(HAIKU, "L2") == haiku_critic["L2"]
+    assert set(haiku) == set(haiku_critic) == set(AGENT_PROFILE)
+
+
+def test_profiles_reproduce_the_calibration_smoke_run() -> None:
+    """The 2026-11-06 smoke run (2 tasks per level, batched judge) spent $0.0952 on Haiku and
+    $0.4152 on Sonnet; the calibrated profiles must re-estimate it within 5%."""
+    smoke = {"L1": 2, "L2": 2, "L3": 2, "ADV": 2}
+    for env, spent in (({"AGENT_MODEL": HAIKU}, 0.0952), ({}, 0.4152)):
+        est = estimate_run(settings_for(env), smoke, batch_judge=True)
+        assert est.total_usd == pytest.approx(spent, rel=0.05)
 
 
 def test_estimate_flags_unpriced_models() -> None:

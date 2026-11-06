@@ -528,7 +528,8 @@ def run_preflight(
     if unpriced:
         echo(f"  note: no price for {', '.join(unpriced)}; estimated at the default (Opus) price")
     echo(
-        "  Token profiles are planning assumptions (±50%): after the baseline compare with "
+        "  Token profiles are calibrated on the 8-task smoke run of 2026-11-06 (±50%): after the "
+        "baseline compare with "
         "'Mean cost / task' in its report.md."
     )
 

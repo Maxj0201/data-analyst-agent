@@ -30,6 +30,10 @@ from analyst_agent.core.config import Settings
 from analyst_agent.core.llm import PRICING, Usage, estimate_cost_usd
 from analyst_agent.eval.report import (
     DIFFICULTIES,
+    JUDGE_MODE_LABELS,
+    JudgeModeMismatch,
+    check_same_judge_mode,
+    judge_mode,
     load_meta,
     semantic_retrieval,
     summarize,
@@ -42,26 +46,65 @@ from analyst_agent.eval.schema import DEFAULT_BENCHMARK_ROOT, load_tasks
 # Token profiles (planning assumptions; per task, summed over every call of that role)
 # --------------------------------------------------------------------------------------------
 
-# Agent loop: the system prompt + tool schemas are cached (one write, a read per later turn);
-# uncached input is the growing conversation (tool results). Output includes thinking.
+# Calibrated on the 8-task smoke run of 2026-11-06 (scripts/run_experiments.sh --limit 8
+# --only baseline): 2 tasks per level and model, so treat these as ±50% until the full baseline
+# is in. The run recorded agent + critic tokens together (same model); the critic's share of the
+# uncached input / output is kept from the earlier assumptions (about 25-32% / 17-29%).
+#
+# Agent loop, Sonnet 5.5 (the control and the default for any model without its own profile).
+# The system prompt + tool schemas are cached and shared across a run's tasks, so later tasks
+# mostly read the cache (the L3 / ADV tasks wrote none); uncached input is the conversation.
 AGENT_PROFILE: dict[str, Usage] = {
-    "L1": Usage(15_000, 4_000, 12_000, 45_000),  # ~4 turns
-    "L2": Usage(30_000, 9_000, 15_000, 110_000),  # ~7 turns
-    "L3": Usage(60_000, 20_000, 20_000, 260_000),  # ~12 turns
-    "ADV": Usage(20_000, 5_000, 12_000, 60_000),  # ~5 turns
+    "L1": Usage(2_500, 700, 3_200, 4_600),  # ~4 tool calls
+    "L2": Usage(7_700, 1_500, 2_300, 9_000),  # ~6
+    "L3": Usage(21_200, 4_100, 0, 14_700),  # ~11
+    "ADV": Usage(3_800, 600, 0, 7_800),  # ~4
 }
-# Critic: ~1.3 reviews per task (a revise on roughly a third of tasks), uncached.
+# Critic: one review per task for Sonnet in the smoke run, uncached.
 CRITIC_PROFILE: dict[str, Usage] = {
-    "L1": Usage(7_000, 1_500),
-    "L2": Usage(11_000, 2_500),
-    "L3": Usage(20_000, 4_000),
-    "ADV": Usage(9_000, 2_000),
+    "L1": Usage(1_200, 200),
+    "L2": Usage(2_800, 400),
+    "L3": Usage(7_100, 800),
+    "ADV": Usage(1_700, 200),
 }
-# LLM judge (effort low): L3 rubric grading, ADV behaviour grading. L1/L2 are not judged.
+# Models that used markedly different token counts: (agent, critic) per level, keyed by the
+# agent's model (the critic reviews that model's drafts). Haiku 5.5 took about twice the tool
+# calls on L3 (~22) and 1.5 / 2.0 critic reviews on L2 / L3.
+MODEL_PROFILES: dict[str, tuple[dict[str, Usage], dict[str, Usage]]] = {
+    "claude-haiku-5-5": (
+        {
+            "L1": Usage(2_900, 1_200, 3_200, 4_600),
+            "L2": Usage(17_700, 4_200, 2_300, 11_700),
+            "L3": Usage(118_600, 22_300, 0, 29_400),
+            "ADV": Usage(4_300, 1_200, 0, 7_800),
+        },
+        {
+            "L1": Usage(1_300, 500),
+            "L2": Usage(6_500, 1_200),
+            "L3": Usage(39_500, 4_500),
+            "ADV": Usage(1_900, 500),
+        },
+    ),
+}
+
+
+def agent_profile(model: str, level: str) -> Usage:
+    return MODEL_PROFILES[model][0][level] if model in MODEL_PROFILES else AGENT_PROFILE[level]
+
+
+def critic_profile(agent_model: str, level: str) -> Usage:
+    if agent_model in MODEL_PROFILES:
+        return MODEL_PROFILES[agent_model][1][level]
+    return CRITIC_PROFILE[level]
+
+
+# LLM judge (effort low): L3 rubric grading, ADV behaviour grading. L1/L2 are not judged. The
+# smoke run's judge totals, split between L3 and ADV by prompt and verdict size.
 JUDGE_PROFILE: dict[str, Usage] = {
-    "L3": Usage(6_000, 1_000),
-    "ADV": Usage(4_000, 600),
+    "L3": Usage(4_000, 740),
+    "ADV": Usage(860, 110),
 }
+# Not exercised by the smoke run (features off): still planning assumptions.
 ROUTER_PROFILE = Usage(1_500, 150)  # one classifier call per task
 # Semantic layer: top-k definitions in the first user message, re-read from cache each turn.
 SEMANTIC_EXTRA = Usage(1_200, 0, 0, 6_000)
@@ -135,7 +178,7 @@ def estimate_run(
             if settings.routing_enabled
             else settings.model
         )
-        agent = AGENT_PROFILE[level]
+        agent = agent_profile(model, level)
         if settings.semantic_layer_enabled:
             agent = _plus(agent, SEMANTIC_EXTRA)
         if settings.structured_report_enabled:
@@ -144,7 +187,9 @@ def estimate_run(
         c = (
             n
             * estimate_cost_usd(
-                settings.resolved_critic_model, CRITIC_PROFILE[level], single_request=False
+                settings.resolved_critic_model,
+                critic_profile(model, level),
+                single_request=False,
             )
             if critic_on
             else 0.0
@@ -514,13 +559,18 @@ def render_summary(rows: list[ManifestRow], header: dict[str, str] | None = None
         by_exp.setdefault(row.experiment, []).append(
             ArmStats(row, base.summary, base.meta, base.results)
         )
+    check_same_judge_mode({str(path): arm.meta for path, arm in cache.items()})
     lines = ["# Experiment results", ""]
     for k, v in (header or {}).items():
         lines.append(f"- {k}: {v}")
     first = next(iter(cache.values()), None)
     if first is not None:
         judge = (first.meta.get("config") or {}).get("judge_model") or "off"
-        lines.append(f"- git: `{first.meta.get('git_sha')}`; judge: `{judge}`")
+        mode = judge_mode(first.meta)
+        lines.append(
+            f"- git: `{first.meta.get('git_sha')}`; judge: `{judge}`"
+            + (f" ({JUDGE_MODE_LABELS[mode]})" if mode else "")
+        )
     lines += [
         "- Accuracy is over scored tasks (ungraded and over-budget tasks are excluded); one L3 "
         "or ADV task is 6.25 pp of that level, one L1/L2 task 4.2 pp. Differences of one or two "
@@ -642,7 +692,11 @@ def summary(
     header = {"manifest": ", ".join(f"`{m}`" for m in manifest)}
     if agent:
         header["agent"] = f"`{agent}`"
-    md = render_summary(rows, header)
+    try:
+        md = render_summary(rows, header)
+    except JudgeModeMismatch as e:
+        typer.secho(f"error: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=2) from e
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(md)
     typer.echo(md)

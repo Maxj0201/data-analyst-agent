@@ -92,6 +92,7 @@ How each surface answers an approval request when `AGENT_APPROVAL_ENABLED=true`:
 | `AGENT_LOG_LEVEL` | `INFO` | Observability | Root log level for the CLI, API and eval harness. |
 | `AGENT_JUDGE_MODEL` | *(unset)* | Eval | LLM judge model for L3/ADV rubric tasks; unset = `AGENT_MODEL`. |
 | `AGENT_JUDGE_EFFORT` | `low` | Eval | Effort for the judge. |
+| `AGENT_JUDGE_STRICT_NUMBERS` | `true` | Eval | L3 rubric judge mode. `true`: a point also fails when a result figure it relies on is missing from `key_numbers` (prompt `rubric_judge`). `false` (or `eval run --lenient-judge`): content only (`rubric_judge_lenient`). Recorded in `meta.json`; `eval compare` and the experiments summary refuse to mix the two. |
 | `AGENT_JUDGE_BATCH_ENABLED` | `false` | Eval | **Feature flag.** Default of `eval run --batch/--no-batch`: send each run's judge calls as one Message Batch (half price; verdicts arrive after the last agent finishes). Falls back to direct calls when the SDK or the batch fails. |
 | `AGENT_JUDGE_BATCH_POLL_S` | `15.0` | Eval | How often a pending judge batch is polled, seconds. |
 | `AGENT_EVAL_CONCURRENCY` | `4` | Eval | Default `eval run --concurrency`. |

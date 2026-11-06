@@ -40,12 +40,12 @@ scripts/run_experiments.sh --only critic --only semantic --only routing --only s
 1. Install everything, including the `embeddings` extra the embedding/hybrid arms need.
 2. Pre-flight: key, models, extras, benchmark, metrics, output dirs, cost per experiment. A few
    1-token API calls (well under $0.01); exits 1 on any failure.
-3. Smoke test: 8 stratified tasks × 2 arms, about $2.31 estimated (cap $3.47).
-4. Baseline on all 80 tasks: about $21.81 (cap $32.71). Its Sonnet arm is the control of the rest.
-5. The other four experiments, reusing that control: about $118.47 (cap $177.70).
+3. Smoke test: 8 stratified tasks × 2 arms, about $0.51 estimated (cap $0.77).
+4. Baseline on all 80 tasks: about $4.71 (cap $7.06). Its Sonnet arm is the control of the rest.
+5. The other four experiments, reusing that control: about $23.66 (cap $35.49).
 
-Total about **$140** expected with `--batch` ($143 without); the caps stop it at about
-**$210** (plus at most `--concurrency` in-flight tasks per arm; see
+Total about **$28** expected with `--batch` ($30 without); the caps stop it at about
+**$43** (plus at most `--concurrency` in-flight tasks per arm; see
 [Cost estimates](#cost-estimates)). Each step asks before spending; `--yes` skips the prompt.
 [Tomorrow's run](#tomorrows-run-step-by-step) has what to check after each step, and
 [Results template](#results-template) how the numbers get into the README.
@@ -118,7 +118,7 @@ A `subtly_wrong` sample the judge passes is the failure that matters. See
 [benchmark.md](benchmark.md#judge-prompt-v2-rubric_judge200) and
 `benchmarks/judge_calibration/README.md`.
 
-### 2. Smoke test: 8 tasks, baseline only (~$2.31, cap $3.47)
+### 2. Smoke test: 8 tasks, baseline only (~$0.51, cap $0.77)
 
 ```bash
 scripts/run_experiments.sh --limit 8 --only baseline --batch --yes --out runs/experiments/smoke
@@ -151,7 +151,7 @@ verdicts are in). Check:
 
 The smoke numbers are 8 tasks: never put them in the README.
 
-### 3. Baseline on all 80 tasks (~$21.81, cap $32.71)
+### 3. Baseline on all 80 tasks (~$4.71, cap $7.06)
 
 ```bash
 scripts/run_experiments.sh --only baseline --batch --out runs/experiments/baseline
@@ -162,7 +162,7 @@ Check:
 - Exit status 0, no `incomplete arms`; in both `report.md`s *Not started* 0 and *Errors /
   timeouts* at most one or two (many L3 timeouts: re-run the arm with `--timeout 900`).
 - **Cost calibration.** Compare each arm's `spend_usd` (command above, with `baseline` for
-  `smoke`) with its estimate ($1.30 Haiku, $20.51 Sonnet with the batched judge). If Sonnet
+  `smoke`) with its estimate ($0.82 Haiku, $3.89 Sonnet with the batched judge). If Sonnet
   spent more than about 1.3× its estimate, run step 4 with `--cap-factor 2` (or higher: the cap
   must exceed the estimate × the observed ratio), otherwise arms will stop at their caps.
 - Remember the control run for step 4:
@@ -171,7 +171,7 @@ Check:
   CONTROL=$(ls -d runs/experiments/baseline/sonnet/2*/ | tail -n 1); echo "$CONTROL"
   ```
 
-### 4. The other four experiments (~$118.47, cap $177.70)
+### 4. The other four experiments (~$23.66, cap $35.49)
 
 ```bash
 scripts/run_experiments.sh --only critic --only semantic --only routing --only structured --batch --control "$CONTROL" --out runs/experiments/rest
@@ -323,7 +323,7 @@ task.
 
 Estimated with `core/llm.py`'s price table (USD per 1M tokens, input/output: Haiku 5.5 0.10/0.50,
 Sonnet 5.5 2.00/10.00). The tables below price the judge directly; with `--batch` it costs half
-(Message Batches price), which takes $2.30 off the plan. Regenerate after a price or plan change:
+(Message Batches price), which takes $1.17 off the plan. Regenerate after a price or plan change:
 
 ```bash
 uv run python -m analyst_agent.eval.experiments plan
@@ -338,44 +338,63 @@ smoke run).
 
 | Experiment | Arm | Agent model | Critic | Judge | Agent $ | Critic $ | Router $ | Judge $ | **Est. total** | Cap (×1.5) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| baseline | haiku | haiku-5-5 | haiku-5-5 | sonnet-5-5 | $0.83 | $0.19 | $0.00 | $0.58 | **$1.59** | $2.38 |
-| baseline | sonnet | sonnet-5-5 | sonnet-5-5 | sonnet-5-5 | $16.51 | $3.71 | $0.00 | $0.58 | **$20.80** | $31.19 |
-| critic | critic-off | sonnet-5-5 | off | sonnet-5-5 | $16.51 | $0.00 | $0.00 | $0.58 | **$17.08** | $25.63 |
-| semantic | semantic-bm25 | sonnet-5-5 | sonnet-5-5 | sonnet-5-5 | $16.80 | $3.71 | $0.00 | $0.58 | **$21.08** | $31.63 |
-| semantic | semantic-embedding | sonnet-5-5 | sonnet-5-5 | sonnet-5-5 | $16.80 | $3.71 | $0.00 | $0.58 | **$21.08** | $31.63 |
-| semantic | semantic-hybrid | sonnet-5-5 | sonnet-5-5 | sonnet-5-5 | $16.80 | $3.71 | $0.00 | $0.58 | **$21.08** | $31.63 |
-| routing | routing-on | L1/L2/L3 haiku-5-5/sonnet-5-5/sonnet-5-5, router haiku-5-5 | sonnet-5-5 | sonnet-5-5 | $14.02 | $3.71 | $0.02 | $0.58 | **$18.33** | $27.49 |
-| structured | structured-on | sonnet-5-5 | sonnet-5-5 | sonnet-5-5 | $17.24 | $3.71 | $0.00 | $0.58 | **$21.53** | $32.30 |
-| **all** | | | | | | | | | **$142.58** | **$213.87** |
+| baseline | haiku | haiku-5-5 | haiku-5-5 | sonnet-5-5 | $0.53 | $0.15 | $0.00 | $0.29 | **$0.96** | $1.44 |
+| baseline | sonnet | sonnet-5-5 | sonnet-5-5 | sonnet-5-5 | $2.97 | $0.78 | $0.00 | $0.29 | **$4.04** | $6.06 |
+| critic | critic-off | sonnet-5-5 | off | sonnet-5-5 | $2.97 | $0.00 | $0.00 | $0.29 | **$3.26** | $4.89 |
+| semantic | semantic-bm25 | sonnet-5-5 | sonnet-5-5 | sonnet-5-5 | $3.21 | $0.78 | $0.00 | $0.29 | **$4.28** | $6.42 |
+| semantic | semantic-embedding | sonnet-5-5 | sonnet-5-5 | sonnet-5-5 | $3.21 | $0.78 | $0.00 | $0.29 | **$4.28** | $6.42 |
+| semantic | semantic-hybrid | sonnet-5-5 | sonnet-5-5 | sonnet-5-5 | $3.21 | $0.78 | $0.00 | $0.29 | **$4.28** | $6.42 |
+| routing | routing-on | L1/L2/L3 haiku-5-5/sonnet-5-5/sonnet-5-5, router haiku-5-5 | sonnet-5-5 | sonnet-5-5 | $2.51 | $0.85 | $0.02 | $0.29 | **$3.67** | $5.51 |
+| structured | structured-on | sonnet-5-5 | sonnet-5-5 | sonnet-5-5 | $3.70 | $0.78 | $0.00 | $0.29 | **$4.77** | $7.16 |
+| **all** | | | | | | | | | **$29.54** | **$44.31** |
 
-Per experiment, counting the shared Sonnet control ($20.80) once in experiment 1 and again for
+Per experiment, counting the shared Sonnet control ($4.04) once in experiment 1 and again for
 any experiment you run on its own:
 
 | Experiment | Runs | Est. with the control already run | Est. run alone (incl. control) |
 |---|---|---|---|
-| 1 baseline | haiku + sonnet | $22.39 | $22.39 |
-| 2 critic | critic-off | $17.08 | $37.88 |
-| 3 semantic | bm25 + embedding + hybrid | $63.25 | $84.05 |
-| 4 routing | routing-on | $18.33 | $39.13 |
-| 5 structured | structured-on | $21.53 | $42.33 |
+| 1 baseline | haiku + sonnet | $5.00 | $5.00 |
+| 2 critic | critic-off | $3.26 | $7.30 |
+| 3 semantic | bm25 + embedding + hybrid | $12.83 | $16.87 |
+| 4 routing | routing-on | $3.67 | $7.71 |
+| 5 structured | structured-on | $4.77 | $8.81 |
 
 **What the estimate assumes.** Per-task token profiles in
-`analyst_agent/eval/experiments.py` (planning assumptions, not measurements):
+`analyst_agent/eval/experiments.py`, **calibrated on the 8-task smoke run of 2026-11-06**
+(`scripts/run_experiments.sh --limit 8 --only baseline --batch`: 2 tasks per level and model).
+Re-estimating that run from the profiles gives $0.095 Haiku / $0.415 Sonnet, matching the
+$0.095 / $0.415 actually spent (by construction: it is the calibration sample). The earlier, uncalibrated profiles estimated the same 80-task plan at about
+5× these numbers.
 
-| Level | Agent loop: input / output / cache write / cache read | Critic (≈1.3 reviews) | Judge |
-|---|---|---|---|
-| L1 | 15k / 4k / 12k / 45k (≈4 turns) | 7k / 1.5k | – |
-| L2 | 30k / 9k / 15k / 110k (≈7 turns) | 11k / 2.5k | – |
-| L3 | 60k / 20k / 20k / 260k (≈12 turns) | 20k / 4k | 6k / 1k |
-| ADV | 20k / 5k / 12k / 60k (≈5 turns) | 9k / 2k | 4k / 0.6k |
+| Level | Sonnet 5.5 agent: input / output / cache write / cache read | Sonnet critic | Haiku 5.5 agent | Haiku critic | Judge |
+|---|---|---|---|---|---|
+| L1 | 2.5k / 0.7k / 3.2k / 4.6k (≈4 tool calls) | 1.2k / 0.2k | 2.9k / 1.2k / 3.2k / 4.6k | 1.3k / 0.5k | – |
+| L2 | 7.7k / 1.5k / 2.3k / 9.0k (≈6) | 2.8k / 0.4k | 17.7k / 4.2k / 2.3k / 11.7k (≈8) | 6.5k / 1.2k | – |
+| L3 | 21.2k / 4.1k / 0 / 14.7k (≈11) | 7.1k / 0.8k | 118.6k / 22.3k / 0 / 29.4k (≈22) | 39.5k / 4.5k | 4.0k / 0.74k |
+| ADV | 3.8k / 0.6k / 0 / 7.8k (≈4) | 1.7k / 0.2k | 4.3k / 1.2k / 0 / 7.8k | 1.9k / 0.5k | 0.86k / 0.11k |
 
-Plus: router 1.5k / 0.15k per task (routing arm); semantic layer +1.2k input and +6k cache
-read per task; structured report +0.6k input and +0.8k output per task. The routing estimate
-assumes the router sends L1 tasks to L1, L2 and ADV to L2, and L3 to L3, with no escalations.
-Haiku arms probably use *more* turns than this, and thinking-heavy L3 runs can produce more
-output, so treat the numbers as ±50%. After the baseline, check the real mean cost per task
-(`Mean cost / task` in each run's `report.md`) and, if it is far off, rerun the remaining
-experiments with `--budget-usd` set by hand or a larger `--cap-factor`.
+How they were derived: the per-task token counts each run recorded per model, averaged per level.
+The critic ran on the same model, so its tokens were recorded together with the agent's; its
+share of the uncached input / output (25-32% / 17-29%) is kept from the earlier assumptions. The
+judge's run totals are split between L3 and ADV by prompt and verdict size. Cache writes are
+small because a run's tasks share the cached system prompt (later tasks only read it). Models
+without their own profile use Sonnet's.
+
+Not measured yet (those features were off in the smoke run): router 1.5k / 0.15k per task
+(routing arm); semantic layer +1.2k input and +6k cache read per task; structured report +0.6k
+input and +0.8k output per task. The routing estimate assumes the router sends L1 tasks to L1, L2
+and ADV to L2, and L3 to L3, with no escalations.
+
+**Two tasks per level is a small sample: treat the numbers as ±50%.** The caps (estimate ×1.5)
+are tighter than before in absolute terms, so the baseline's cost check (step 3) matters: if an
+arm spends more than about 1.3× its estimate, run the rest with `--cap-factor 2` or higher, and
+re-calibrate the profiles from the full baseline (`Mean cost / task` in each `report.md`).
+
+**Judge mode.** The L3 rubric judge is strict by default: a point also fails when a result figure
+it quotes is missing from `key_numbers` (prompt `rubric_judge`). `eval run --lenient-judge` (or
+`AGENT_JUDGE_STRICT_NUMBERS=false`) grades content only (`rubric_judge_lenient`). The mode is
+recorded in `meta.json` and shown in `eval report`; `eval compare` and the experiments summary
+refuse to mix the two, and `--resume` keeps a run's mode. Pick one for the whole plan.
 
 ## Running with the script
 
@@ -426,11 +445,11 @@ export AGENT_MODEL=claude-sonnet-5-5 AGENT_CRITIC_MODEL= AGENT_MAX_CRITIC_ROUNDS
 ### 1. Baseline: Haiku vs Sonnet
 
 ```bash
-AGENT_MODEL=claude-haiku-5-5 uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 2.38 --no-routing --no-semantic-layer --runs-dir runs/experiments/manual/haiku
+AGENT_MODEL=claude-haiku-5-5 uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 1.44 --no-routing --no-semantic-layer --runs-dir runs/experiments/manual/haiku
 ```
 
 ```bash
-uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 31.19 --no-routing --no-semantic-layer --runs-dir runs/experiments/manual/sonnet
+uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 6.06 --no-routing --no-semantic-layer --runs-dir runs/experiments/manual/sonnet
 ```
 
 The second run is the control for experiments 2-5.
@@ -441,21 +460,21 @@ The second run is the control for experiments 2-5.
 unreviewed (agent status `completed_with_issues`, no critic call).
 
 ```bash
-AGENT_MAX_CRITIC_ROUNDS=0 uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 25.63 --no-routing --no-semantic-layer --runs-dir runs/experiments/manual/critic-off
+AGENT_MAX_CRITIC_ROUNDS=0 uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 4.89 --no-routing --no-semantic-layer --runs-dir runs/experiments/manual/critic-off
 ```
 
 ### 3. Semantic layer: bm25 / embedding / hybrid
 
 ```bash
-AGENT_SEMANTIC_LAYER_ENABLED=true AGENT_SEMANTIC_BACKEND=bm25 uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 31.63 --no-routing --semantic-layer --runs-dir runs/experiments/manual/semantic-bm25
+AGENT_SEMANTIC_LAYER_ENABLED=true AGENT_SEMANTIC_BACKEND=bm25 uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 6.42 --no-routing --semantic-layer --runs-dir runs/experiments/manual/semantic-bm25
 ```
 
 ```bash
-AGENT_SEMANTIC_LAYER_ENABLED=true AGENT_SEMANTIC_BACKEND=embedding uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 31.63 --no-routing --semantic-layer --runs-dir runs/experiments/manual/semantic-embedding
+AGENT_SEMANTIC_LAYER_ENABLED=true AGENT_SEMANTIC_BACKEND=embedding uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 6.42 --no-routing --semantic-layer --runs-dir runs/experiments/manual/semantic-embedding
 ```
 
 ```bash
-AGENT_SEMANTIC_LAYER_ENABLED=true AGENT_SEMANTIC_BACKEND=hybrid uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 31.63 --no-routing --semantic-layer --runs-dir runs/experiments/manual/semantic-hybrid
+AGENT_SEMANTIC_LAYER_ENABLED=true AGENT_SEMANTIC_BACKEND=hybrid uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 6.42 --no-routing --semantic-layer --runs-dir runs/experiments/manual/semantic-hybrid
 ```
 
 `hybrid` uses `AGENT_SEMANTIC_HYBRID_WEIGHT=0.5` (the default).
@@ -463,7 +482,7 @@ AGENT_SEMANTIC_LAYER_ENABLED=true AGENT_SEMANTIC_BACKEND=hybrid uv run python -m
 ### 4. Routing on vs off
 
 ```bash
-AGENT_ROUTING_ENABLED=true AGENT_MODEL_L1=claude-haiku-5-5 AGENT_MODEL_L2=claude-sonnet-5-5 AGENT_MODEL_L3=claude-sonnet-5-5 uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 27.49 --routing --no-semantic-layer --runs-dir runs/experiments/manual/routing-on
+AGENT_ROUTING_ENABLED=true AGENT_MODEL_L1=claude-haiku-5-5 AGENT_MODEL_L2=claude-sonnet-5-5 AGENT_MODEL_L3=claude-sonnet-5-5 uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 5.51 --routing --no-semantic-layer --runs-dir runs/experiments/manual/routing-on
 ```
 
 The router is `AGENT_ROUTER_MODEL` (default `claude-haiku-5-5`). Escalation (second critic
@@ -474,7 +493,7 @@ escalations, cost by model).
 ### 5. Structured report on vs off
 
 ```bash
-AGENT_STRUCTURED_REPORT_ENABLED=true uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 32.30 --no-routing --no-semantic-layer --runs-dir runs/experiments/manual/structured-on
+AGENT_STRUCTURED_REPORT_ENABLED=true uv run python -m analyst_agent.eval run --agent core --judge-model claude-sonnet-5-5 --concurrency 4 --timeout 600 --budget-usd 7.16 --no-routing --no-semantic-layer --runs-dir runs/experiments/manual/structured-on
 ```
 
 ### Comparing by hand
@@ -578,6 +597,7 @@ text-fallback / Critic rounds)
 | `meta.json` shows `judge_batch.fallback` | Batching was not used (SDK without `messages.batches`, batch rejected, or > 6 h); the judge ran directly at full price. The scores are valid. |
 | `scripts/preflight.sh` warns (or, with `--embeddings`, fails) `extra [embeddings]` | `uv sync --locked --all-extras` (pulls torch). Without it the semantic experiment's embedding / hybrid arms record a retrieval error on every task; the other experiments do not need it. |
 | *Retrieval errors* > 0% in embedding/hybrid | `sentence-transformers` missing or the model download failed. `uv sync --extra embeddings`, warm with `python -m analyst_agent.semantic eval -b embedding`. |
+| A scorer fix landed after a run finished | `uv run python -m analyst_agent.eval rescore <run>` re-applies the current scorers without any model call (L1/L2 from the stored outputs, ADV rules with the stored judge verdicts; L3 copied) and writes `<run>/rescored/` with its own `report.md`. The original run is untouched. |
 | Many timeouts on L3 | Raise `--timeout`, or lower `--concurrency` if 429 retries are stretching tasks. |
 | Every task `AgentCrashed: agent process exited with code -11`, $0 spent (macOS) | The task processes were forked and crashed in the HTTP client's proxy lookup. Fixed: process isolation uses `spawn` on macOS (`eval/isolation.py:start_method`). Update `main`; if you are on an older checkout, `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` is a stopgap. |
 | Script exits 1 but `runs/summary.md` exists | Some arm is incomplete; the summary marks it in *Notes*. See the list the script prints and `<arm>.log`. |

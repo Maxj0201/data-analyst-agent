@@ -54,7 +54,7 @@ from analyst_agent.eval.agent import (
 )
 from analyst_agent.eval.isolation import AgentTimeout, check_picklable, run_in_subprocess
 from analyst_agent.eval.judge import BatchJudge, Judge
-from analyst_agent.eval.schema import Task
+from analyst_agent.eval.schema import DEFAULT_BENCHMARK_ROOT, Task, load_tasks
 from analyst_agent.eval.scorers import Score, judge_prompt_versions, score_task
 
 Isolation = Literal["process", "inline"]
@@ -88,6 +88,9 @@ class RunConfig:
     # Ask the L3 rubric judge this many times per task and score the mean (judge variance;
     # eval run --judge-samples). The spread is recorded in score_details["judge_samples"].
     judge_samples: int = 1
+    # L3 rubric judge mode: True = result figures must be in key_numbers, False = content only
+    # (eval run --lenient-judge). Scores of the two modes are not comparable (eval/report.py).
+    judge_strict_numbers: bool = True
 
 
 @dataclass
@@ -262,10 +265,17 @@ async def _execute(
 
 
 async def _score(
-    task: Task, ex: _Execution, judge: Judge | None, score: bool, judge_samples: int = 1
+    task: Task,
+    ex: _Execution,
+    judge: Judge | None,
+    score: bool,
+    judge_samples: int = 1,
+    strict_numbers: bool = True,
 ) -> Score:
     if ex.status == "ok" and score:
-        return await score_task(task, ex.out, judge, judge_samples=judge_samples)
+        return await score_task(
+            task, ex.out, judge, judge_samples=judge_samples, strict_numbers=strict_numbers
+        )
     if ex.status == "ok":
         return Score(False, 0.0, "unscored", {})
     return Score(False, 0.0, "not_run", {"reason": ex.status})
@@ -432,6 +442,7 @@ SETTINGS_SNAPSHOT = (
     "approval_enabled",
     "judge_model",
     "judge_effort",
+    "judge_strict_numbers",
 )
 
 
@@ -674,7 +685,14 @@ async def run_tasks(
                         )
                         new_spend = ex.out.cost_usd
                     if ex is not None and batch_judge is None:
-                        sc = await _score(task, ex, judge, config.score, config.judge_samples)
+                        sc = await _score(
+                            task,
+                            ex,
+                            judge,
+                            config.score,
+                            config.judge_samples,
+                            config.judge_strict_numbers,
+                        )
                         res = _result(task, ex, sc)
                 if ex is None:
                     res = over_budget_result(task, budget or 0.0)
@@ -694,7 +712,14 @@ async def run_tasks(
                             write(pending)
                     waiting += 1
                     try:
-                        sc = await _score(task, ex, judge, config.score, config.judge_samples)
+                        sc = await _score(
+                            task,
+                            ex,
+                            judge,
+                            config.score,
+                            config.judge_samples,
+                            config.judge_strict_numbers,
+                        )
                     finally:
                         waiting -= 1
                     res = _result(task, ex, sc)
@@ -767,3 +792,84 @@ def load_results(run_dir: Path) -> list[dict[str, Any]]:
                 row = json.loads(line)
                 rows[row.get("task_id", f"#{len(rows)}")] = row
     return list(rows.values())
+
+
+class _ReplayJudge:
+    """Answers an ADV behaviour prompt with the verdict a run already recorded (no API call)."""
+
+    def __init__(self, verdict: dict[str, Any]) -> None:
+        self.verdict = verdict
+
+    async def complete(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
+        if "points" in schema.get("properties", {}):  # pragma: no cover - L3 is never replayed
+            raise RuntimeError("rescore does not re-judge L3 rubric tasks")
+        return {
+            "passed": bool(self.verdict.get("passed")),
+            "justification": self.verdict.get("justification", ""),
+        }
+
+
+def rescore_run(
+    run_dir: Path, out_dir: Path | None = None, benchmarks: Path | None = None
+) -> tuple[Path, list[dict[str, Any]]]:
+    """Re-apply today's deterministic scorers to a finished run, without any model call.
+
+    L1 / L2 are scored again from the stored answer, tables and key_numbers. ADV keeps the judge
+    verdict the run recorded and re-applies the rule checks and the answer check. L3 (the rubric
+    judge) and rows that did not finish are copied unchanged. Writes ``results.jsonl``,
+    ``meta.json`` (with a ``rescored`` entry) and ``report.md`` to ``out_dir`` (default
+    ``<run_dir>/rescored``, inside the run so tools that pick an arm's latest run ignore it) and
+    returns it with the list of tasks whose result changed.
+    """
+    from analyst_agent.eval.report import report_run
+    from analyst_agent.eval.scorers import score_adversarial, score_answer
+
+    rows = load_results(run_dir)
+    meta = json.loads((run_dir / "meta.json").read_text())
+    root = benchmarks or DEFAULT_BENCHMARK_ROOT
+    tasks = {t.id: t for t in load_tasks(root, ids=[r["task_id"] for r in rows])}
+    out_dir = out_dir or run_dir / "rescored"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    changes: list[dict[str, Any]] = []
+    new_rows: list[dict[str, Any]] = []
+    for row in rows:
+        task = tasks.get(row["task_id"])
+        new = dict(row)
+        if task is not None and row.get("status") == "ok" and task.difficulty != "L3":
+            out = AgentOutput(
+                answer=row.get("answer") or "",
+                key_numbers=row.get("key_numbers") or {},
+                tables=row.get("tables") or [],
+            )
+            if task.difficulty == "ADV":
+                stored = (row.get("score_details") or {}).get("judge") or {}
+                judge = None if stored.get("skipped") or "passed" not in stored else stored
+                sc = asyncio.run(
+                    score_adversarial(task, out, None if judge is None else _ReplayJudge(judge))
+                )
+            else:
+                sc = score_answer(task.expected, out)
+            details = {"method": sc.method, **sc.details}  # same shape as a run writes
+            new.update(passed=sc.passed, score=sc.score, score_details=details)
+            if (new["passed"], new["score"]) != (row.get("passed"), row.get("score")):
+                changes.append(
+                    {
+                        "task_id": row["task_id"],
+                        "before": {"passed": row.get("passed"), "score": row.get("score")},
+                        "after": {"passed": new["passed"], "score": new["score"]},
+                    }
+                )
+        new_rows.append(new)
+    with open(out_dir / "results.jsonl", "w") as f:
+        for r in new_rows:
+            f.write(json.dumps(r, default=str) + "\n")
+    meta["rescored"] = {
+        "from": str(run_dir),
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "scorer_git_sha": _git_sha(),
+        "rescored": "L1, L2, ADV rules (stored judge verdicts); L3 copied",
+        "changes": changes,
+    }
+    (out_dir / "meta.json").write_text(json.dumps(meta, indent=2, default=str))
+    (out_dir / "report.md").write_text(report_run(out_dir))
+    return out_dir, changes
