@@ -291,7 +291,7 @@ a run's estimate).
 | Critic model | `AGENT_CRITIC_MODEL=` (empty = same as the working model) | |
 | Effort, `max_tokens`, `max_turns`, token budget | defaults (`high`, 16000, 15, 400k) | |
 | Per-task timeout | `--timeout 600` | L3 tasks with Sonnet can exceed the 300 s default |
-| Isolation | `process` (default) | a hung task is killed, not leaked |
+| Isolation | `process` (default) | a hung task is killed, not leaked. Each task's process starts from a warm `forkserver` on Linux, but with `spawn` on macOS (forking crashes there), which re-imports the agent in every task: about 0.6 s per task on an M-series Mac, under 1% of a typical task |
 | Approval gates / memory | off | memory would let earlier tasks leak findings into later ones |
 
 ## Budget caps
@@ -579,4 +579,5 @@ text-fallback / Critic rounds)
 | `scripts/preflight.sh` warns (or, with `--embeddings`, fails) `extra [embeddings]` | `uv sync --locked --all-extras` (pulls torch). Without it the semantic experiment's embedding / hybrid arms record a retrieval error on every task; the other experiments do not need it. |
 | *Retrieval errors* > 0% in embedding/hybrid | `sentence-transformers` missing or the model download failed. `uv sync --extra embeddings`, warm with `python -m analyst_agent.semantic eval -b embedding`. |
 | Many timeouts on L3 | Raise `--timeout`, or lower `--concurrency` if 429 retries are stretching tasks. |
+| Every task `AgentCrashed: agent process exited with code -11`, $0 spent (macOS) | The task processes were forked and crashed in the HTTP client's proxy lookup. Fixed: process isolation uses `spawn` on macOS (`eval/isolation.py:start_method`). Update `main`; if you are on an older checkout, `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` is a stopgap. |
 | Script exits 1 but `runs/summary.md` exists | Some arm is incomplete; the summary marks it in *Notes*. See the list the script prints and `<arm>.log`. |

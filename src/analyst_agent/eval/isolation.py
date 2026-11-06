@@ -2,9 +2,9 @@
 
 ``asyncio.wait_for`` around a worker thread only stops *waiting*: the thread (and its LLM
 calls, sandbox subprocesses and token spend) keeps going. Here each call gets its own process,
-started with ``forkserver`` where available (``spawn`` otherwise), in its own session/process
-group. On timeout, cancellation or after the result arrives, the whole group is SIGKILLed, so
-grandchildren such as the sandbox's Python runner die with it.
+started with ``forkserver`` on Linux (``spawn`` elsewhere, see :func:`start_method`), in its own
+session/process group. On timeout, cancellation or after the result arrives, the whole group
+is SIGKILLed, so grandchildren such as the sandbox's Python runner die with it.
 
 Constraints: the agent and its input are pickled into the child, so the agent must be a
 module-level function or an instance of a module-level class (``core_agent``, ``OracleAgent``,
@@ -46,12 +46,25 @@ _PRELOAD = ["analyst_agent.eval.agent", "analyst_agent.core", "analyst_agent.too
 _ctx: Any = None
 
 
+def start_method(platform: str = sys.platform, methods: list[str] | None = None) -> str:
+    """``forkserver`` on Linux, ``spawn`` everywhere else.
+
+    On macOS a forked child can die with SIGSEGV when it touches Objective-C state (the HTTP
+    client's system proxy lookup does, before the first request): a race that crashed most tasks
+    of a real run with ``AgentCrashed: ... exit code -11``. ``spawn`` (Python's own default on
+    macOS) starts a fresh interpreter instead, at the cost of re-importing the agent's modules
+    in every task's process (about 0.6 s per task on an M-series Mac).
+    """
+    methods = multiprocessing.get_all_start_methods() if methods is None else methods
+    return "forkserver" if platform == "linux" and "forkserver" in methods else "spawn"
+
+
 def _context() -> Any:
     global _ctx
     if _ctx is None:
-        methods = multiprocessing.get_all_start_methods()
-        _ctx = multiprocessing.get_context("forkserver" if "forkserver" in methods else "spawn")
-        if "forkserver" in methods:
+        method = start_method()
+        _ctx = multiprocessing.get_context(method)
+        if method == "forkserver":
             # Imported once in the fork server (the anthropic SDK alone takes ~2s), so each
             # task's process starts warm. Imports only: no threads or connections exist yet.
             _ctx.set_forkserver_preload(_PRELOAD)
