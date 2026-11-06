@@ -8,6 +8,7 @@ all read from it. Every field is documented in ``docs/configuration.md`` and ``.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -34,8 +35,13 @@ def default_metrics_dir() -> Path:
 class Settings(BaseSettings):
     # An empty value means "unset" (None) for optional settings, e.g. AGENT_JOB_DB_PATH= or
     # AGENT_APPROVAL_ROW_THRESHOLD= (never gate on rows).
+    # ANALYST_ENV_FILE picks another dotenv file (deliberately not AGENT_*: it is not a setting).
+    # The test suite points it at a missing file so a developer's .env can't change test results.
     model_config = SettingsConfigDict(
-        env_prefix="AGENT_", env_file=".env", extra="ignore", env_parse_none_str=""
+        env_prefix="AGENT_",
+        env_file=os.environ.get("ANALYST_ENV_FILE", ".env"),
+        extra="ignore",
+        env_parse_none_str="",
     )
 
     # Models
