@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
+import sys
 import time
 from pathlib import Path
 
 import pytest
 
+from analyst_agent.eval import isolation
 from analyst_agent.eval.agent import dry_run_agent
 from analyst_agent.eval.runner import RunConfig, run_task, run_tasks
 from analyst_agent.eval.schema import load_tasks
-from tests.eval.agents import SleepingCoreAgent, crashing_agent, echo_42, raising_agent
+from tests.eval.agents import (
+    SleepingCoreAgent,
+    crashing_agent,
+    echo_42,
+    raising_agent,
+    real_sdk_agent,
+)
 from tests.eval.conftest import echo_agent, make_task
 
 
@@ -71,6 +80,47 @@ async def test_child_errors_and_crashes_are_recorded() -> None:
     assert res.status == "error" and "exited with code 3" in (res.error or "")
     res = await run_task(make_task("L1"), echo_42, None, timeout_s=30)
     assert res.status == "ok" and res.passed and res.cost_usd == 0.01
+
+
+@pytest.mark.asyncio
+async def test_children_can_build_a_real_sdk_client() -> None:
+    """Each child builds an Anthropic client and sends a request (to a dead port, so it is free).
+
+    With ``forkserver`` on macOS a child could die with SIGSEGV (exit -11) before sending it,
+    in the HTTP client's system proxy lookup: 15 of 16 tasks of a real run. The race depends on
+    the fork server's state, so this catches a regression in about half of the runs; the
+    deterministic guard is ``test_isolation_uses_the_start_method_for_this_platform``. This
+    one checks that the spawn path really works with the SDK: every error is the API's.
+    """
+    tasks = [make_task("L1").model_copy(update={"id": f"sdk_{i}"}) for i in range(8)]
+    results = await asyncio.gather(
+        *(run_task(t, real_sdk_agent, None, timeout_s=60, isolation="process") for t in tasks)
+    )
+    errors = [r.error or "" for r in results]
+    assert all(r.status == "error" for r in results)
+    assert all("APIConnectionError" in e and "AgentCrashed" not in e for e in errors), errors
+
+
+def test_isolation_uses_the_start_method_for_this_platform() -> None:
+    """Deterministic guard for the race above: process isolation never forks on macOS."""
+    assert isolation._context().get_start_method() == isolation.start_method()
+    if sys.platform == "darwin":
+        assert isolation.start_method() == "spawn"
+
+
+@pytest.mark.parametrize(
+    ("platform", "methods", "expected"),
+    [
+        ("linux", ["fork", "spawn", "forkserver"], "forkserver"),
+        ("linux", ["fork", "spawn"], "spawn"),
+        ("darwin", ["fork", "spawn", "forkserver"], "spawn"),
+        ("win32", ["spawn"], "spawn"),
+    ],
+)
+def test_start_method_is_forkserver_only_on_linux(
+    platform: str, methods: list[str], expected: str
+) -> None:
+    assert isolation.start_method(platform, methods) == expected
 
 
 @pytest.mark.asyncio

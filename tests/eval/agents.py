@@ -60,3 +60,20 @@ def crashing_agent(inp: AgentInput) -> AgentOutput:
 
 async def echo_42(inp: AgentInput) -> AgentOutput:
     return AgentOutput(answer="The answer is 42.", cost_usd=0.01)
+
+
+def real_sdk_agent(inp: AgentInput) -> AgentOutput:
+    """Builds a real Anthropic SDK client in the child and sends one request to a dead port.
+
+    On macOS a forked child died with SIGSEGV here, in the HTTP client's system proxy lookup,
+    before the request was sent. Nothing listens on port 9, so no API call ever happens.
+    """
+    import anthropic
+
+    client = anthropic.Anthropic(
+        api_key="sk-ant-test", base_url="http://127.0.0.1:9", max_retries=0, timeout=5
+    )
+    client.messages.create(
+        model="claude-haiku-5-5", max_tokens=1, messages=[{"role": "user", "content": "hi"}]
+    )
+    raise AssertionError("unreachable: nothing listens on 127.0.0.1:9")
