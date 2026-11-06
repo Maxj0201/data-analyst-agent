@@ -15,8 +15,11 @@ from hypothesis import strategies as st
 from analyst_agent.core.approval import ApprovalPolicy, estimate_rows
 from analyst_agent.core.llm import (
     CACHE_READ_MULT,
+    CACHE_READ_MULT_BY_MODEL,
     CACHE_WRITE_MULT,
     DEFAULT_PRICE,
+    LONG_PROMPT_PRICING,
+    LONG_PROMPT_TOKENS,
     PRICING,
     CostTracker,
     Usage,
@@ -70,35 +73,76 @@ def test_cost_tracker_totals_are_sums(seq: list[tuple[str, Usage, str]]) -> None
 
 @given(models, usages, usages)
 def test_cost_is_linear_and_non_negative(model: str, a: Usage, b: Usage) -> None:
+    """Summed usage (``single_request=False``) is linear; per request, see the long-prompt test."""
     both = Usage(
         a.input_tokens + b.input_tokens,
         a.output_tokens + b.output_tokens,
         a.cache_creation_input_tokens + b.cache_creation_input_tokens,
         a.cache_read_input_tokens + b.cache_read_input_tokens,
     )
-    ca, cb = estimate_cost_usd(model, a), estimate_cost_usd(model, b)
+    ca = estimate_cost_usd(model, a, single_request=False)
+    cb = estimate_cost_usd(model, b, single_request=False)
     assert ca >= 0 and cb >= 0
-    assert _approx(estimate_cost_usd(model, both), ca + cb)
+    assert _approx(estimate_cost_usd(model, both, single_request=False), ca + cb)
+    assert estimate_cost_usd(model, a) >= ca  # the per-request tier only ever adds cost
 
 
 @given(models, st.integers(1, 5_000_000))
 def test_cache_pricing_multipliers(model: str, n: int) -> None:
     in_price, out_price = PRICING.get(model, DEFAULT_PRICE)
-    base = estimate_cost_usd(model, Usage(input_tokens=n))
+
+    def cost(**kw: int) -> float:  # list prices, without the per-request long-prompt tier
+        return estimate_cost_usd(model, Usage(**kw), single_request=False)
+
+    read_mult = CACHE_READ_MULT_BY_MODEL.get(model, CACHE_READ_MULT)
+    base = cost(input_tokens=n)
     assert _approx(base, n * in_price / 1e6)
-    assert _approx(estimate_cost_usd(model, Usage(output_tokens=n)), n * out_price / 1e6)
-    assert _approx(
-        estimate_cost_usd(model, Usage(cache_creation_input_tokens=n)), base * CACHE_WRITE_MULT
-    )
-    assert _approx(
-        estimate_cost_usd(model, Usage(cache_read_input_tokens=n)), base * CACHE_READ_MULT
-    )
+    assert _approx(cost(output_tokens=n), n * out_price / 1e6)
+    assert _approx(cost(cache_creation_input_tokens=n), base * CACHE_WRITE_MULT)
+    assert _approx(cost(cache_read_input_tokens=n), base * read_mult)
     # A cache read is always cheaper than a fresh read, which is cheaper than a cache write.
-    assert (
-        estimate_cost_usd(model, Usage(cache_read_input_tokens=n))
-        < base
-        < estimate_cost_usd(model, Usage(cache_creation_input_tokens=n))
-    )
+    assert cost(cache_read_input_tokens=n) < base < cost(cache_creation_input_tokens=n)
+
+
+@pytest.mark.parametrize(
+    ("model", "read_usd_per_mtok"),
+    # The page's "cache hits" column, USD per 1M tokens.
+    [
+        ("claude-fable-5-1", 0.25),
+        ("claude-opus-5-5", 0.20),
+        ("claude-opus-5", 0.50),
+        ("claude-opus-4-8", 0.50),
+        ("claude-sonnet-5-5", 0.10),
+        ("claude-sonnet-5", 0.20),
+        ("claude-haiku-5-5", 0.01),
+    ],
+)
+def test_cache_read_prices_match_the_pricing_page(model: str, read_usd_per_mtok: float) -> None:
+    # 1M tokens in one request would cross Haiku 5.5's long-prompt threshold; the column is the
+    # up-to-100k price, so price it as summed usage.
+    usage = Usage(cache_read_input_tokens=1_000_000)
+    assert _approx(estimate_cost_usd(model, usage, single_request=False), read_usd_per_mtok)
+
+
+@given(st.integers(0, 3 * LONG_PROMPT_TOKENS), st.integers(0, 50_000))
+def test_haiku_long_prompt_tier_is_per_request(prompt: int, out: int) -> None:
+    model = "claude-haiku-5-5"
+    third = prompt // 3
+    usage = Usage(prompt - 2 * third, out, third, third)  # input, output, cache write, read
+    short, long = PRICING[model], LONG_PROMPT_PRICING[model]
+    in_price, out_price = long if prompt > LONG_PROMPT_TOKENS else short
+    read_mult = CACHE_READ_MULT_BY_MODEL.get(model, CACHE_READ_MULT)
+    expected = (
+        usage.input_tokens * in_price
+        + third * in_price * CACHE_WRITE_MULT
+        + third * in_price * read_mult
+        + out * out_price
+    ) / 1e6
+    assert _approx(estimate_cost_usd(model, usage), expected)
+    # Batch stacks on top; a summed (multi-request) usage never gets the tier.
+    assert _approx(estimate_cost_usd(model, usage, batch=True), expected * 0.5)
+    summed = estimate_cost_usd(model, usage, single_request=False)
+    assert summed <= estimate_cost_usd(model, usage)
 
 
 @given(calls, calls)

@@ -59,8 +59,8 @@ def test_cost_math():
         cache_creation_input_tokens=1_000_000,
         cache_read_input_tokens=1_000_000,
     )
-    # 4 + 20 + 4*1.25 + 4*0.1
-    assert estimate_cost_usd("claude-opus-5-5", u) == pytest.approx(29.4)
+    # 4 + 20 + 4*1.25 + 4*0.05 (Opus 5.5 cache reads are 0.05x input)
+    assert estimate_cost_usd("claude-opus-5-5", u) == pytest.approx(29.2)
     t = CostTracker()
     t.add("claude-opus-5-5", Usage(input_tokens=10, output_tokens=5), role="agent")
     t.add("claude-opus-5-5", Usage(cache_read_input_tokens=100), role="critic")
@@ -140,13 +140,14 @@ def test_parse_verdict():
 
 def test_cost_tracker_breaks_down_by_model():
     t = CostTracker()
-    t.add("claude-haiku-5-5", Usage(input_tokens=1_000_000), role="router")
+    # 100k: at Haiku 5.5's long-prompt threshold, so the up-to-100k price applies
+    t.add("claude-haiku-5-5", Usage(input_tokens=100_000), role="router")
     t.add("claude-sonnet-5-5", Usage(output_tokens=1_000_000), role="agent")
     t.add("claude-sonnet-5-5", Usage(input_tokens=1_000_000), role="agent")
     d = t.to_dict()["by_model"]
     assert set(d) == {"claude-haiku-5-5", "claude-sonnet-5-5"}
     assert d["claude-haiku-5-5"]["calls"] == 1
-    assert d["claude-haiku-5-5"]["usd"] == pytest.approx(0.10)
+    assert d["claude-haiku-5-5"]["usd"] == pytest.approx(0.01)
     assert d["claude-sonnet-5-5"]["calls"] == 2
     assert d["claude-sonnet-5-5"]["input_tokens"] == 1_000_000
     assert d["claude-sonnet-5-5"]["output_tokens"] == 1_000_000

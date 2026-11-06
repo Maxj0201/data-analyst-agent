@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from analyst_agent.core.llm import PRICING, Usage, estimate_cost_usd
+from analyst_agent.core.llm import Usage, estimate_cost_usd
 from analyst_agent.eval.experiments import (
     AGENT_PROFILE,
     CONTROL,
@@ -62,9 +62,15 @@ def test_estimate_orders_arms_sensibly() -> None:
     assert cost["routing-on"].router_usd > 0 and cost[CONTROL].router_usd == 0
     # the judge is the same model in every arm, so it costs the same everywhere
     assert len({round(c.judge_usd, 6) for c in cost.values()}) == 1
-    # haiku agent cost scales with the price ratio
-    ratio = PRICING[SONNET][0] / PRICING[HAIKU][0]
-    assert cost[CONTROL].agent_usd == pytest.approx(cost["haiku"].agent_usd * ratio)
+    # agent cost is the per-task profile at each model's prices (not a plain price ratio:
+    # Sonnet 5.5 reads cache at 0.05x input, Haiku 5.5 at 0.1x)
+    for arm, model in ((CONTROL, SONNET), ("haiku", HAIKU)):
+        expected = sum(
+            n * estimate_cost_usd(model, AGENT_PROFILE[level], single_request=False)
+            for level, n in COUNTS.items()
+        )
+        assert cost[arm].agent_usd == pytest.approx(expected)
+    assert cost["haiku"].agent_usd < cost[CONTROL].agent_usd
 
 
 def test_estimate_flags_unpriced_models() -> None:
