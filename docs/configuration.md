@@ -8,6 +8,9 @@ other settings classes. [`.env.example`](../.env.example) lists every variable w
 and `tests/test_config.py` fails if a `Settings` field is missing from this table or from
 `.env.example`, or if a default here drifts from the code.
 
+`ANALYST_ENV_FILE` (not an `AGENT_*` setting) points at a different dotenv file than `./.env`;
+the test suite sets it to a missing file, so a local `.env` never changes test results.
+
 An empty value means *unset* (`None`) for optional settings: `AGENT_JOB_DB_PATH=` runs the API
 memory-only, `AGENT_APPROVAL_ROW_THRESHOLD=` never gates on row counts, `AGENT_MODEL_L1=` falls
 back to `AGENT_MODEL`.
