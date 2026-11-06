@@ -20,12 +20,13 @@ from analyst_agent.eval.calibration import (
     run_calibration,
 )
 from analyst_agent.eval.judge import BatchJudge, LLMJudge, judge_configured
-from analyst_agent.eval.report import compare_runs, report_run, summarize
+from analyst_agent.eval.report import JudgeModeMismatch, compare_runs, report_run, summarize
 from analyst_agent.eval.runner import (
     ResumeError,
     RunConfig,
     load_results,
     new_run_dir,
+    rescore_run,
     run_tasks,
 )
 from analyst_agent.eval.schema import (
@@ -131,6 +132,15 @@ def run(
             "shows the spread (judge variance). Costs N times the L3 judge spend",
         ),
     ] = 1,
+    lenient_judge: Annotated[
+        bool,
+        typer.Option(
+            "--lenient-judge",
+            help="grade L3 rubric points on content only: a right figure missing from "
+            "key_numbers no longer fails its point. Recorded in meta.json; not comparable "
+            "with strict runs [default: strict unless AGENT_JUDGE_STRICT_NUMBERS=false]",
+        ),
+    ] = not SETTINGS.judge_strict_numbers,
     isolation: Annotated[
         str,
         typer.Option(help="process: each task in a child process killed on timeout | inline"),
@@ -234,6 +244,14 @@ def run(
         semantic_layer = cfg.get("semantic_layer_enabled", semantic_layer)
         auto_approve = cfg.get("auto_approve", auto_approve)
         judge_samples = cfg.get("judge_samples", judge_samples)
+        run_lenient = not cfg.get("judge_strict_numbers", True)
+        if lenient_judge != run_lenient and lenient_judge != (not SETTINGS.judge_strict_numbers):
+            raise typer.BadParameter(
+                f"the run was graded {'lenient' if run_lenient else 'strict'}; a resume keeps "
+                "its judge mode",
+                param_hint="--lenient-judge",
+            )
+        lenient_judge = run_lenient
         if budget_usd is None:
             budget_usd = cfg.get("budget_usd")
         difficulty, tag, task, limit, all_tags = (
@@ -281,6 +299,7 @@ def run(
         budget_usd=budget_usd,
         batch_judge=isinstance(judge, BatchJudge),
         judge_samples=judge_samples,
+        judge_strict_numbers=not lenient_judge,
         filters={
             "difficulty": difficulty,
             "tag": tag,
@@ -357,9 +376,37 @@ def report(run_dir: Path, out: Path | None = None) -> None:
 
 
 @app.command()
+def rescore(
+    run_dir: Path,
+    out: Annotated[
+        Path | None, typer.Option(help="output run directory [default: RUN_DIR/rescored]")
+    ] = None,
+    benchmarks: Path = DEFAULT_BENCHMARK_ROOT,
+) -> None:
+    """Re-apply the current scorers to a finished run without calling any model: L1/L2 from the
+    stored outputs, ADV rules with the stored judge verdicts; L3 copied. Writes a new run dir."""
+    out_dir, changes = rescore_run(run_dir, out, benchmarks)
+    rows = load_results(out_dir)
+    before = sum(bool(r["passed"]) for r in load_results(run_dir))
+    after = sum(bool(r["passed"]) for r in rows)
+    typer.echo(f"rescored {len(rows)} tasks -> {out_dir}: passed {before} -> {after}")
+    for ch in changes:
+        b, a = ch["before"], ch["after"]
+        typer.echo(
+            f"  {ch['task_id']}: passed {b['passed']} -> {a['passed']}, "
+            f"score {b['score']} -> {a['score']}"
+        )
+
+
+@app.command()
 def compare(run_a: Path, run_b: Path, out: Path | None = None) -> None:
-    """Diff two runs side by side (B relative to A)."""
-    md = compare_runs(run_a, run_b)
+    """Diff two runs side by side (B relative to A). Refuses runs graded with different judge
+    modes (strict vs --lenient-judge)."""
+    try:
+        md = compare_runs(run_a, run_b)
+    except JudgeModeMismatch as e:
+        typer.secho(f"error: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=2) from e
     if out:
         out.write_text(md)
     typer.echo(md)

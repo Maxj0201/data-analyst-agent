@@ -318,6 +318,39 @@ def _headline_value(s: dict[str, Any], key: str | None, fmt: Any) -> str:
     return fmt(s[key])
 
 
+JUDGE_MODE_LABELS = {
+    "strict": "strict (result figures must be in key_numbers)",
+    "lenient": "lenient (content only)",
+}
+
+
+class JudgeModeMismatch(ValueError):
+    """Runs graded with different L3 judge modes were asked to be compared or summarised."""
+
+
+def judge_mode(meta: dict[str, Any] | None) -> str | None:
+    """The run's L3 rubric judge mode, ``"strict"`` or ``"lenient"``; None when nothing judged.
+
+    Runs from before the option existed have no ``judge_strict_numbers`` and were strict.
+    """
+    cfg = (meta or {}).get("config") or {}
+    if not cfg.get("judge_model"):
+        return None
+    return "strict" if cfg.get("judge_strict_numbers", True) else "lenient"
+
+
+def check_same_judge_mode(metas: dict[str, dict[str, Any] | None]) -> None:
+    """Raise :class:`JudgeModeMismatch` if judged runs in ``metas`` (name -> meta) differ."""
+    modes = {name: m for name, meta in metas.items() if (m := judge_mode(meta)) is not None}
+    if len(set(modes.values())) > 1:
+        detail = ", ".join(f"{name}: {mode}" for name, mode in modes.items())
+        raise JudgeModeMismatch(
+            f"runs were graded with different L3 judge modes ({detail}); their accuracy is not "
+            "comparable. Re-run (or resume) with the same AGENT_JUDGE_STRICT_NUMBERS / "
+            "--lenient-judge setting."
+        )
+
+
 def render_report(
     results: list[dict[str, Any]], meta: dict[str, Any] | None = None, title: str = "Eval run"
 ) -> str:
@@ -330,6 +363,7 @@ def render_report(
             f"- git: `{meta.get('git_sha')}`  agent: `{cfg.get('agent')}`  "
             f"judge: `{cfg.get('judge_model')}`  concurrency: {cfg.get('concurrency')}  "
             f"timeout: {cfg.get('timeout_s')}s  isolation: {cfg.get('isolation', 'inline')}",
+            f"- judge mode: {JUDGE_MODE_LABELS.get(judge_mode(meta) or '', 'n/a (no judge)')}",
             f"- prompts: {_prompt_summary(meta.get('prompts'))}",
             "",
         ]
@@ -477,6 +511,7 @@ def render_compare(
     meta_a: dict[str, Any] | None = None,
     meta_b: dict[str, Any] | None = None,
 ) -> str:
+    check_same_judge_mode({name_a: meta_a, name_b: meta_b})
     sa, sb = summarize(a), summarize(b)
     lines = [
         f"# Compare: {name_a} vs {name_b}",
@@ -484,6 +519,9 @@ def render_compare(
         f"| Metric | {name_a} | {name_b} | Δ |",
         "|---|---|---|---|",
     ]
+    if meta_a is not None or meta_b is not None:
+        ja, jb = judge_mode(meta_a) or "n/a", judge_mode(meta_b) or "n/a"
+        lines.append(f"| Judge mode | {ja} | {jb} | |")
     pct_keys = {
         "accuracy",
         "adversarial_pass_rate",

@@ -127,6 +127,9 @@ class Settings(BaseSettings):
     # Eval harness (eval/)
     judge_model: str | None = None  # LLM judge; None = ``model``
     judge_effort: str = "low"
+    # L3 rubric judge: result figures must also be in key_numbers (False = content only,
+    # `eval run --lenient-judge`). Recorded per run; strict and lenient scores don't mix.
+    judge_strict_numbers: bool = True
     # Send each run's judge calls as one Message Batch (half price); default of `eval run --batch`.
     judge_batch_enabled: bool = False
     judge_batch_poll_s: float = Field(default=15.0, gt=0)  # batch status poll interval

@@ -26,6 +26,7 @@ from tests.eval.conftest import make_task, out
 # When you edit a judge prompt: bump its version in eval/scorers.py, then update its line here.
 PINNED = {
     "rubric_judge": ("2.0.0", "e5e40d9d4d3a"),
+    "rubric_judge_lenient": ("1.0.0", "16244837415e"),
     "behavior_judge": ("1.0.0", "6e9995cfd725"),
 }
 

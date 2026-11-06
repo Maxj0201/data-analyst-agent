@@ -370,6 +370,29 @@ RUBRIC_JUDGE = Prompt(
     "\n".join([RUBRIC_SYSTEM, RUBRIC_INSTRUCTIONS, json.dumps(RUBRIC_SCHEMA, sort_keys=True)]),
 )
 
+# Lenient mode (eval run --lenient-judge, AGENT_JUDGE_STRICT_NUMBERS=false): content only. Step 2
+# of the strict prompt is replaced, so a right figure that is missing from key_numbers no longer
+# fails its point; citations and the number-accuracy rule are unchanged. Same schema.
+_STRICT_STEP_2 = RUBRIC_SYSTEM[
+    RUBRIC_SYSTEM.index("2. Check the key numbers.") : RUBRIC_SYSTEM.index("3. Score 1")
+]
+_LENIENT_STEP_2 = (
+    "2. Numbers may appear anywhere in the report or in <key_numbers>; do not require a figure\n"
+    '   to be listed in <key_numbers>. Leave "unmatched_numbers" empty.\n'
+)
+RUBRIC_SYSTEM_LENIENT = RUBRIC_SYSTEM.replace(_STRICT_STEP_2, _LENIENT_STEP_2).replace(
+    " and no figure is unmatched", ""
+)
+assert RUBRIC_SYSTEM_LENIENT != RUBRIC_SYSTEM and "unmatched." not in RUBRIC_SYSTEM_LENIENT
+# 1.0.0: rubric_judge 2.0.0 without the key-numbers rule.
+RUBRIC_JUDGE_LENIENT = Prompt(
+    "rubric_judge_lenient",
+    "1.0.0",
+    "\n".join(
+        [RUBRIC_SYSTEM_LENIENT, RUBRIC_INSTRUCTIONS, json.dumps(RUBRIC_SCHEMA, sort_keys=True)]
+    ),
+)
+
 
 def _report_text(out: AgentOutput) -> str:
     kn = f"\n\nKey numbers: {json.dumps(out.key_numbers, default=str)}" if out.key_numbers else ""
@@ -408,12 +431,14 @@ def _as_str_list(x: Any) -> list[str]:
     return []
 
 
-def _grade_point(text: str, p: dict[str, Any], report: str) -> dict[str, Any]:
+def _grade_point(
+    text: str, p: dict[str, Any], report: str, strict_numbers: bool = True
+) -> dict[str, Any]:
     """One rubric point from the judge's entry, with the citation rules enforced in code.
 
     A point the judge scored 1 is still 0 when it cites no evidence, when a quote does not occur
-    in the report (a paraphrase or an invented sentence), or when the judge listed a figure that
-    is missing from ``key_numbers``. ``override`` records why.
+    in the report (a paraphrase or an invented sentence), or (``strict_numbers``) when the judge
+    listed a figure that is missing from ``key_numbers``. ``override`` records why.
     """
     if not p:
         return {
@@ -432,7 +457,7 @@ def _grade_point(text: str, p: dict[str, Any], report: str) -> dict[str, Any]:
             override = "no evidence cited"
         elif not all(quote_in_report(q, report) for q in evidence):
             override = "cited evidence does not occur in the report"
-        elif unmatched:
+        elif unmatched and strict_numbers:
             override = f"figures not in key_numbers: {', '.join(unmatched)}"
         if override:
             s = 0
@@ -448,8 +473,11 @@ def _grade_point(text: str, p: dict[str, Any], report: str) -> dict[str, Any]:
     return point
 
 
-async def _judge_rubric_once(task: Task, out: AgentOutput, judge: Judge) -> list[dict[str, Any]]:
-    verdict = await judge.complete(RUBRIC_SYSTEM, build_rubric_prompt(task, out), RUBRIC_SCHEMA)
+async def _judge_rubric_once(
+    task: Task, out: AgentOutput, judge: Judge, strict_numbers: bool = True
+) -> list[dict[str, Any]]:
+    system = RUBRIC_SYSTEM if strict_numbers else RUBRIC_SYSTEM_LENIENT
+    verdict = await judge.complete(system, build_rubric_prompt(task, out), RUBRIC_SCHEMA)
     by_idx: dict[int, dict[str, Any]] = {}
     for p in verdict.get("points", []):
         try:
@@ -457,7 +485,10 @@ async def _judge_rubric_once(task: Task, out: AgentOutput, judge: Judge) -> list
         except (KeyError, TypeError, ValueError):
             continue
     rubric = task.expected.rubric or []
-    return [_grade_point(text, by_idx.get(i, {}), out.answer) for i, text in enumerate(rubric)]
+    return [
+        _grade_point(text, by_idx.get(i, {}), out.answer, strict_numbers)
+        for i, text in enumerate(rubric)
+    ]
 
 
 def _spread(values: list[float]) -> dict[str, float]:
@@ -472,9 +503,17 @@ def _spread(values: list[float]) -> dict[str, float]:
 
 
 async def score_rubric(
-    task: Task, out: AgentOutput, judge: Judge | None, samples: int = 1
+    task: Task,
+    out: AgentOutput,
+    judge: Judge | None,
+    samples: int = 1,
+    strict_numbers: bool = True,
 ) -> Score:
     """Grade an L3 report with the rubric judge.
+
+    ``strict_numbers`` (default) applies the key-numbers rule (prompt ``rubric_judge``); False
+    grades content only (``rubric_judge_lenient``). The mode is recorded as
+    ``details["judge_mode"]``: scores of the two modes are not comparable.
 
     ``samples > 1`` asks the judge that many times (judge variance): the score is the mean
     fraction of points over the successful samples, the task passes when that mean reaches the
@@ -488,7 +527,8 @@ async def score_rubric(
         return Score(False, 0.0, "rubric_judge", {"skipped": True, "error": "no judge configured"})
     samples = max(1, int(samples))
     runs = await asyncio.gather(
-        *(_judge_rubric_once(task, out, judge) for _ in range(samples)), return_exceptions=True
+        *(_judge_rubric_once(task, out, judge, strict_numbers) for _ in range(samples)),
+        return_exceptions=True,
     )
     ok = [r for r in runs if not isinstance(r, BaseException)]
     errors = [r for r in runs if isinstance(r, BaseException)]
@@ -506,7 +546,7 @@ async def score_rubric(
         return sum(p["score"] for p in points) / n_points if n_points else 0.0
 
     thr = task.expected.pass_threshold
-    details: dict[str, Any] = {"pass_threshold": thr}
+    details: dict[str, Any] = {"pass_threshold": thr, "judge_mode": judge_mode_name(strict_numbers)}
     if len(ok) == 1 and samples == 1:
         points = ok[0]
         mean = frac(points)
@@ -650,7 +690,14 @@ BEHAVIOR_JUDGE = Prompt(
     ),
 )
 
-JUDGE_PROMPTS: dict[str, Prompt] = {p.name: p for p in (RUBRIC_JUDGE, BEHAVIOR_JUDGE)}
+JUDGE_PROMPTS: dict[str, Prompt] = {
+    p.name: p for p in (RUBRIC_JUDGE, RUBRIC_JUDGE_LENIENT, BEHAVIOR_JUDGE)
+}
+
+
+def judge_mode_name(strict_numbers: bool) -> str:
+    """``"strict"`` (result figures must be in key_numbers) or ``"lenient"`` (content only)."""
+    return "strict" if strict_numbers else "lenient"
 
 
 def judge_prompt_versions() -> dict[str, dict[str, str]]:
@@ -700,11 +747,18 @@ async def score_adversarial(task: Task, out: AgentOutput, judge: Judge | None) -
 
 
 async def score_task(
-    task: Task, out: AgentOutput, judge: Judge | None = None, judge_samples: int = 1
+    task: Task,
+    out: AgentOutput,
+    judge: Judge | None = None,
+    judge_samples: int = 1,
+    strict_numbers: bool = True,
 ) -> Score:
-    """Score one task. ``judge_samples`` repeats the L3 rubric judge (see :func:`score_rubric`)."""
+    """Score one task. ``judge_samples`` repeats the L3 rubric judge and ``strict_numbers`` picks
+    its mode (see :func:`score_rubric`)."""
     if task.difficulty == "ADV":
         return await score_adversarial(task, out, judge)
     if task.difficulty == "L3":
-        return await score_rubric(task, out, judge, samples=judge_samples)
+        return await score_rubric(
+            task, out, judge, samples=judge_samples, strict_numbers=strict_numbers
+        )
     return score_answer(task.expected, out)
