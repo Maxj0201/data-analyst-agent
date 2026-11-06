@@ -125,6 +125,45 @@ def test_rows_extra_or_missing_rows_fail_with_partial_credit() -> None:
     assert not s.passed and s.score == 0.5
 
 
+# Haiku 5.5's table for l2_ecom_aov_by_segment in the 2026-11-06 smoke run, verbatim: correct, but
+# its "**All segments**" summary row counted as a fourth data row and the task failed.
+HAIKU_AOV_TABLE = "\n".join(
+    [
+        "| Segment | Completed orders | Total net revenue | Average order value | "
+        "Median order value |",
+        "|---|---|---|---|---|",
+        "| Consumer | 1,537 | 195,746.89 | 127.36 | 84.22 |",
+        "| SMB | 1,267 | 282,244.48 | 222.77 | 136.26 |",
+        "| Enterprise | 672 | 376,042.34 | 559.59 | 334.77 |",
+        "| **All segments** | **3,476** | **854,033.71** | **245.69** | **128.98** |",
+    ]
+)
+
+
+def test_rows_ignore_an_all_segments_summary_row() -> None:
+    from analyst_agent.eval.schema import load_tasks
+
+    (task,) = load_tasks(ids=["l2_ecom_aov_by_segment"])
+    s = score_rows(task.expected, out(HAIKU_AOV_TABLE))
+    assert s.passed and s.score == 1.0, s.details
+
+
+@pytest.mark.parametrize(
+    "label",
+    ["All segments", "**All regions**", "Total (all)", "Overall total", "GRAND TOTAL", "Totals:"],
+)
+def test_rows_summary_row_labels(label: str) -> None:
+    ex = make_task("L2", expected_rows=ROWS).expected
+    total = {"category": label, "net_revenue": 1500.5}
+    assert score_rows(ex, out(tables=[[*ROWS, total]])).passed
+
+
+def test_rows_a_data_row_named_like_a_word_is_still_counted() -> None:
+    ex = make_task("L2", expected_rows=ROWS).expected
+    extra = {"category": "Allied supplies", "net_revenue": 9.0}  # not a summary row
+    assert not score_rows(ex, out(tables=[[*ROWS, extra]])).passed
+
+
 def test_rows_wrong_value_fails() -> None:
     ex = make_task("L2", expected_rows=ROWS, tolerance=0.01).expected
     bad = [{"c": "Electronics", "r": 1100}, {"c": "Home", "r": 500.5}]

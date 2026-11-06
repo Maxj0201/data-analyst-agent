@@ -236,8 +236,16 @@ def _row_matches(exp_row: dict[str, Any], cand_row: dict[str, Any], rel: float) 
     return all(_cell_matches(v, cells, rel) for v in exp_row.values())
 
 
+# A summary row's label after _norm (case-insensitive): "Total", "Grand total", "Overall total",
+# "Total (all)", "All", "Overall", or "All <noun>" such as "All segments" / "All regions" (a
+# Haiku answer's "**All segments**" row once failed a correct three-row table).
+_TOTAL_ROW_LABEL = re.compile(
+    r"(?:(?:grand|overall) )?totals?(?: \(all\))?|all|overall|all(?: [a-z]+){1,2}"
+)
+
+
 def _is_total_row(row: dict[str, Any]) -> bool:
-    return any(_norm(v) in {"total", "grand total", "all", "overall"} for v in row.values())
+    return any(_TOTAL_ROW_LABEL.fullmatch(_norm(v).rstrip(":")) for v in row.values())
 
 
 def _match_table(ex: Expected, cand: list[dict[str, Any]]) -> tuple[int, bool]:
