@@ -140,19 +140,25 @@ def estimate_run(
             agent = _plus(agent, SEMANTIC_EXTRA)
         if settings.structured_report_enabled:
             agent = _plus(agent, STRUCTURED_EXTRA)
-        a = n * estimate_cost_usd(model, agent)
+        a = n * estimate_cost_usd(model, agent, single_request=False)
         c = (
-            n * estimate_cost_usd(settings.resolved_critic_model, CRITIC_PROFILE[level])
+            n
+            * estimate_cost_usd(
+                settings.resolved_critic_model, CRITIC_PROFILE[level], single_request=False
+            )
             if critic_on
             else 0.0
         )
         r = (
-            n * estimate_cost_usd(settings.router_model, ROUTER_PROFILE)
+            n * estimate_cost_usd(settings.router_model, ROUTER_PROFILE, single_request=False)
             if settings.routing_enabled
             else 0.0
         )
         j = (
-            n * estimate_cost_usd(judge_model, JUDGE_PROFILE[level], batch=batch_judge)
+            n
+            * estimate_cost_usd(
+                judge_model, JUDGE_PROFILE[level], batch=batch_judge, single_request=False
+            )
             if judge and level in JUDGE_PROFILE
             else 0.0
         )

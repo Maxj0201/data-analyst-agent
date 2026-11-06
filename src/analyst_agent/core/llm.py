@@ -27,7 +27,9 @@ from analyst_agent.core.config import Settings, get_settings
 
 log = logging.getLogger(__name__)
 
-# USD per 1M tokens: (input, output). Cache writes bill at 1.25x input, cache reads at 0.1x.
+# USD per 1M tokens: (input, output). Cache writes (5-minute TTL) bill at 1.25x input, cache
+# reads at 0.1x, or less for the models in CACHE_READ_MULT_BY_MODEL.
+# Source: https://platform.claude.com/docs/en/about-claude/pricing (checked 2026-11-06).
 PRICING: dict[str, tuple[float, float]] = {
     "claude-fable-5-1": (10.00, 50.00),
     "claude-opus-5-5": (4.00, 20.00),
@@ -40,6 +42,17 @@ PRICING: dict[str, tuple[float, float]] = {
 DEFAULT_PRICE = PRICING["claude-opus-5-5"]
 CACHE_WRITE_MULT = 1.25
 CACHE_READ_MULT = 0.10
+CACHE_READ_MULT_BY_MODEL: dict[str, float] = {
+    "claude-fable-5-1": 0.025,
+    "claude-opus-5-5": 0.05,
+    "claude-sonnet-5-5": 0.05,
+}
+# Claude Haiku 5.5 is priced by prompt length: a request whose prompt (input + cache writes +
+# cache reads) is over 100,000 tokens pays these prices for all of its tokens.
+LONG_PROMPT_TOKENS = 100_000
+LONG_PROMPT_PRICING: dict[str, tuple[float, float]] = {
+    "claude-haiku-5-5": (0.50, 2.50),
+}
 # Message Batches API requests bill at half the list price (input, output and cache tokens).
 BATCH_DISCOUNT = 0.50
 
@@ -84,12 +97,25 @@ class Usage:
         )
 
 
-def estimate_cost_usd(model: str, usage: Usage, batch: bool = False) -> float:
+def estimate_cost_usd(
+    model: str, usage: Usage, batch: bool = False, *, single_request: bool = True
+) -> float:
+    """Estimated USD for ``usage``.
+
+    ``single_request=False`` is for usage summed over several requests (planning estimates):
+    the long-prompt tier is decided per request, so it is not applied to a total.
+    """
     in_price, out_price = PRICING.get(model, DEFAULT_PRICE)
+    prompt_tokens = (
+        usage.input_tokens + usage.cache_creation_input_tokens + usage.cache_read_input_tokens
+    )
+    if single_request and model in LONG_PROMPT_PRICING and prompt_tokens > LONG_PROMPT_TOKENS:
+        in_price, out_price = LONG_PROMPT_PRICING[model]
+    read_mult = CACHE_READ_MULT_BY_MODEL.get(model, CACHE_READ_MULT)
     usd = (
         usage.input_tokens * in_price
         + usage.cache_creation_input_tokens * in_price * CACHE_WRITE_MULT
-        + usage.cache_read_input_tokens * in_price * CACHE_READ_MULT
+        + usage.cache_read_input_tokens * in_price * read_mult
         + usage.output_tokens * out_price
     ) / 1_000_000
     return usd * BATCH_DISCOUNT if batch else usd

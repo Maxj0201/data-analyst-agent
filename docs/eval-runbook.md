@@ -297,7 +297,9 @@ a run's estimate).
 ## Budget caps
 
 `eval run --budget-usd X` stops **starting** tasks once the run's agent + judge spend reaches
-`X` (costs from `core/llm.py`'s `PRICING`; cache writes 1.25×, cache reads 0.1× input). Tasks
+`X` (costs from `core/llm.py`'s `PRICING`; cache writes 1.25×, cache reads 0.1× input, or 0.05×
+on Opus 5.5 / Sonnet 5.5 and 0.025× on Fable 5.1; Haiku 5.5 prompts over 100k tokens bill at its
+long-prompt price). Tasks
 already in flight finish, so a run can overshoot by up to `--concurrency` tasks. Tasks that never
 started are written to `results.jsonl` with `status: over_budget`, excluded from accuracy, shown
 as *Not started (--budget-usd)* in `eval report`, and flagged in the summary's *Notes* column.
