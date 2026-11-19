@@ -303,3 +303,52 @@ async def test_score_task_dispatch(mock_judge: MockJudge) -> None:
     assert (await score_task(make_task("L3"), out("x"), mock_judge)).method == "rubric_judge"
     assert (await score_task(make_task("ADV"), out("x"), mock_judge)).method == "adversarial"
     assert len(mock_judge.calls) == 2  # L1/L2 never call the judge
+
+
+# Sonnet's adv_03 answer in the 2026-11-14 experiments (abridged): right category and average,
+# with a supporting table ranking all five categories. Scored 1.0 but failed on row count.
+ADV03_EXPECTED = [{"category": "Refund", "avg_resolution_hours": 48.14}]
+ADV03_TABLE = "\n".join(
+    [
+        "| Category | Resolved tickets | Avg resolution_hours |",
+        "|---|---|---|",
+        "| Refund | 33 | 48.14 |",
+        "| Technical | 80 | 47.08 |",
+        "| Shipping | 51 | 29.93 |",
+        "| Billing | 78 | 17.61 |",
+        "| Account | 27 | 9.68 |",
+    ]
+)
+
+
+def test_rows_single_row_answer_with_ranking_table_passes_when_prose_states_it() -> None:
+    ex = make_task("ADV", expected_rows=ADV03_EXPECTED).expected
+    md = (
+        "## Answer\n**Refund** has the highest average resolution time among Resolved tickets: "
+        "**about 48.14 hours**. Technical is a close second at 47.08 hours.\n\n" + ADV03_TABLE
+    )
+    s = score_rows(ex, out(md))
+    assert s.passed and s.score == 1.0, s.details
+    assert s.details["path"] == "single_row_stated_in_prose"
+
+
+def test_rows_single_row_ranking_table_still_fails_on_a_wrong_pick() -> None:
+    ex = make_task("ADV", expected_rows=ADV03_EXPECTED).expected
+    wrong = "## Answer\n**Technical** has the highest average: 47.08 hours.\n\n" + ADV03_TABLE
+    s = score_rows(ex, out(wrong))
+    assert not s.passed and s.score == 1.0  # the row is in the table, but the pick is wrong
+    # No prose at all: the table alone does not say which row was the answer.
+    assert not score_rows(ex, out(ADV03_TABLE)).passed
+    # Label right but figure wrong in the prose.
+    off = "**Refund** is highest at about 52 hours.\n\n" + ADV03_TABLE
+    assert not score_rows(ex, out(off)).passed
+
+
+def test_rows_multi_row_answers_still_need_an_exact_table() -> None:
+    ex = make_task("L2", expected_rows=ROWS).expected
+    extra = ROWS + [{"category": "Books", "net_revenue": 1.0}]
+    md = "Electronics 1000 and Home 500.5.\n\n" + "\n".join(
+        ["| category | net_revenue |", "|---|---|"]
+        + [f"| {r['category']} | {r['net_revenue']} |" for r in extra]
+    )
+    assert not score_rows(ex, out(md)).passed
