@@ -635,6 +635,17 @@ async def run_tasks(
         langfuse = None
     sem = asyncio.Semaphore(max(1, config.concurrency))
     lock = asyncio.Lock()
+    sleeps = HostSleepDetector()
+    prior_sleeps = list(meta.get("host_sleep") or [])  # a resumed run keeps earlier ones
+
+    def note_sleep(label: str) -> None:
+        if sleeps.mark(label) is None:
+            return
+        events = prior_sleeps + sleeps.events
+        meta["host_sleep"] = events
+        warnings = [w for w in meta.get("warnings", []) if not w.startswith("host slept")]
+        meta["warnings"] = [*warnings, host_sleep_warning(events)]
+
     done = 0
     agent_spend = 0.0
     budget = config.budget_usd
@@ -698,6 +709,7 @@ async def run_tasks(
                     elif budget is not None and spent() >= budget:
                         ex = None
                     else:
+                        note_sleep(f"start {task.id}")
                         ex = await _execute(
                             task,
                             agent,
@@ -778,6 +790,7 @@ async def run_tasks(
             batch_judge.on_enqueue = None
     by_id = {r.task_id: r for r in new}
     results = [by_id[t.id] if t.id in by_id else _row_result(prev_rows[t.id]) for t in tasks]
+    note_sleep("end of run")
     meta["finished_at"] = _now()
     if langfuse is not None:
         try:
@@ -795,6 +808,65 @@ async def run_tasks(
         meta["budget"] = {"usd": budget, "exhausted": skipped > 0, "tasks_not_started": skipped}
     _write_meta(run_dir, meta)
     return run_dir, results
+
+
+# --------------------------------------------------------------------------------------------
+# Host sleep detection
+# --------------------------------------------------------------------------------------------
+
+# A suspended host (a laptop's idle sleep) stalls every in-flight task: they time out or hit
+# connection errors, and their latency is meaningless. The 2026-11-14 semantic arms lost 8 tasks
+# that way. ``time.monotonic`` does not advance while the host is suspended (macOS and Linux)
+# while the wall clock does, so a jump of one against the other is time the host was asleep.
+HOST_SLEEP_THRESHOLD_S = 300.0
+_wall_clock = time.time  # module-level so tests can simulate a suspend
+_mono_clock = time.monotonic
+
+
+class HostSleepDetector:
+    """Flags host suspends of more than ``threshold_s`` between consecutive marks (task starts
+    and the end of the run)."""
+
+    def __init__(self, threshold_s: float = HOST_SLEEP_THRESHOLD_S) -> None:
+        self.threshold_s = threshold_s
+        self.events: list[dict[str, Any]] = []
+        self._last: tuple[float, float, str] | None = None
+
+    def mark(self, label: str) -> dict[str, Any] | None:
+        wall, mono = _wall_clock(), _mono_clock()
+        event = None
+        if self._last is not None:
+            last_wall, last_mono, last_label = self._last
+            suspended = (wall - last_wall) - (mono - last_mono)
+            if suspended > self.threshold_s:
+                event = {
+                    "after": last_label,
+                    "before": label,
+                    "suspended_s": round(suspended, 1),
+                    "from": datetime.fromtimestamp(last_wall, UTC).isoformat(timespec="seconds"),
+                    "to": datetime.fromtimestamp(wall, UTC).isoformat(timespec="seconds"),
+                }
+                self.events.append(event)
+                log.warning(
+                    "host appears to have slept %.0f min (between %s and %s): tasks in flight "
+                    "may have timed out; keep it awake (caffeinate -i) and re-run them",
+                    suspended / 60,
+                    last_label,
+                    label,
+                )
+        self._last = (wall, mono, label)
+        return event
+
+
+def host_sleep_warning(events: list[dict[str, Any]]) -> str | None:
+    """One line for meta.json ``warnings`` and summary notes, or ``None`` if no sleep."""
+    if not events:
+        return None
+    minutes = sum(e.get("suspended_s", 0.0) for e in events) / 60
+    return (
+        f"host slept {len(events)}x (~{minutes:.0f} min) during the run: timeouts and latency "
+        "of tasks in flight are unreliable"
+    )
 
 
 def _write_meta(run_dir: Path, meta: dict[str, Any]) -> None:

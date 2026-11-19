@@ -39,7 +39,7 @@ from analyst_agent.eval.report import (
     summarize,
     summarize_routing,
 )
-from analyst_agent.eval.runner import load_results
+from analyst_agent.eval.runner import host_sleep_warning, load_results
 from analyst_agent.eval.schema import DEFAULT_BENCHMARK_ROOT, load_tasks
 
 # --------------------------------------------------------------------------------------------
@@ -444,6 +444,8 @@ class ArmStats:
         )
         if errs:
             out.append(f"{errs} retrieval errors")
+        if self.meta.get("host_sleep"):  # see runner.HostSleepDetector
+            out.append(f"WARNING: {host_sleep_warning(self.meta['host_sleep'])}")
         return "; ".join(out)
 
 

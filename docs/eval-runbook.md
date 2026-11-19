@@ -57,6 +57,13 @@ previous one's checks pass. Every `run_experiments.sh` invocation below writes t
 `--out` directory, so a step that is interrupted can be continued with `--resume` (see
 [Interrupted runs](#interrupted-runs---resume)).
 
+Keep the machine awake. On macOS `run_experiments.sh` wraps itself in `caffeinate -i`
+(`NO_CAFFEINATE=1` opts out), which blocks idle sleep but not a closed lid on battery. If the
+host still sleeps mid-run, the runner records it in `meta.json` (`host_sleep`, `warnings`) and
+the summary's Notes say "host slept"; the timeouts and latency of that arm are not
+measurements, so re-run the arm. A task that times out keeps its partial trace, and
+`score_details.last_tool_call` shows where it stopped.
+
 ### 0. Setup (free)
 
 ```bash

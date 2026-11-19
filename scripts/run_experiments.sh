@@ -9,7 +9,21 @@
 # flag pinned (a local .env cannot leak into a comparison) and a --budget-usd cap of
 # (estimate from core/llm.py's price table) x --cap-factor. The Sonnet baseline is the shared
 # control of experiments 2-5 and runs once.
+#
+# On macOS the whole run is wrapped in `caffeinate -i`: an idle sleep mid-run stalls every task
+# in flight (the 2026-11-14 semantic arms lost 8 tasks to timeouts that way). The eval runner
+# also records any host sleep it detects in meta.json and the summary notes.
 set -euo pipefail
+
+# Re-exec under caffeinate once (not for --help / --print-commands, which run nothing).
+# NO_CAFFEINATE=1 opts out. caffeinate -i blocks idle sleep only: closing the lid on battery
+# still sleeps the Mac.
+if [[ $(uname -s) == Darwin && -z ${RUN_EXPERIMENTS_CAFFEINATED:-} && -z ${NO_CAFFEINATE:-} ]] \
+  && command -v caffeinate >/dev/null 2>&1 \
+  && [[ " $* " != *" --print-commands "* && " $* " != *" -h "* && " $* " != *" --help "* ]]; then
+  echo "keeping the Mac awake for the run (caffeinate -i)" >&2
+  RUN_EXPERIMENTS_CAFFEINATED=1 exec caffeinate -i bash "$0" "$@"
+fi
 
 usage() {
   cat <<'EOF'
@@ -46,6 +60,7 @@ Options:
   -h, --help             show this help
 
 Environment: PYTHON (default "uv run python") is the interpreter used for every command.
+On macOS the run is wrapped in `caffeinate -i` (idle sleep blocked); NO_CAFFEINATE=1 opts out.
 EOF
 }
 
