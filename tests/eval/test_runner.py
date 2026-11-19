@@ -276,3 +276,25 @@ def test_output_from_core_maps_agent_result() -> None:
         FakeResult(FakeStatus.ERROR, "", {}, FakeState([], [], [], 0, FakeCost(), detail="boom"))
     )
     assert err.status == "error" and err.error == "boom"
+
+
+def test_progress_log_folds_results_and_survives_a_torn_line(tmp_path) -> None:
+    from analyst_agent.eval.agent import ProgressLog, progress_event
+
+    log = ProgressLog(tmp_path / "p.jsonl")
+    for kind, data in [
+        ("plan", {"plan": "look", "turn": 1}),
+        ("tool_call", {"name": "run_sql", "input": {"query": "SELECT 1"}, "turn": 1}),
+        ("tool_result", {"name": "run_sql", "is_error": False, "summary": "x=1"}),
+        ("llm_call", {"usd": 0.1}),  # not journalled
+        ("tool_call", {"name": "run_python", "input": {"code": "while True: pass"}, "turn": 2}),
+    ]:
+        ev = progress_event(kind, data)
+        if ev is not None:
+            log.add(ev)
+    with open(log.path, "a") as f:
+        f.write('{"type": "tool_ca')  # the process was killed mid-write
+    trace = log.trace()
+    assert [e["type"] for e in trace] == ["plan", "tool_call", "tool_call"]
+    assert trace[1]["output"] == "x=1" and trace[1]["is_error"] is False
+    assert "output" not in trace[2]  # still running when it was killed

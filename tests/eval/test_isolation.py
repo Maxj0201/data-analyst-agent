@@ -261,3 +261,27 @@ def test_process_isolated_tasks_write_correlated_json_logs(tmp_path: Path) -> No
     assert len(started) == 1
     assert started[0]["task_id"] and started[0]["run_id"].startswith("run_")
     assert any(ln["msg"] == "sandbox sql" and ln.get("task_id") for ln in lines)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["process", "inline"])
+async def test_timed_out_task_keeps_its_partial_trace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """The 2026-11-14 timeouts were saved with an empty trace and tool_calls=0, so there was no
+    way to tell where they stopped. The agent here plans, runs one query, then hangs."""
+    monkeypatch.setenv("AGENT_ARTIFACTS_DIR", str(tmp_path / "art"))
+    agent = SleepingCoreAgent(tmp_path / "llm_calls.log", sleep_s=60 if mode == "process" else 4)
+    res = await run_task(_l1_task(), agent, None, timeout_s=8, isolation=mode)
+
+    assert res.status == "timeout"
+    types = [e["type"] for e in res.trace]
+    assert "plan" in types and types.count("tool_call") == 1
+    call = next(e for e in res.trace if e["type"] == "tool_call")
+    assert call["name"] == "run_sql" and call["input"] == {"query": "SELECT 1 AS x"}
+    assert call["is_error"] is False and call["output"]  # its result arrived before the hang
+    assert res.tool_calls == 1
+    last = res.score_details["last_tool_call"]
+    assert res.score_details["reason"] == "timeout"
+    assert last["name"] == "run_sql" and last["finished"] is True
+    assert last["input"] == {"query": "SELECT 1 AS x"}

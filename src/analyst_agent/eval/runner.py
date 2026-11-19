@@ -24,9 +24,12 @@ with no spans). With ``AGENT_TRACE_STORE_ENABLED`` the span trees are saved as
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
+import os
 import subprocess
+import tempfile
 import time
 import traceback
 from dataclasses import asdict, dataclass, field, fields
@@ -48,9 +51,11 @@ from analyst_agent.eval.agent import (
     AgentFn,
     AgentInput,
     AgentOutput,
+    ProgressLog,
     SpendMeter,
     call_agent,
     metering,
+    recording,
 )
 from analyst_agent.eval.isolation import AgentTimeout, check_picklable, run_in_subprocess
 from analyst_agent.eval.judge import BatchJudge, Judge
@@ -240,11 +245,15 @@ async def _execute(
     status, error = "ok", None
     out = AgentOutput()
     meter = SpendMeter()  # what the agent reported spending, even if it never returns
+    # ... and the trace events it reported (a file for a child process, which may be killed)
+    fd, journal = tempfile.mkstemp(prefix=f"{task.id}.", suffix=".progress.jsonl")
+    os.close(fd)
+    progress = ProgressLog(journal if isolation == "process" else None)
     try:
         if isolation == "process":
-            out = await run_in_subprocess(agent, inp, timeout_s, spend=meter)
+            out = await run_in_subprocess(agent, inp, timeout_s, spend=meter, progress=progress)
         elif isolation == "inline":
-            with metering(meter):
+            with metering(meter), recording(progress):
                 out = await asyncio.wait_for(call_agent(agent, inp), timeout=timeout_s)
         else:
             raise ValueError(f"unknown isolation {isolation!r}")
@@ -254,6 +263,13 @@ async def _execute(
         status = "error"
         error = f"{type(e).__name__}: {e}\n{traceback.format_exc(limit=5)}"
     latency = time.perf_counter() - t0
+    # A timed-out or crashed task returns no output: keep the trace it got through, so the
+    # row shows how far it got and what it was doing (the 2026-11-14 timeouts had none).
+    if status != "ok" and not out.trace:
+        out.trace = progress.trace()
+        out.tool_calls = sum(1 for e in out.trace if e.get("type") == "tool_call")
+    with contextlib.suppress(OSError):
+        os.unlink(journal)
     if status == "ok" and out.error and out.status == "error":
         status, error = "error", out.error
     # A timed-out or crashed task returns no output, but its LLM calls were still paid for:
@@ -278,7 +294,17 @@ async def _score(
         )
     if ex.status == "ok":
         return Score(False, 0.0, "unscored", {})
-    return Score(False, 0.0, "not_run", {"reason": ex.status})
+    details: dict[str, Any] = {"reason": ex.status}
+    calls = [e for e in ex.out.trace if e.get("type") == "tool_call"]
+    if calls:  # where a timed-out or crashed task stopped
+        last = calls[-1]
+        details["last_tool_call"] = {
+            "name": last.get("name"),
+            "input": last.get("input"),
+            "turn": last.get("turn"),
+            "finished": "output" in last,
+        }
+    return Score(False, 0.0, "not_run", details)
 
 
 def _result(task: Task, ex: _Execution, sc: Score) -> TaskResult:
