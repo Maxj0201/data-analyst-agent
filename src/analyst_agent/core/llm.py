@@ -257,7 +257,10 @@ class LLM(Protocol):
 def _block_to_dict(block: Any) -> dict[str, Any]:
     if isinstance(block, dict):
         return block
-    return block.model_dump(mode="json", exclude_none=True)
+    # by_alias: the content is echoed back to the API in the next turn, so fields must use their
+    # wire names. A refusal-fallback block's `from` is `from_` on the SDK model; without the alias
+    # the echo fails with 400 "messages.N.content.M.fallback.from: Field required".
+    return block.model_dump(mode="json", exclude_none=True, by_alias=True)
 
 
 class BatchUnsupported(RuntimeError):

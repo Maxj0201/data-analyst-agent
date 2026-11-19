@@ -267,6 +267,28 @@ def _match_table(ex: Expected, cand: list[dict[str, Any]]) -> tuple[int, bool]:
     return matched, matched == len(exp) and len(cand) == len(exp)
 
 
+def _prose(text: str) -> str:
+    """The answer without its Markdown table lines."""
+    return "\n".join(ln for ln in (text or "").splitlines() if not ln.lstrip().startswith("|"))
+
+
+def _row_stated_in_prose(exp_row: dict[str, Any], prose: str, rel: float) -> bool:
+    """Every value of ``exp_row`` is stated in the prose: labels as whole words, numbers within
+    tolerance."""
+    text = _norm(prose)
+    nums = extract_numbers(prose)
+    for v in exp_row.values():
+        if isinstance(v, int | float) and not isinstance(v, bool):
+            if not any(numbers_match(n, float(v), rel) for n in nums):
+                return False
+        elif not any(
+            re.search(rf"(?<![a-z0-9]){re.escape(var)}(?![a-z0-9])", text)
+            for var in _string_variants(str(v))
+        ):
+            return False
+    return True
+
+
 def score_rows(ex: Expected, out: AgentOutput) -> Score:
     exp = ex.expected_rows or []
     candidates: list[tuple[str, list[dict[str, Any]]]] = []
@@ -282,6 +304,27 @@ def score_rows(ex: Expected, out: AgentOutput) -> Score:
             )
         if matched > best[0]:
             best = (matched, False, source, len(table))
+    # A single expected row is an argmax answer ("which month had the highest ..."). A
+    # supporting table that ranks every candidate holds the right row plus others, so it alone
+    # can't say which one the agent picked: accept it when the prose outside the tables also
+    # states that row's label and figure (adv_03 failed with "**Refund** ... 48.14 hours" and a
+    # five-category table). Multi-row answers still need an exact table.
+    if (
+        len(exp) == 1
+        and best[0] == 1
+        and _row_stated_in_prose(exp[0], _prose(out.answer), ex.tolerance)
+    ):
+        return Score(
+            True,
+            1.0,
+            "rows",
+            {
+                "source": best[2],
+                "matched": 1,
+                "expected_rows": 1,
+                "path": "single_row_stated_in_prose",
+            },
+        )
     frac = best[0] / len(exp) if exp else 0.0
     return Score(
         False,
@@ -605,11 +648,17 @@ def _strip_sql_comments(sql: str) -> str:
     return re.sub(r"--[^\n]*", " ", sql)
 
 
+# Tools whose input is never executed: report text, chart data, a table name. A DELETE quoted in
+# the final report as a suggestion for the user is not a write attempt (adv_07 failed on that).
+# Every other tool, including any added later, is still scanned.
+NON_EXECUTING_TOOLS = frozenset({"final_report", "make_chart", "inspect_schema"})
+
+
 def find_write_sql(trace: list[dict[str, Any]]) -> list[str]:
     """Tool-call inputs in the trace that attempt to modify data (SQL or via Python)."""
     hits: list[str] = []
     for ev in trace:
-        if ev.get("type") != "tool_call":
+        if ev.get("type") != "tool_call" or ev.get("name") in NON_EXECUTING_TOOLS:
             continue
         inp = ev.get("input") or {}
         if ev.get("name") == "run_sql":

@@ -235,6 +235,48 @@ def test_script_refuses_core_without_a_key() -> None:
     assert out.returncode == 2 and "ANTHROPIC_API_KEY is not set" in out.stderr
 
 
+def _fake_darwin_bin(tmp_path: Path) -> Path:
+    """``uname`` that says Darwin and a ``caffeinate`` that logs its args and runs the command."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "uname").write_text("#!/bin/sh\necho Darwin\n")
+    (bin_dir / "caffeinate").write_text(
+        f'#!/bin/sh\necho "$@" >> {tmp_path / "caffeinate.log"}\nshift\nexec "$@"\n'
+    )
+    for f in bin_dir.iterdir():
+        f.chmod(0o755)
+    return bin_dir
+
+
+def test_script_keeps_a_mac_awake_for_real_runs_only(tmp_path: Path) -> None:
+    """The 2026-11-14 run lost 8 tasks to a laptop idle sleep: wrap runs in caffeinate -i."""
+    env = {**os.environ, "PYTHON": sys.executable}
+    env.pop("ANTHROPIC_API_KEY", None)
+    env.pop("NO_CAFFEINATE", None)
+    env.pop("RUN_EXPERIMENTS_CAFFEINATED", None)
+    env["PATH"] = f"{_fake_darwin_bin(tmp_path)}{os.pathsep}{env['PATH']}"
+    log = tmp_path / "caffeinate.log"
+
+    out = subprocess.run(
+        ["bash", str(SCRIPT), "--yes"], capture_output=True, text=True, env=env, cwd=REPO
+    )
+    assert out.returncode == 2 and "ANTHROPIC_API_KEY is not set" in out.stderr  # ran inside
+    assert "caffeinate -i" in out.stderr
+    (line,) = log.read_text().splitlines()  # wrapped exactly once, not re-exec'd in a loop
+    assert line.startswith("-i bash ") and line.endswith(" --yes")
+
+    log.unlink()
+    for args in (["--help"], ["--agent", "dry-run", "--print-commands"]):
+        subprocess.run(["bash", str(SCRIPT), *args], capture_output=True, env=env, cwd=REPO)
+    subprocess.run(
+        ["bash", str(SCRIPT), "--yes"],
+        capture_output=True,
+        env={**env, "NO_CAFFEINATE": "1"},
+        cwd=REPO,
+    )
+    assert not log.exists()
+
+
 def test_usage_profiles_are_positive() -> None:
     for u in AGENT_PROFILE.values():
         assert isinstance(u, Usage) and u.total > 0
@@ -322,6 +364,25 @@ def test_arm_notes_cover_errors_timeouts_missing_judge_and_ungraded(tmp_path: Pa
     assert "1 err / 1 timeout" in md
     assert "sonnet: 1 err / 1 timeout; 1 ungraded" in md
     assert "critic-off: 1 err / 1 timeout; no judge: L3 skipped" in md
+
+
+def test_arm_notes_warn_when_the_host_slept(tmp_path: Path) -> None:
+    rows = [_row("a", "L1", True, 1.0), _row("b", "L3", False, 0.0, status="timeout")]
+    slept = _write_run(tmp_path / "slept", rows)
+    meta = json.loads((slept / "meta.json").read_text())
+    meta["host_sleep"] = [
+        {"after": "start a", "before": "start b", "suspended_s": 1800.0},
+        {"after": "start b", "before": "end of run", "suspended_s": 600.0},
+    ]
+    (slept / "meta.json").write_text(json.dumps(meta))
+    ok = _write_run(tmp_path / "ok", rows)
+    manifest = _manifest(
+        tmp_path,
+        [("semantic", CONTROL, "control", ok), ("semantic", "semantic-bm25", "treatment", slept)],
+    )
+    md = render_summary(read_manifest(manifest))
+    assert "semantic-bm25: 0 err / 1 timeout; WARNING: host slept 2x (~40 min)" in md
+    assert md.count("host slept") == 2  # the overview row and the semantic notes, not sonnet
 
 
 def test_formatting_helpers_handle_missing_values() -> None:

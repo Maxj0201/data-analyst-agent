@@ -38,6 +38,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import inspect
+import json
 import threading
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
@@ -162,6 +163,113 @@ def report_spend(usd: float) -> None:
     meter = _SPEND_METER.get()
     if meter is not None:
         meter.add(usd)
+
+
+# --------------------------------------------------------------------------------------------
+# Progress journal (so a timed-out task keeps its partial trace)
+# --------------------------------------------------------------------------------------------
+
+
+class ProgressLog:
+    """Trace events of the running task, readable even when the agent never returns.
+
+    Like :class:`SpendMeter`: agents report events as they go with :func:`report_progress`; the
+    runner reads them after a timeout or crash. With ``path`` (process isolation) every event is
+    appended to a JSONL file at once, so the parent still has them after it SIGKILLs the child;
+    otherwise they are kept in memory. :meth:`trace` folds each ``tool_result`` into the
+    ``tool_call`` before it, giving events in the :class:`AgentOutput` trace convention.
+    """
+
+    def __init__(self, path: str | Path | None = None) -> None:
+        self.path = str(path) if path is not None else None
+        self._events: list[dict[str, Any]] = []
+        self._lock = threading.Lock()
+
+    def add(self, event: dict[str, Any]) -> None:
+        line = json.dumps(event, default=str)
+        with self._lock:
+            if self.path is None:
+                self._events.append(json.loads(line))
+                return
+            with open(self.path, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+
+    def events(self) -> list[dict[str, Any]]:
+        with self._lock:
+            if self.path is None:
+                return list(self._events)
+        out: list[dict[str, Any]] = []
+        try:
+            with open(self.path, encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        out.append(json.loads(line))
+                    except json.JSONDecodeError:  # the line being written at the kill
+                        break
+        except FileNotFoundError:
+            pass
+        return out
+
+    def trace(self) -> list[dict[str, Any]]:
+        trace: list[dict[str, Any]] = []
+        for ev in self.events():
+            if ev.get("type") != "tool_result":
+                trace.append(ev)
+                continue
+            for prev in reversed(trace):
+                if prev.get("type") == "tool_call" and prev.get("name") == ev.get("name"):
+                    if "output" not in prev:
+                        prev["output"] = ev.get("summary", "")
+                        prev["is_error"] = bool(ev.get("is_error"))
+                    break
+        return trace
+
+
+_PROGRESS: ContextVar[ProgressLog | None] = ContextVar("eval_progress_log", default=None)
+
+
+@contextmanager
+def recording(log: ProgressLog) -> Iterator[ProgressLog]:
+    """Route :func:`report_progress` calls made in this context (and threads started from it)
+    to ``log``."""
+    token = _PROGRESS.set(log)
+    try:
+        yield log
+    finally:
+        _PROGRESS.reset(token)
+
+
+def report_progress(event: dict[str, Any]) -> None:
+    """Record one trace event for the running eval task (no-op outside a task)."""
+    log = _PROGRESS.get()
+    if log is not None:
+        try:
+            log.add(event)
+        except Exception:  # noqa: BLE001 - the journal must never break the agent
+            pass
+
+
+def progress_event(kind: str, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Map an ``AgentLoop`` event onto a trace event, or ``None`` for kinds not journalled."""
+    if kind == "tool_call":
+        return {
+            "type": "tool_call",
+            "name": data.get("name"),
+            "input": _jsonable(data.get("input")),
+            "turn": data.get("turn"),
+        }
+    if kind == "tool_result":
+        return {
+            "type": "tool_result",
+            "name": data.get("name"),
+            "is_error": bool(data.get("is_error")),
+            "summary": str(data.get("summary", "")),
+        }
+    if kind == "plan":
+        return {"type": "plan", "text": data.get("plan"), "turn": data.get("turn")}
+    if kind in ("route", "escalation", "critic"):
+        return {"type": kind, **_jsonable(data)}
+    return None
 
 
 # --------------------------------------------------------------------------------------------
@@ -341,9 +449,16 @@ def _run_core(
             if on_event is not None:
                 on_event(kind, data)
 
+        def loop_event(kind: str, data: dict[str, Any]) -> None:
+            ev = progress_event(kind, data)  # journalled even if the task is killed
+            if ev is not None:
+                report_progress(ev)
+            if on_event is not None:
+                on_event(kind, data)
+
         llm = EventedLLM(llm, observe, cost_fn=estimate_cost_usd)
         loop = AgentLoop(
-            llm, build_default_registry(), ctx, settings, approver=approver, on_event=on_event
+            llm, build_default_registry(), ctx, settings, approver=approver, on_event=loop_event
         )
         return loop.run(question)
 

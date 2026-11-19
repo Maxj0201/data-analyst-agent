@@ -276,3 +276,80 @@ def test_output_from_core_maps_agent_result() -> None:
         FakeResult(FakeStatus.ERROR, "", {}, FakeState([], [], [], 0, FakeCost(), detail="boom"))
     )
     assert err.status == "error" and err.error == "boom"
+
+
+def test_progress_log_folds_results_and_survives_a_torn_line(tmp_path) -> None:
+    from analyst_agent.eval.agent import ProgressLog, progress_event
+
+    log = ProgressLog(tmp_path / "p.jsonl")
+    for kind, data in [
+        ("plan", {"plan": "look", "turn": 1}),
+        ("tool_call", {"name": "run_sql", "input": {"query": "SELECT 1"}, "turn": 1}),
+        ("tool_result", {"name": "run_sql", "is_error": False, "summary": "x=1"}),
+        ("llm_call", {"usd": 0.1}),  # not journalled
+        ("tool_call", {"name": "run_python", "input": {"code": "while True: pass"}, "turn": 2}),
+    ]:
+        ev = progress_event(kind, data)
+        if ev is not None:
+            log.add(ev)
+    with open(log.path, "a") as f:
+        f.write('{"type": "tool_ca')  # the process was killed mid-write
+    trace = log.trace()
+    assert [e["type"] for e in trace] == ["plan", "tool_call", "tool_call"]
+    assert trace[1]["output"] == "x=1" and trace[1]["is_error"] is False
+    assert "output" not in trace[2]  # still running when it was killed
+
+
+@pytest.mark.asyncio
+async def test_host_sleep_between_task_starts_is_flagged_in_meta(tmp_path, monkeypatch) -> None:
+    """The 2026-11-14 semantic arms ran through a laptop's idle sleep without a trace of it in
+    meta.json. Simulate a 40-minute suspend: the wall clock jumps, the monotonic clock doesn't."""
+    from analyst_agent.eval import runner
+
+    clock = {"wall": 1_000_000.0, "mono": 0.0, "calls": 0}
+
+    def wall() -> float:
+        clock["calls"] += 1
+        if clock["calls"] == 2:  # between the first and second task start
+            clock["wall"] += 40 * 60
+        clock["wall"] += 1
+        return clock["wall"]
+
+    def mono() -> float:
+        clock["mono"] += 1
+        return clock["mono"]
+
+    monkeypatch.setattr(runner, "_wall_clock", wall)
+    monkeypatch.setattr(runner, "_mono_clock", mono)
+    tasks = [make_task("L1").model_copy(update={"id": f"t{i}"}) for i in range(3)]
+    run_dir, _ = await run_tasks(
+        tasks,
+        echo_agent(),
+        config=RunConfig(concurrency=1, isolation="inline", score=False),
+        run_dir=tmp_path / "run",
+        progress=False,
+    )
+    meta = json.loads((run_dir / "meta.json").read_text())
+    (ev,) = meta["host_sleep"]
+    assert ev["after"] == "start t0" and ev["before"] == "start t1"
+    assert ev["suspended_s"] == pytest.approx(2400, abs=5)
+    assert meta["warnings"] == [
+        "host slept 1x (~40 min) during the run: timeouts and latency "
+        "of tasks in flight are unreliable"
+    ]
+
+
+def test_host_sleep_detector_ignores_long_tasks() -> None:
+    """A long gap between task starts with no suspend (busy slots) is not a sleep."""
+    from analyst_agent.eval import runner
+
+    t = {"now": 0.0}
+    det = runner.HostSleepDetector()
+    orig = runner._wall_clock, runner._mono_clock
+    runner._wall_clock = runner._mono_clock = lambda: t["now"]
+    try:
+        det.mark("start a")
+        t["now"] += 900  # 15 minutes of work, both clocks advance together
+        assert det.mark("start b") is None and det.events == []
+    finally:
+        runner._wall_clock, runner._mono_clock = orig

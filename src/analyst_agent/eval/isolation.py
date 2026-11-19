@@ -27,9 +27,11 @@ from analyst_agent.eval.agent import (
     AgentFn,
     AgentInput,
     AgentOutput,
+    ProgressLog,
     SpendMeter,
     call_agent,
     metering,
+    recording,
 )
 
 
@@ -120,6 +122,7 @@ def _child_main(
     env: dict[str, str] | None = None,
     spend: Any = None,
     log_config: tuple[bool, str] | None = None,
+    progress_path: str | None = None,
 ) -> None:
     if hasattr(os, "setsid"):
         os.setsid()  # own process group: the parent can kill everything we spawn at once
@@ -134,8 +137,14 @@ def _child_main(
     try:
         # Spend reported while the agent runs lands in ``spend`` (shared memory), which the
         # parent reads even if it has to kill this process.
+        # Trace events go to ``progress_path`` line by line, for the same reason.
+        progress = ProgressLog(progress_path) if progress_path else None
         with metering(SpendMeter(spend)):
-            out = asyncio.run(call_agent(agent, inp))
+            if progress is None:
+                out = asyncio.run(call_agent(agent, inp))
+            else:
+                with recording(progress):
+                    out = asyncio.run(call_agent(agent, inp))
         msg: tuple[str, Any] = ("ok", out)
     except BaseException as e:  # report everything, including SystemExit from agent code
         msg = ("error", f"{type(e).__name__}: {e}\n{traceback.format_exc(limit=5)}")
@@ -179,21 +188,37 @@ async def _wait_readable(conn: Connection, timeout_s: float) -> bool:
 
 
 async def run_in_subprocess(
-    agent: AgentFn, inp: AgentInput, timeout_s: float, spend: SpendMeter | None = None
+    agent: AgentFn,
+    inp: AgentInput,
+    timeout_s: float,
+    spend: SpendMeter | None = None,
+    progress: ProgressLog | None = None,
 ) -> AgentOutput:
     """Run ``agent(inp)`` in a fresh child process; kill it (and its children) on timeout.
 
     Raises :class:`AgentTimeout`, :class:`AgentCrashed`, or ``RuntimeError`` carrying the
     child's traceback if the agent raised. ``spend`` receives the USD the child reported
     (:func:`~analyst_agent.eval.agent.report_spend`), also when it timed out or crashed.
+    ``progress`` (a file-backed :class:`ProgressLog`) receives the trace events the child
+    reported (:func:`~analyst_agent.eval.agent.report_progress`), likewise.
     """
+    if progress is not None and progress.path is None:
+        raise ValueError("a ProgressLog shared with a child process needs a path")
     ctx = _context()
     recv_conn, send_conn = ctx.Pipe(duplex=False)
     env = dict(os.environ)
     shared = ctx.Value("d", 0.0)
     proc = ctx.Process(
         target=_child_main,
-        args=(send_conn, agent, inp, env, shared, _parent_logging()),
+        args=(
+            send_conn,
+            agent,
+            inp,
+            env,
+            shared,
+            _parent_logging(),
+            progress.path if progress is not None else None,
+        ),
         daemon=True,
     )
     try:
