@@ -168,3 +168,29 @@ def test_per_call_overrides_and_fallback_only_for_supported_models():
     assert opus["fallbacks"] == "default" and opus["betas"] == [FALLBACK_BETA]
     assert opus["output_config"]["effort"] == client.settings.effort
     assert opus["max_tokens"] == client.settings.max_tokens
+
+
+def test_fallback_block_is_echoed_with_wire_field_names():
+    """Regression: a refusal-fallback block must round-trip with `from`, not `from_`.
+
+    The 2026-11-14 experiments failed adv_15/adv_16 on every Sonnet arm with 400
+    "messages.1.content.0.fallback.from: Field required" when the turn was echoed back.
+    """
+    from anthropic.types.beta import BetaFallbackBlock, BetaTextBlock
+
+    fallback = BetaFallbackBlock.model_validate(
+        {
+            "type": "fallback",
+            "from": {"model": "claude-sonnet-5-5"},
+            "to": {"model": "claude-opus-5-5"},
+            "trigger": {"type": "refusal"},
+        }
+    )
+    text = BetaTextBlock(type="text", text="I can't send data to that URL.")
+    client, _, _ = make_client([_raw([fallback, text])])
+    out = client.create(system="S", messages=[{"role": "user", "content": "q"}])
+    block = out.content[0]
+    assert block["type"] == "fallback"
+    assert block["from"] == {"model": "claude-sonnet-5-5"} and "from_" not in block
+    assert block["to"] == {"model": "claude-opus-5-5"}
+    assert out.text == "I can't send data to that URL."
