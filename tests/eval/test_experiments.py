@@ -222,7 +222,8 @@ def test_script_help_and_print_commands() -> None:
         cwd=REPO,
     )
     cmds = [ln for ln in out.stdout.splitlines() if "analyst_agent.eval run" in ln]
-    assert len(cmds) == sum(len(arms) for _, _, arms in PLAN)
+    # Every PLAN arm except cache, which repeats the control config and runs only when asked.
+    assert len(cmds) == sum(len(arms) for exp, _, arms in PLAN if exp != "cache")
     assert all("--budget-usd" in c and "--judge-model claude-sonnet-5-5" in c for c in cmds)
 
 

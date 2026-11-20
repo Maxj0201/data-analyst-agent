@@ -110,10 +110,13 @@ def test_router_call_shape(ctx, routed):
     assert call["system"] == ROUTER_SYSTEM
     assert call["output_format"] == {"type": "json_schema", "schema": ROUTER_SCHEMA}
     assert call["tools"] is None
-    content = call["messages"][0]["content"]
-    assert "Revenue by region?" in content
-    # The schema summary is dataset content, so it is wrapped as untrusted data.
-    assert '<tool_output tool="schema_summary"' in content and "sales (4 rows)" in content
+    tables, ask = call["messages"][0]["content"]
+    assert "Revenue by region?" in ask["text"] and "cache_control" not in ask
+    # The schema summary is dataset content, so it is wrapped as untrusted data, and it comes
+    # first with the cache breakpoint: ROUTER_SYSTEM + summary is the same for every question.
+    assert tables["cache_control"] == {"type": "ephemeral"}
+    assert '<tool_output tool="schema_summary"' in tables["text"]
+    assert "sales (4 rows)" in tables["text"] and "Revenue by region?" not in tables["text"]
 
 
 @pytest.mark.parametrize(

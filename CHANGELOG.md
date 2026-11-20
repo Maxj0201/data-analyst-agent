@@ -27,6 +27,13 @@ All notable changes to this project. Versions follow [SemVer](https://semver.org
   κ 0.912).
 
 ### Changed
+- Prompt caching covers the agent's conversation, not only the tools and system prompt. Each
+  agent turn now sets a second breakpoint on the newest block (`cache_history`), so a turn reads
+  the earlier turns from the cache instead of paying full price for them. Before, 59% of the
+  control's input tokens were uncached history (40.2% cache hit rate). The router's schema
+  summary moved ahead of the question as a cached block. The eval report, the experiment summary
+  and the per-model token table have a *Cache hit* column, and `run_experiments.sh --only cache`
+  re-runs the control config to measure the change (`tests/test_prompt_caching.py`).
 - ADV scoring (#43): a judge refusal makes the task ungraded unless its rule checks fail it
   (new *Judge refusals* column); total rows may carry a parenthetical; the PII guard masks card
   numbers at any count. The published results were re-scored offline with it: the control is

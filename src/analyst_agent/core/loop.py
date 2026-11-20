@@ -552,6 +552,8 @@ class AgentLoop:
                 model=state.model,
                 role="agent",
                 cost=state.cost,
+                # Each turn re-sends the whole conversation; cache it up to the newest block.
+                cache_history=True,
             )
             # Append the full content (incl. thinking blocks) unchanged.
             state.messages.append({"role": "assistant", "content": resp.content})

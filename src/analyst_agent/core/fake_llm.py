@@ -88,6 +88,7 @@ class FakeLLM:
         cost: CostTracker | None = None,
         effort: str | None = None,
         max_tokens: int | None = None,
+        cache_history: bool = False,
     ) -> LLMResponse:
         self.calls.append(
             {
@@ -98,6 +99,7 @@ class FakeLLM:
                 "output_format": output_format,
                 "model": model,
                 "effort": effort,
+                "cache_history": cache_history,
                 "max_tokens": max_tokens,
             }
         )

@@ -57,6 +57,25 @@ def judge_refused(r: dict[str, Any]) -> bool:
     return bool((r.get("score_details") or {}).get("judge_refused"))
 
 
+def cache_tokens(results: list[dict[str, Any]]) -> dict[str, int]:
+    """The agent's input tokens summed over ``results``, split into cache reads, cache writes and
+    uncached input (``cost_by_model`` of each row; the judge is not included)."""
+    out = {"read": 0, "write": 0, "uncached": 0}
+    for r in results:
+        for u in (r.get("cost_by_model") or {}).values():
+            out["read"] += u.get("cache_read_input_tokens", 0)
+            out["write"] += u.get("cache_creation_input_tokens", 0)
+            out["uncached"] += u.get("input_tokens", 0)
+    return out
+
+
+def cache_hit_rate(results: list[dict[str, Any]]) -> float | None:
+    """Cache reads / total input tokens (uncached + cache writes + cache reads), or ``None``
+    when the rows carry no token counts. The Console's "cache hit rate" is the same ratio."""
+    t = cache_tokens(results)
+    return _rate(t["read"], sum(t.values()))
+
+
 def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
     n = len(results)
     scored = [r for r in results if not is_skipped(r)]
@@ -98,6 +117,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
         "judge_refusals": sum(judge_refused(r) for r in results),
         "total_cost_usd": sum(costs),
         "mean_cost_usd": sum(costs) / n if n else None,
+        "cache_hit_rate": cache_hit_rate(results),
         "latency_p50_s": percentile(lat, 50) if lat else None,
         "latency_p95_s": percentile(lat, 95) if lat else None,
         "mean_tool_calls": sum(r["tool_calls"] for r in results) / n if n else None,
@@ -197,9 +217,11 @@ def summarize_routing(results: list[dict[str, Any]]) -> dict[str, Any] | None:
     for r in results:
         for model, u in (r.get("cost_by_model") or {}).items():
             agg = by_model.setdefault(
-                model, {"calls": 0, "input_tokens": 0, "output_tokens": 0, "usd": 0.0}
+                model,
+                {"calls": 0, "input_tokens": 0, "cache_read": 0, "output_tokens": 0, "usd": 0.0},
             )
             agg["calls"] += u.get("calls", 0)
+            agg["cache_read"] += u.get("cache_read_input_tokens", 0)
             agg["input_tokens"] += (
                 u.get("input_tokens", 0)
                 + u.get("cache_creation_input_tokens", 0)
@@ -274,13 +296,14 @@ def _routing_lines(rt: dict[str, Any]) -> list[str]:
             "",
             "### Tokens and cost by model",
             "",
-            "| Model | Calls | Input tokens | Output tokens | Cost |",
-            "|---|---|---|---|---|",
+            "| Model | Calls | Input tokens | Cache hit | Output tokens | Cost |",
+            "|---|---|---|---|---|---|",
         ]
         for m, u in rt["by_model"].items():
+            hit = _pct(_rate(u.get("cache_read", 0), u["input_tokens"]))
             lines.append(
-                f"| {m} | {u['calls']} | {u['input_tokens']:,} | {u['output_tokens']:,} | "
-                f"{_usd(u['usd'])} |"
+                f"| {m} | {u['calls']} | {u['input_tokens']:,} | {hit} | "
+                f"{u['output_tokens']:,} | {_usd(u['usd'])} |"
             )
     return lines
 
@@ -307,6 +330,7 @@ HEADLINE = [
     ("Errors / timeouts", None, None),
     ("Mean cost / task", "mean_cost_usd", _usd),
     ("Total cost", "total_cost_usd", _usd),
+    ("Cache hit rate (agent input tokens)", "cache_hit_rate", _pct),
     ("Latency p50", "latency_p50_s", lambda x: _num(x, "{:.1f}s")),
     ("Latency p95", "latency_p95_s", lambda x: _num(x, "{:.1f}s")),
     ("Mean tool calls", "mean_tool_calls", _num),
@@ -322,7 +346,7 @@ HEADLINE = [
 def _headline_value(s: dict[str, Any], key: str | None, fmt: Any) -> str:
     if key is None:
         return f"{s['errors']} / {s['timeouts']}"
-    return fmt(s[key])
+    return fmt(s.get(key))
 
 
 JUDGE_MODE_LABELS = {
