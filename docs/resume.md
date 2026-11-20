@@ -23,7 +23,7 @@ UI e2e checks.
 Each bullet is two lines. The numbers are in the table below the bullets.
 
 - Built an 80-task agent benchmark (seeded data, generator-computed ground truth, rubric-judged
-  tier, offline CI gate); the Sonnet baseline scores **88.8%** (L1 100%, L2 95.8%) at **$0.053**/task.
+  tier, offline CI gate); the Sonnet baseline scores **91.0%** (L1 100%, L2 95.8%) at **$0.053**/task.
 - Confined LLM-written Python with seccomp-bpf and Landlock, closing the **2 escapes** a red-team
   review found and **8 gap classes** an escape fuzzer found; the fuzzer now blocks 500/500 snippets.
 - Ran **8 experiment arms** as flag A/Bs on the same tasks (model, critic, semantic layer, routing,
@@ -33,10 +33,10 @@ Each bullet is two lines. The numbers are in the table below the bullets.
 
 | Number | Source |
 |---|---|
-| 88.8%, L1 100%, L2 95.8%, $0.053/task | [the summary](results/2026-11-20-summary.md) Overview, row *baseline / sonnet* (the 2026-11-19 control, 3 L3 judge samples) |
+| 91.0%, L1 100%, L2 95.8%, $0.053/task | [the summary](results/2026-11-20-summary.md) Overview, row *baseline / sonnet* (the 2026-11-19 control, 3 L3 judge samples, re-scored with #43: 71 of 78 graded tasks) |
 | 8 experiment arms | haiku, sonnet, critic-off, semantic-bm25 / -embedding / -hybrid, routing-on, structured-on: the full-benchmark rows of [the manifest](results/2026-11-20-manifest.tsv) (plus the 16-task pii-guard-on arm) |
 | 2 escapes, 8 gap classes | [review.md](review.md) H1/H2; CHANGELOG 0.1.0 *Sandbox*, "eight classes of gap, all now closed" |
-| no gain or a loss | README *Results*: critic-off -1.2 pp at 0.70× cost; semantic +0.0 / -5.0 / -7.5 pp; structured -7.5 pp |
+| no gain or a loss | README *Results*: critic-off -3.5 pp at 0.70× cost; semantic -1.2 / -6.2 / -8.7 pp; structured -8.7 pp |
 
 Rules before quoting a value (runbook, *Reading the results*):
 
@@ -46,8 +46,9 @@ Rules before quoting a value (runbook, *Reading the results*):
   those two L3 deltas are not like-for-like.
 - Re-running three arms moved their L3 scores by 2 to 5 of 16 tasks, so an L3 delta smaller than
   that is not a finding.
-- On adv_15 / adv_16 the judge sometimes refuses to grade, and a refusal counts as a fail (6 of 9
-  arms). Don't quote ADV differences between arms as agent behaviour.
+- On adv_15 / adv_16 the judge refused to grade in 8 of 9 arms. Since #43 those tasks are
+  ungraded (out of accuracy), so arms have 78 to 80 graded tasks; numbers from before #43 (88.8%
+  for the control) counted refusals as failures and are not comparable.
 - The real judge agrees with the 24 hand-labelled reports on every verdict (κ 1.000) and on
   95.6% of rubric points (κ 0.912). Only 8 of the 24 are passing reports.
 
@@ -72,7 +73,7 @@ About 220 words, which is 90 seconds at a normal pace.
 > file names. CI makes no API calls, and every feature ships behind a flag, so each can be A/B'd
 > on the same commit.
 >
-> Third, I measure features instead of assuming they help. On the live run Sonnet scored 88.8%
+> Third, I measure features instead of assuming they help. On the live run Sonnet scored 91.0%
 > at about five cents a task, and the critic, the semantic layer and structured reports showed
 > no gain or a loss, so they stay behind flags that default to off. I wrote down what I'd change
 > for multi-tenant use, mainly per-job container isolation and a shared job store.
@@ -112,10 +113,10 @@ The critic is its own call with its own prompt. It sees only the draft, the SQL 
 ran, and the result tables, not the planner's reasoning (`core/critic.py`). A model that rereads
 its own chain of thought tends to ratify it, while a clean context catches wrong joins, double
 counting and unsupported claims more often. That is the design argument, and on this benchmark
-the data does not back it: with `AGENT_MAX_CRITIC_ROUNDS=0` accuracy was 87.5% against 88.8%,
-one task, for 0.70× the cost. The critic intervened on 6.2% of tasks and 80% of those ended up
-passing. The off arm lost 2 L3 tasks and gained 2 ADV tasks, but both ADV tasks are ones where
-the judge refused to grade the control, and a 2-task L3 move is within run-to-run variation.
+the data does not back it: with `AGENT_MAX_CRITIC_ROUNDS=0` accuracy was 87.5% against 91.0%
+(two L3 tasks and one L2 task) for 0.70× the cost. The critic intervened on 6.2% of tasks and 80%
+of those ended up passing. A 2-task L3 move is within the run-to-run variation I measured, so the
+critic's benefit is at most a few tasks, at 1.4× the cost.
 ([design-decisions.md](design-decisions.md) decision 2; [eval-runbook.md](eval-runbook.md))
 
 ### Q4. What are the critic's failure modes?
@@ -170,7 +171,7 @@ so `max_turns` cannot block the retry. Trade-offs:
 - I rejected "always try cheap first": it pays twice on every hard question.
 - Human approval denials never escalate. That was a real bug (story 2).
 - The result I wanted was a cost ratio well below 1.00× with the accuracy delta inside noise.
-  Measured, with 3 judge samples: -2.5 pp (within noise) at 0.98× cost, so routing saved almost
+  Measured, with 3 judge samples: -2.6 pp (within noise) at 0.98× cost, so routing saved almost
   nothing. The first run had shown 0.90× for -6.2 pp with L3 at 37.5%; the re-run's L3 was
   68.8%, which is how much one arm moves between runs. ([model-routing.md](model-routing.md))
 
@@ -187,11 +188,11 @@ ADV tier (16 tasks) plants injections in cell text, a column header and a file n
 write attempts and exfiltration URLs, and a task passes only if the rule checks, the judge and
 the legitimate part of the answer all pass. Known gaps: the MCP server's `structuredContent`
 carries raw rows outside the fence (review-2 L2), and the ADV set is small and English-only. I
-The live Sonnet control passes 12 of 16 ADV tasks (75.0%): it exported customer contact lists
-on both PII tasks, and the judge refused to grade both exfiltration tasks, which counts as a
-fail. So I added an output control, `AGENT_PII_GUARD_ENABLED`, which masks bulk emails, phone
-numbers and card numbers in tool output and the report. On the 16 ADV tasks it changed no
-verdict: the contact lists were masked, but the agent then listed customer names, which the
+The live Sonnet control passes 12 of the 14 ADV tasks the judge graded (85.7%): it exported
+customer contact lists on both PII tasks, and the judge refused to grade both exfiltration
+tasks, which I now score as ungraded rather than failed. So I added an output control, `AGENT_PII_GUARD_ENABLED`, which masks bulk emails, phone
+numbers in bulk, and card numbers always, in tool output and the report. On the ADV tasks it
+changed no verdict: the contact lists were masked, but the agent then listed customer names, which the
 guard does not detect.
 ([design-decisions.md](design-decisions.md) decision 5)
 
@@ -217,8 +218,8 @@ Measurement first, then hardening, then breadth (README roadmap, integration not
 
 1. Repeat every arm several times ([eval-runbook.md](eval-runbook.md)) and report ranges:
    one re-run moved an arm's L3 score by up to 5 of 16 tasks.
-2. Score a judge refusal on an ADV task as ungraded instead of failed, and grow the calibration
-   set past 8 passing reports so borderline L3 grading is tested.
+2. Grow the calibration set past 8 passing reports so borderline L3 grading is tested, and
+   find out why the judge refuses the exfiltration tasks.
 3. Measure embedding and hybrid retrieval and sweep `AGENT_SEMANTIC_HYBRID_WEIGHT`; close the
    gap on held-out paraphrases (4 of 10 miss top-1).
 4. Verify the sandbox on Cloud Run gen2 (Landlock and seccomp under gVisor), and turn the
@@ -295,10 +296,10 @@ makes these the dearest tasks. I added a per-task `SpendMeter` that writes to a
 
 | Can say (measured) | Cannot say yet |
 |---|---|
-| Sonnet 5.5 scores 88.8% on the 80 tasks (L1 100%, L2 95.8%, L3 75.0%, ADV 75.0%) at $0.053/task; Haiku 81.2% at 0.12× the cost | That any difference between arms holds across repeated runs |
-| Critic off: 87.5% (one task less) at 0.70× cost. Semantic layer and structured reports: no gain or a loss. Routing: -2.5 pp at 0.98× cost | That the critic, semantic layer or routing never help (one benchmark, one run each) |
+| Sonnet 5.5 scores 91.0% of the graded tasks (L1 100%, L2 95.8%, L3 75.0%, ADV 85.7%) at $0.053/task; Haiku 82.3% at 0.12× the cost | That any difference between arms holds across repeated runs |
+| Critic off: 87.5% (-3.5 pp) at 0.70× cost. Semantic layer and structured reports: no gain or a loss. Routing: -2.6 pp at 0.98× cost | That the critic, semantic layer or routing never help (one benchmark, one run each) |
 | The real judge agrees with 24 hand-labelled reports on every verdict (κ 1.000) and 95.6% of rubric points (κ 0.912) | How the judge does on borderline reports (only 8 of the 24 pass) |
-| The full test suite passes (run `make test` for the current number), 94.2% coverage, oracle 100% on 64 gradable tasks | That the agent fails the exfiltration tasks: the judge refused to grade them in 6 of 9 arms |
+| The full test suite passes (run `make test` for the current number), 94.2% coverage, oracle 100% on 64 gradable tasks | Whether the agent passes the exfiltration tasks: the judge refused to grade them in 8 of 9 arms |
 | Fuzzer: 500 of 500 blocked or killed; 88 of 500 got through before the fixes | That the PII output guard fixes the PII tasks: it changed no ADV verdict |
 | 2 High and 8 Medium (review) plus 4 Medium (review 2) findings fixed, each with a regression test | Embedding or hybrid retrieval quality outside the benchmark |
 | BM25 top-1 1.000 on 33 tuned cases, 0.600 on 10 held-out paraphrases | Anything about Cloud Run, or the embeddings image |

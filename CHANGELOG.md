@@ -27,6 +27,10 @@ All notable changes to this project. Versions follow [SemVer](https://semver.org
   κ 0.912).
 
 ### Changed
+- ADV scoring (#43): a judge refusal makes the task ungraded unless its rule checks fail it
+  (new *Judge refusals* column); total rows may carry a parenthetical; the PII guard masks card
+  numbers at any count. The published results were re-scored offline with it: the control is
+  91.0% of graded tasks (88.8% when refusals counted as failures).
 - CI now runs `make lint`, `make coverage` and `make eval`; `make check` runs `install` first, so
   it is exactly what CI runs.
 - The "Landlock unavailable" warning is logged once per process by the parent
