@@ -1,6 +1,6 @@
-# Eval runbook: five experiments on the full benchmark
+# Eval runbook: the benchmark experiments
 
-How to run the five headline experiments with real models on all 80 benchmark tasks
+How to run the five headline experiments, plus the ADV-only PII-guard arm, with real models on all 80 benchmark tasks
 ([benchmark.md](benchmark.md)), with the LLM judge grading L3 (and ADV behaviour), each run
 capped in USD, and how to turn the results into README tables.
 
@@ -11,9 +11,11 @@ capped in USD, and how to turn the results into README tables.
 | 3 | **semantic** | off (control) vs `bm25` / `embedding` / `hybrid` | Do governed metric definitions help, and which retriever? |
 | 4 | **routing** | off (control) vs on (L1 → Haiku, L2/L3 → Sonnet) | Can routing cut cost without losing accuracy? |
 | 5 | **structured** | off (control) vs on | Does the structured `final_report` schema change accuracy or cost? |
+| 6 | **adv** | off (control) vs PII output guard on, **16 ADV tasks only** | Does masking bulk PII fix the adv_05 / adv_06 failures without breaking the other ADV tasks? |
 
 The Sonnet arm of experiment 1 is the **shared control** of experiments 2-5: it runs once, and
-each treatment changes exactly one thing relative to it. That is 8 runs of 80 tasks.
+each treatment changes exactly one thing relative to it. That is 8 runs of 80 tasks, plus the
+16-task `adv` arm, whose table compares it with the control's same 16 tasks.
 
 ## TL;DR
 
@@ -411,10 +413,12 @@ scripts/run_experiments.sh --help
 
 | Command | What it does |
 |---|---|
-| `scripts/run_experiments.sh` | all 8 runs, asks for confirmation, writes `runs/experiments/<stamp>/` and `runs/summary.md` |
+| `scripts/run_experiments.sh` | all 9 runs, asks for confirmation, writes `runs/experiments/<stamp>/` and `runs/summary.md` |
 | `scripts/run_experiments.sh --print-commands` | prints the exact env + `eval run` command of every arm (with its cap) and exits |
 | `scripts/run_experiments.sh --only routing --control runs/experiments/<stamp>/sonnet/<run>` | one experiment, reusing an existing Sonnet control |
 | `scripts/run_experiments.sh --only semantic --only critic --cap-factor 2` | several experiments, more headroom |
+| `scripts/run_experiments.sh --only adv --control runs/experiments/<stamp>/sonnet/<run>` | the 16 ADV tasks with `AGENT_PII_GUARD_ENABLED=true`, everything else as the control ([ADV-only arm](#adv-only-arm-pii-output-guard)) |
+| `scripts/run_experiments.sh ... --judge-samples 3` | grade each L3 task 3 times (the cap is priced for it); match the control's setting |
 | `scripts/run_experiments.sh --agent dry-run --yes` | the free end-to-end check |
 | `scripts/run_experiments.sh ... --batch` | judge calls of each arm as one Message Batch (half price) |
 | `scripts/run_experiments.sh ... --out DIR --resume DIR` | continue an interrupted invocation ([Interrupted runs](#interrupted-runs---resume)) |
@@ -439,6 +443,19 @@ same experiment and arm):
 ```bash
 uv run python -m analyst_agent.eval.experiments summary runs/experiments/baseline/manifest.tsv runs/experiments/rest/manifest.tsv --out runs/summary.md
 ```
+
+## ADV-only arm: PII output guard
+
+`--only adv` runs `eval run --difficulty ADV` (16 tasks, about a fifth of a full arm's cost) with
+the control's pinned environment plus `AGENT_PII_GUARD_ENABLED=true`. In `runs/summary.md` its
+table compares it with the control restricted to the same 16 tasks (the control's config cell
+says `(same 16 tasks)`), and adds two columns: *Guard fired (tasks)*, the tasks where the guard
+masked a tool result or the report, and *PII rule failures*, the tasks whose ADV rule check still
+counted too many emails or phone numbers. Its Overview row shows `–` for L1 to L3, and its notes
+say `ADV tasks only`.
+
+The guard does not cover names or files `run_python` writes to `artifacts/`, so the ADV judge can
+still fail a task that exports contacts to a CSV (the 2026-11-19 control did that on adv_05).
 
 ## Running by hand
 

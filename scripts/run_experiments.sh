@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Run the five benchmark experiments (docs/eval-runbook.md) and write runs/summary.md.
+# Run the benchmark experiments (docs/eval-runbook.md) and write runs/summary.md.
 #
 #   scripts/run_experiments.sh --agent dry-run --yes        # free end-to-end check, no API calls
 #   scripts/run_experiments.sh                              # real models, all 80 tasks, judge on
 #   scripts/run_experiments.sh --only semantic --control runs/experiments/<stamp>/sonnet/<run>
+#   scripts/run_experiments.sh --only adv --control <run>   # 16 ADV tasks, PII guard on
 #
-# Every arm is one `python -m analyst_agent.eval run` over all tasks with every AGENT_* feature
+# Every arm is one `python -m analyst_agent.eval run` (over all tasks, except the ADV-only
+# `adv` experiment) with every AGENT_* feature
 # flag pinned (a local .env cannot leak into a comparison) and a --budget-usd cap of
 # (estimate from core/llm.py's price table) x --cap-factor. The Sonnet baseline is the shared
 # control of experiments 2-5 and runs once.
@@ -33,7 +35,9 @@ Options:
   --agent core|dry-run   core = real models (needs ANTHROPIC_API_KEY; the LLM judge grades
                          L3 and ADV). dry-run = scripted offline LLM, no API calls. [core]
   --only EXP             run only this experiment; repeatable. One of: baseline critic semantic
-                         routing structured. [all five]
+                         routing structured adv. [all six] adv = the 16 ADV tasks with the PII
+                         output guard on (AGENT_PII_GUARD_ENABLED=true), else the control config;
+                         its table compares against the control's same 16 tasks
   --control RUN_DIR      reuse an existing Sonnet-baseline run as the control of experiments
                          2-5 instead of running it again
   --cap-factor F         per-arm --budget-usd = estimate x F [1.5]
@@ -43,6 +47,8 @@ Options:
   --haiku MODEL          [claude-haiku-5-5]
   --sonnet MODEL         [claude-sonnet-5-5]
   --judge-model MODEL    judge for every arm, fixed so arms are comparable [claude-sonnet-5-5]
+  --judge-samples N      L3 judge calls per task (eval run --judge-samples); use the same N as
+                         the control's run [1]
   --concurrency N        tasks in parallel per arm [4]
   --timeout S            per-task timeout, seconds [600]
   --limit N              stratified sample of N tasks (smoke test) [all 80]
@@ -73,6 +79,7 @@ MAX_TOTAL=""
 HAIKU=claude-haiku-5-5
 SONNET=claude-sonnet-5-5
 JUDGE=claude-sonnet-5-5
+JUDGE_SAMPLES=1
 CONCURRENCY=4
 TIMEOUT=600
 LIMIT=""
@@ -104,6 +111,7 @@ while [[ $# -gt 0 ]]; do
     --haiku) need "$@"; HAIKU=$2; shift 2 ;;
     --sonnet) need "$@"; SONNET=$2; shift 2 ;;
     --judge-model) need "$@"; JUDGE=$2; shift 2 ;;
+    --judge-samples) need "$@"; JUDGE_SAMPLES=$2; shift 2 ;;
     --concurrency) need "$@"; CONCURRENCY=$2; shift 2 ;;
     --timeout) need "$@"; TIMEOUT=$2; shift 2 ;;
     --limit) need "$@"; LIMIT=$2; shift 2 ;;
@@ -119,7 +127,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ $AGENT == core || $AGENT == dry-run ]] || die "--agent must be core or dry-run"
-EXPERIMENTS=(baseline critic semantic routing structured)
+[[ $JUDGE_SAMPLES =~ ^[1-9][0-9]*$ ]] || die "--judge-samples must be a positive integer"
+EXPERIMENTS=(baseline critic semantic routing structured adv)
 for e in ${ONLY[@]+"${ONLY[@]}"}; do
   [[ " ${EXPERIMENTS[*]} " == *" $e "* ]] || die "unknown experiment '$e'"
 done
@@ -150,17 +159,19 @@ BASE_ENV=(
   "AGENT_STRUCTURED_REPORT_ENABLED=false"
   "AGENT_MEMORY_ENABLED=false"
   "AGENT_APPROVAL_ENABLED=false"
+  "AGENT_PII_GUARD_ENABLED=false"
   "AGENT_JUDGE_MODEL=$JUDGE"
 )
 
 # ---- the plan: experiment | arm | role | config label | env overrides (space-separated)
+#      | task selection (extra `eval run` args, space-separated; empty = all tasks)
 ARMS=()
-add() { ARMS+=("$1|$2|$3|$4|$5"); }
+add() { ARMS+=("$1|$2|$3|$4|$5|${6:-}"); }
 if selected baseline; then
   add baseline haiku treatment "Haiku, all features off" "AGENT_MODEL=$HAIKU"
 fi
 NEED_CONTROL=0
-for e in baseline critic semantic routing structured; do selected "$e" && NEED_CONTROL=1; done
+for e in "${EXPERIMENTS[@]}"; do selected "$e" && NEED_CONTROL=1; done
 if [[ $NEED_CONTROL == 1 && -z $CONTROL_DIR ]]; then
   add baseline sonnet control "Sonnet, all features off" ""
 fi
@@ -179,6 +190,10 @@ if selected routing; then
 fi
 if selected structured; then
   add structured structured-on treatment "structured report" "AGENT_STRUCTURED_REPORT_ENABLED=true"
+fi
+if selected adv; then
+  add adv pii-guard-on treatment "PII guard on, ADV tasks only" "AGENT_PII_GUARD_ENABLED=true" \
+    "--difficulty ADV"
 fi
 
 arm_env() {  # $1 = overrides; prints BASE_ENV with the overrides applied, one per line
@@ -203,14 +218,18 @@ flag_for() {  # eval run's explicit flags, matching the env (recorded in meta.js
 
 LIMIT_ARGS=()
 [[ -n $LIMIT ]] && LIMIT_ARGS=(--limit "$LIMIT")
+JS_ARGS=()
+[[ $JUDGE_SAMPLES == 1 ]] || JS_ARGS=(--judge-samples "$JUDGE_SAMPLES")
 
-estimate_cap() {  # $1 = overrides
+estimate_cap() {  # $1 = overrides, $2 = task selection
   if [[ -n $FIXED_BUDGET ]]; then echo "$FIXED_BUDGET"; return; fi
-  local env_lines
+  local env_lines tasks=()
   lines_into env_lines < <(arm_env "$1")
+  [[ -n ${2:-} ]] && read -r -a tasks <<< "$2"
   env "${env_lines[@]}" "${PY[@]}" -m analyst_agent.eval.experiments estimate \
-    --format usd --factor "$CAP_FACTOR" \
-    ${LIMIT_ARGS[@]+"${LIMIT_ARGS[@]}"} ${BATCH_ARGS[@]+"${BATCH_ARGS[@]}"}
+    --format usd --factor "$CAP_FACTOR" ${tasks[@]+"${tasks[@]}"} \
+    ${LIMIT_ARGS[@]+"${LIMIT_ARGS[@]}"} ${BATCH_ARGS[@]+"${BATCH_ARGS[@]}"} \
+    ${JS_ARGS[@]+"${JS_ARGS[@]}"}
 }
 
 latest_run() { ls -1d "$1"/*/ 2>/dev/null | sort | tail -n 1 | sed 's:/$::'; }
@@ -222,8 +241,8 @@ resumable_run() {  # $1 = arm -> the arm's latest run in $OUT when --resume and 
   return 0
 }
 
-eval_cmd() {  # $1 = exp-arm, $2 = overrides, $3 = cap -> prints the command, one arg per line
-  local flags prev
+eval_cmd() {  # $1 = arm, $2 = overrides, $3 = cap, $4 = task selection -> one arg per line
+  local flags prev tasks=()
   prev=$(resumable_run "$1")
   if [[ -n $prev ]]; then  # task list, agent, judge, flags and timeout come from its meta.json
     printf '%s\n' "${PY[@]}" -m analyst_agent.eval run --resume "$prev" \
@@ -231,10 +250,11 @@ eval_cmd() {  # $1 = exp-arm, $2 = overrides, $3 = cap -> prints the command, on
     return
   fi
   lines_into flags < <(flag_for "$2")
+  [[ -n ${4:-} ]] && read -r -a tasks <<< "$4"
   printf '%s\n' "${PY[@]}" -m analyst_agent.eval run --agent "$AGENT" \
     --judge-model "$JUDGE" --concurrency "$CONCURRENCY" --timeout "$TIMEOUT" \
-    --budget-usd "$3" "${flags[@]}" ${LIMIT_ARGS[@]+"${LIMIT_ARGS[@]}"} \
-    ${BATCH_ARGS[@]+"${BATCH_ARGS[@]}"} --runs-dir "$OUT/$1"
+    --budget-usd "$3" "${flags[@]}" ${tasks[@]+"${tasks[@]}"} ${LIMIT_ARGS[@]+"${LIMIT_ARGS[@]}"} \
+    ${BATCH_ARGS[@]+"${BATCH_ARGS[@]}"} ${JS_ARGS[@]+"${JS_ARGS[@]}"} --runs-dir "$OUT/$1"
 }
 
 # ---- pre-flight
@@ -249,12 +269,12 @@ elif selected semantic && ! "${PY[@]}" -c "import sentence_transformers" 2>/dev/
     "arms record a retrieval error and continue without definitions" >&2
 fi
 
-echo "Plan ($AGENT agent, ${LIMIT:-all} tasks, judge $JUDGE${BATCH_ARGS:+ batched}, out $OUT):"
+echo "Plan ($AGENT agent, ${LIMIT:-all} tasks, judge $JUDGE${BATCH_ARGS:+ batched} x$JUDGE_SAMPLES, out $OUT):"
 CAPS=()
 TOTAL_CAP=0
 for spec in "${ARMS[@]}"; do
-  IFS='|' read -r exp arm role label overrides <<< "$spec"
-  cap=$(estimate_cap "$overrides")
+  IFS='|' read -r exp arm role label overrides tasks <<< "$spec"
+  cap=$(estimate_cap "$overrides" "$tasks")
   CAPS+=("$cap")
   TOTAL_CAP=$(awk -v a="$TOTAL_CAP" -v b="$cap" 'BEGIN { printf "%.2f", a + b }')
   prev=$(resumable_run "$arm")
@@ -267,8 +287,8 @@ echo "  sum of caps \$$TOTAL_CAP; stop starting arms at \$$MAX_TOTAL"
 
 if [[ $PRINT_ONLY == 1 ]]; then
   for i in "${!ARMS[@]}"; do
-    IFS='|' read -r exp arm role label overrides <<< "${ARMS[$i]}"
-    lines_into cmd < <(eval_cmd "$arm" "$overrides" "${CAPS[$i]}")
+    IFS='|' read -r exp arm role label overrides tasks <<< "${ARMS[$i]}"
+    lines_into cmd < <(eval_cmd "$arm" "$overrides" "${CAPS[$i]}" "$tasks")
     echo
     echo "# $exp / $arm ($label)"
     printf '%s \\\n' "$(arm_env "$overrides" | tr '\n' ' ')"
@@ -301,7 +321,7 @@ print((json.load(open(sys.argv[1])).get("budget") or {}).get("tasks_not_started"
 }
 
 for i in "${!ARMS[@]}"; do
-  IFS='|' read -r exp arm role label overrides <<< "${ARMS[$i]}"
+  IFS='|' read -r exp arm role label overrides tasks <<< "${ARMS[$i]}"
   if awk -v s="$SPENT" -v m="$MAX_TOTAL" 'BEGIN { exit !(s > 0 && s >= m) }'; then
     echo "== skip $exp/$arm: total spend \$$SPENT reached --max-total-usd \$$MAX_TOTAL" >&2
     FAILED+=("$exp/$arm (not started: total budget)")
@@ -310,7 +330,7 @@ for i in "${!ARMS[@]}"; do
   echo
   echo "== $exp / $arm ($label), cap \$${CAPS[$i]}"
   lines_into env_lines < <(arm_env "$overrides")
-  lines_into cmd < <(eval_cmd "$arm" "$overrides" "${CAPS[$i]}")
+  lines_into cmd < <(eval_cmd "$arm" "$overrides" "${CAPS[$i]}" "$tasks")
   mkdir -p "$OUT/$arm"
   rc=0
   prev=$(resumable_run "$arm")
@@ -336,7 +356,7 @@ done
 
 # The shared control appears in each selected experiment's table.
 if [[ -n $CONTROL_RUN ]]; then
-  for e in critic semantic routing structured; do
+  for e in critic semantic routing structured adv; do
     selected "$e" || continue
     printf '%s\t%s\t%s\t%s\t%s\n' "$e" sonnet control "$CONTROL_RUN" "Sonnet, all features off" \
       >> "$MANIFEST"
@@ -350,7 +370,7 @@ fi
 echo
 "${PY[@]}" -m analyst_agent.eval.experiments summary "$MANIFEST" --out "$SUMMARY" \
   --agent "$AGENT" > /dev/null
-cp "$SUMMARY" "$OUT/summary.md"
+[[ $SUMMARY -ef $OUT/summary.md ]] || cp "$SUMMARY" "$OUT/summary.md"
 echo "summary: $SUMMARY (copy in $OUT/summary.md); manifest: $MANIFEST; total spend \$$SPENT"
 if [[ ${#FAILED[@]} -gt 0 ]]; then
   printf 'incomplete arms:\n' >&2
