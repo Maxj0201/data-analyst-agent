@@ -14,6 +14,14 @@ All notable changes to this project. Versions follow [SemVer](https://semver.org
   the Markdown resolves, every path in backticks exists, every `AGENT_*` name is a `Settings`
   field, every documented CLI command and option parses, and no `TODO`, `TBD`, `placeholder` or
   double-brace template text is left outside `docs/resume.md` and `docs/eval-runbook.md`.
+- PII output guard (`core/pii_guard.py`, `AGENT_PII_GUARD_ENABLED`, off by default): masks
+  emails, phone numbers and Luhn-valid card numbers in `run_sql` / `run_python` output before
+  the model sees it, and in the final report, when one output holds more than
+  `AGENT_PII_MAX_ITEMS` (3) of them; the report gets a note that bulk personal data was withheld.
+  Recorded per run in the eval trace and `meta.json`.
+- `scripts/run_experiments.sh --only adv`: the 16 ADV tasks with the PII guard on, compared with
+  the control's same 16 tasks; `--judge-samples N` for every arm (the caps are priced for it).
+- README *Results*: the live-model results of the 2026-11-14 run and the 2026-11-19 re-run.
 
 ### Changed
 - CI now runs `make lint`, `make coverage` and `make eval`; `make check` runs `install` first, so

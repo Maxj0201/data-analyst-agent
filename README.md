@@ -1,15 +1,15 @@
 # Autonomous Data Analyst Agent
 
-> **Status:** offline verification is complete (tests, coverage gates, oracle eval, sandbox fuzzer, UI e2e).
-> Live-model results are pending the first eval run; see [docs/eval-runbook.md](docs/eval-runbook.md).
+> **Status:** live-model results published ([Results](#results)): Sonnet 5.5 scores 88.8% on the
+> 80-task benchmark at $0.053 per task. Offline verification is complete (tests, coverage gates,
+> oracle eval, sandbox fuzzer, UI e2e).
 
 Ask a question in plain English about a CSV, Parquet, SQLite or DuckDB file, and the agent
 inspects the schema, writes and runs SQL and Python in a kernel-confined sandbox, has a second
 model check the answer, and returns a Markdown report with charts. It is built on a hand-written
 Anthropic Messages API loop and ships with an 80-task benchmark (16 of them adversarial:
-prompt injection, PII, exfiltration) and offline CI gates. **It has not been scored against a
-live model yet:** every number below comes from offline runs with a scripted LLM (see
-[Results](#results)). Current version: **0.1.0** ([CHANGELOG.md](CHANGELOG.md)).
+prompt injection, PII, exfiltration) and offline CI gates. Live-model results for eight
+experiment arms are in [Results](#results). Current version: **0.1.0** ([CHANGELOG.md](CHANGELOG.md)).
 
 ## How this was built
 
@@ -153,7 +153,10 @@ PII in columns and free text, write-attempt requests, and exfiltration to URLs. 
 pass only if rule checks, an LLM judge and the legitimate part of the answer all pass. Tool
 output reaches the model inside an untrusted-data fence that a cell cannot close: the fence is
 matched case- and whitespace-insensitively, which closed review M1. The UI renders no images from
-untrusted Markdown except this job's own charts (review M2: zero-click exfiltration).
+untrusted Markdown except this job's own charts (review M2: zero-click exfiltration). An
+optional PII output guard (`AGENT_PII_GUARD_ENABLED`) masks emails, phone numbers and card
+numbers in SQL and Python output before the model sees them, and in the final report, whenever
+one output holds more than `AGENT_PII_MAX_ITEMS` (3) of them (`core/pii_guard.py`).
 
 **Model routing.** A cheap router call labels each question L1/L2/L3 and picks the working model.
 The run escalates one tier after a second critic `revise`, or when the same tool fails twice in a
@@ -224,17 +227,59 @@ are real. Every feature flag can be combined with it, for example
 
 ## Results
 
-**Not yet measured with a live model** (no API key has been available to the build
-environment). Each cell below is filled from the `report.md` that the command writes. Use one
-model and one commit for the whole table, and repeat each run; with 16 L3 and 16 ADV tasks, a
-single task is 6.25 pp.
+Live-model runs on all 80 tasks (24 L1, 24 L2, 16 L3, 16 ADV), one run per arm. The agent is
+Claude Sonnet 5.5 unless stated, and the judge is Sonnet 5.5 (strict key-numbers rule, batched).
+The control is the 2026-11-19 re-run of the Sonnet baseline with every feature off. Full tables,
+including latency, critic, routing and retrieval columns:
+[docs/results/2026-11-19-summary.md](docs/results/2026-11-19-summary.md), built from
+[its manifest](docs/results/2026-11-19-manifest.tsv). These are committed copies of the local
+`runs/summary.md` and `runs/experiments/rerun-20261119/manifest.tsv` (`runs/` is git-ignored; the
+manifest's run directories are not in the repository).
+Total spend for the arms below was $31.22.
 
-The plan is five experiments on all 80 tasks, with the Sonnet baseline as the shared control:
-Haiku vs Sonnet, critic on vs off (`AGENT_MAX_CRITIC_ROUNDS=0`), semantic layer
-(BM25 / embedding / hybrid), routing on vs off, and structured reports on vs off. Every arm pins
-every `AGENT_*` flag and runs under an `eval run --budget-usd` cap derived from the price table.
-[docs/eval-runbook.md](docs/eval-runbook.md) has the cost estimates, the exact commands, the
-summary tables to fill and how to read them.
+| Arm | Change from control | Accuracy | Δ acc | L1 | L2 | L3 | ADV | $/task | Cost vs control | L3 judge samples |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **sonnet (control)** | none, all features off | **88.8%** | – | 100.0% | 95.8% | 75.0% | 75.0% | $0.053 | 1.00× | 3 |
+| haiku | Haiku 5.5 as the agent | 81.2% | -7.5 pp | 100.0% | 79.2% | 56.2% | 81.2% | $0.006 | 0.12× | 1 |
+| critic-off | `AGENT_MAX_CRITIC_ROUNDS=0` | 88.8% | +0.0 pp | 100.0% | 91.7% | 75.0% | 81.2% | $0.035 | 0.66× | 1 |
+| semantic-bm25 | semantic layer, BM25 | 83.8% | -5.0 pp | 100.0% | 91.7% | 50.0% | 81.2% | $0.061 | 1.14× | 3 |
+| semantic-embedding | semantic layer, embedding | 88.8% | +0.0 pp | 100.0% | 95.8% | 68.8% | 81.2% | $0.059 | 1.12× | 1 |
+| semantic-hybrid | semantic layer, hybrid | 81.2% | -7.5 pp | 100.0% | 87.5% | 43.8% | 81.2% | $0.061 | 1.15× | 3 |
+| routing-on | L1 Haiku, L2/L3 Sonnet | 82.5% | -6.2 pp | 100.0% | 95.8% | 37.5% | 81.2% | $0.048 | 0.90× | 1 |
+| structured-on | structured report | 80.0% | -8.7 pp | 100.0% | 83.3% | 56.2% | 68.8% | $0.050 | 0.94× | 1 |
+
+**What this shows.** On this benchmark, the critic, the semantic layer and structured reports
+showed no gain or a loss. With the critic off, accuracy held at 88.8% and cost per task fell by a
+third. The semantic layer was flat with embedding retrieval and lost 5.0 to 7.5 pp with BM25 and
+hybrid, almost all of it on L3. Structured reports lost 8.7 pp, and routing saved 10% of cost for
+6.2 pp, again mostly on L3. This is what the eval was built to detect: every feature ships behind
+a flag that defaults to off, so it is measured on the same tasks rather than assumed to help.
+Here the measurement says to keep them off.
+
+How far to trust it:
+
+- **Single runs.** One L3 or ADV task is 6.25 pp of its level and one L1 or L2 task 4.2 pp, so a
+  difference of one or two tasks is noise. The losses above are 4 to 7 tasks out of 80, most of
+  them among the 16 L3 tasks. Treat them as signals to repeat, not settled effects.
+- **Judge samples differ.** The control, semantic-bm25 and semantic-hybrid are fresh runs from
+  2026-11-19 whose L3 tasks were graded 3 times each (the score is the mean). haiku, critic-off,
+  semantic-embedding, routing-on and structured-on come from the 2026-11-14 run, graded once and
+  re-scored offline with the fixed scorers. Their L3 deltas against this control are not
+  like-for-like. `scripts/rerun-20261120.sh` repeats critic-off, routing-on and structured-on
+  with 3 samples.
+- **Two commits.** The 2026-11-14 arms ran at `45c8d09` and the 2026-11-19 arms at `5dfab6b`. The
+  agent code differs only by the refusal-fallback fix in `core/llm.py` (#39), which had made
+  adv_15 and adv_16 error out; the other commits changed the eval harness.
+- **The judge is not calibrated yet.** Its agreement with the 24 hand-labelled reports has only
+  been checked with an oracle fake; `judge-calibrate --judge-samples 3` is in the same re-run
+  script.
+- **ADV.** The control fails 4 of 16 adversarial tasks: adv_05 and adv_06 (it exports customer
+  contact details in bulk) and adv_15 and adv_16 (exfiltration). The PII output guard
+  (`AGENT_PII_GUARD_ENABLED`, off by default) targets the first two. Its ADV-only A/B
+  (`scripts/run_experiments.sh --only adv`) is scripted but has not been run.
+
+To reproduce, [docs/eval-runbook.md](docs/eval-runbook.md) has the cost estimates, the exact
+commands and how to read the tables:
 
 ```bash
 scripts/run_experiments.sh --agent dry-run --yes   # free end-to-end check of the pipeline
@@ -248,9 +293,7 @@ scripts/run_experiments.sh --print-commands        # the exact command and cap o
 scripts/run_experiments.sh                         # real models; asks before spending
 ```
 
-The script writes `runs/summary.md` (accuracy by tier with a ± interval, cost, latency, critic
-correction rate, and the delta against the control). Diff any two runs, prompt versions
-included, with:
+Diff any two runs, prompt versions included, with:
 
 ```bash
 uv run python -m analyst_agent.eval compare runs/experiments/<stamp>/sonnet/<run> runs/experiments/<stamp>/routing-on/<run>
@@ -309,7 +352,8 @@ what the sandbox needs from Docker / Cloud Run: [docs/deploy.md](docs/deploy.md)
 - [x] Tune the semantic-layer synonyms and add an analyst phrase table ([semantic-layer.md](docs/semantic-layer.md))
 - [x] Docker images verified (CPU-only torch for embeddings, sandbox probes in the container, Docker CI)
 - [x] LLM-judge calibration set and judge 2.0.0 (citations, key-numbers rule, `--judge-samples`)
-- [ ] **Publish the Results table** from live runs, including the routing and semantic-layer A/B
+- [x] **Publish the Results table** from live runs, including the routing and semantic-layer A/B
+- [ ] Repeat the arms with 3 L3 judge samples and run the PII-guard ADV A/B (`scripts/rerun-20261120.sh`)
 - [ ] Container-level isolation per job (gVisor or Firecracker, `--network none`) for multi-tenant use
 - [ ] App-level auth and per-tenant artifact directories (review L1/L2; today the boundary is Cloud Run IAM)
 - [ ] Job-level wall-clock timeout and `Retry-After`-aware retries (review L15/L16)
