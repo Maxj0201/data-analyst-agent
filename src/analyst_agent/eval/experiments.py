@@ -160,12 +160,17 @@ class Estimate:
 
 
 def estimate_run(
-    settings: Settings, counts: dict[str, int], judge: bool = True, batch_judge: bool = False
+    settings: Settings,
+    counts: dict[str, int],
+    judge: bool = True,
+    batch_judge: bool = False,
+    judge_samples: int = 1,
 ) -> Estimate:
     """Estimated USD for one ``eval run`` of ``counts`` tasks per level under ``settings``.
 
     ``batch_judge``: the judge calls go through the Message Batches API (``eval run --batch``)
-    and are priced at :data:`~analyst_agent.core.llm.BATCH_DISCOUNT`.
+    and are priced at :data:`~analyst_agent.core.llm.BATCH_DISCOUNT`. ``judge_samples``
+    (``eval run --judge-samples``) multiplies the L3 rubric judge; ADV is judged once.
     """
     est = Estimate(n_tasks=sum(counts.values()))
     critic_on = settings.max_critic_rounds > 0
@@ -201,6 +206,7 @@ def estimate_run(
         )
         j = (
             n
+            * (judge_samples if level == "L3" else 1)
             * estimate_cost_usd(
                 judge_model, JUDGE_PROFILE[level], batch=batch_judge, single_request=False
             )
@@ -259,6 +265,7 @@ BASE_ENV: dict[str, str] = {
     "AGENT_STRUCTURED_REPORT_ENABLED": "false",
     "AGENT_MEMORY_ENABLED": "false",
     "AGENT_APPROVAL_ENABLED": "false",
+    "AGENT_PII_GUARD_ENABLED": "false",
     "AGENT_JUDGE_MODEL": JUDGE,
 }
 
@@ -267,6 +274,13 @@ BASE_ENV: dict[str, str] = {
 class Arm:
     name: str
     env: dict[str, str]  # overrides of BASE_ENV
+    difficulty: tuple[str, ...] = ()  # run only these levels (eval run --difficulty); () = all
+
+    def counts(self, counts: dict[str, int]) -> dict[str, int]:
+        """``counts`` restricted to this arm's levels."""
+        if not self.difficulty:
+            return counts
+        return {d: n if d in self.difficulty else 0 for d, n in counts.items()}
 
 
 # Arm "sonnet" of the baseline is the shared control of experiments 2-5 (run once).
@@ -313,6 +327,11 @@ PLAN: list[tuple[str, str, list[Arm]]] = [
         "Structured report on vs off (Sonnet)",
         [Arm("structured-on", {"AGENT_STRUCTURED_REPORT_ENABLED": "true"})],
     ),
+    (
+        "adv",
+        "PII output guard on vs off (Sonnet, the 16 ADV tasks)",
+        [Arm("pii-guard-on", {"AGENT_PII_GUARD_ENABLED": "true"}, ("ADV",))],
+    ),
 ]
 
 
@@ -340,7 +359,7 @@ def plan_table(counts: dict[str, int], cap_factor: float = 1.5) -> str:
     grand = 0.0
     for exp, _title, arms in PLAN:
         for arm in arms:
-            est = estimate_run(settings_for(arm.env), counts)
+            est = estimate_run(settings_for(arm.env), arm.counts(counts))
             m = est.models
             agent = _short(m.get("tiers", m["agent"]))
             if "router" in m:
@@ -404,6 +423,12 @@ def _ratio(a: float | None, b: float | None) -> str:
     return f"{b / a:.2f}×"
 
 
+def run_levels(meta: dict[str, Any]) -> list[str]:
+    """The levels a run was restricted to (``eval run --difficulty``); ``[]`` = all."""
+    filters = (meta.get("config") or {}).get("filters") or {}
+    return list(filters.get("difficulty") or [])
+
+
 @dataclass
 class ArmStats:
     row: ManifestRow
@@ -444,6 +469,9 @@ class ArmStats:
         )
         if errs:
             out.append(f"{errs} retrieval errors")
+        levels = run_levels(self.meta)
+        if levels:
+            out.append(f"{'/'.join(levels)} tasks only")
         if self.meta.get("host_sleep"):  # see runner.HostSleepDetector
             out.append(f"WARNING: {host_sleep_warning(self.meta['host_sleep'])}")
         return "; ".join(out)
@@ -511,6 +539,23 @@ def _extra_columns(exp: str) -> list[tuple[str, Any]]:
             return " / ".join(f"{t}:{g['n']}" for t, g in rt["by_tier"].items()) or "–"
 
         return [("Routed tiers", tiers), ("Escalation", esc)]
+    if exp == "adv":
+
+        def fired(a: ArmStats) -> str:
+            hit = sum(any(e.get("type") == "pii_guard" for e in r["trace"]) for r in a.results)
+            return f"{hit} / {len(a.results)}"
+
+        def pii_fails(a: ArmStats) -> str:
+            def leaked(r: dict[str, Any]) -> bool:
+                rules = (r.get("score_details") or {}).get("rules") or {}
+                return any(
+                    "email addresses" in f or "phone numbers" in f
+                    for f in rules.get("failures") or []
+                )
+
+            return str(sum(leaked(r) for r in a.results))
+
+        return [("Guard fired (tasks)", fired), ("PII rule failures", pii_fails)]
     if exp == "structured":
         return [
             ("Numeric text-fallback", lambda a: _pct(a.summary["text_fallback_rate"])),
@@ -519,8 +564,32 @@ def _extra_columns(exp: str) -> list[tuple[str, Any]]:
     return [("Mean tool calls", lambda a: f"{a.summary['mean_tool_calls']:.1f}")]
 
 
+def _same_tasks(control: ArmStats, arms: list[ArmStats]) -> ArmStats:
+    """The control restricted to the tasks its treatments ran when a treatment was run on a
+    subset of levels (``eval run --difficulty``, e.g. the ADV-only arm), so the deltas compare
+    like with like. Unchanged otherwise."""
+    treatments = [a for a in arms if a is not control]
+    if not any(run_levels(a.meta) for a in treatments):
+        return control
+    ids = {r["task_id"] for a in treatments for r in a.results}
+    if not ids or {r["task_id"] for r in control.results} <= ids:
+        return control
+    results = [r for r in control.results if r["task_id"] in ids]
+    row = ManifestRow(
+        control.row.experiment,
+        control.row.arm,
+        control.row.run_dir,
+        f"{control.row.config} (same {len(results)} tasks)",
+        control.row.role,
+    )
+    return ArmStats(row, summarize(results), control.meta, results)
+
+
 def _experiment_table(exp: str, title: str, arms: list[ArmStats]) -> list[str]:
     control = next((a for a in arms if a.row.role == "control"), arms[0])
+    restricted = _same_tasks(control, arms)
+    arms = [restricted if a is control else a for a in arms]
+    control = restricted
     extra = _extra_columns(exp)
     control_cost = control.summary["mean_cost_usd"]
     head = (
@@ -627,6 +696,9 @@ def estimate(
     batch: Annotated[
         bool, typer.Option(help="price the judge at the Message Batches rate (eval run --batch)")
     ] = False,
+    judge_samples: Annotated[
+        int, typer.Option(min=1, help="as `eval run --judge-samples` (multiplies the L3 judge)")
+    ] = 1,
     factor: Annotated[float, typer.Option(min=0, help="multiply the estimate (cap headroom)")] = 1,
     fmt: Annotated[str, typer.Option("--format", help="usd | json")] = "json",
     benchmarks: Path = DEFAULT_BENCHMARK_ROOT,
@@ -645,6 +717,7 @@ def estimate(
         level_counts(benchmarks, difficulty, limit),
         judge=not no_judge,
         batch_judge=batch,
+        judge_samples=judge_samples,
     )
     if fmt == "usd":
         typer.echo(f"{est.total_usd * factor:.2f}")

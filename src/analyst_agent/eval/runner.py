@@ -466,6 +466,8 @@ SETTINGS_SNAPSHOT = (
     "structured_report_enabled",
     "memory_enabled",
     "approval_enabled",
+    "pii_guard_enabled",
+    "pii_max_items",
     "judge_model",
     "judge_effort",
     "judge_strict_numbers",

@@ -523,3 +523,118 @@ def test_script_batch_and_resume_commands(tmp_path: Path) -> None:
         cwd=REPO,
     )
     assert bad.returncode == 2 and "no such directory" in bad.stderr
+
+
+# --------------------------------------------------------------------------- ADV-only PII arm
+
+
+def test_plan_has_an_adv_only_pii_guard_arm() -> None:
+    (arm,) = next(arms for exp, _, arms in PLAN if exp == "adv")
+    assert arm.name == "pii-guard-on" and arm.difficulty == ("ADV",)
+    assert settings_for(arm.env).pii_guard_enabled is True
+    assert settings_for({}).pii_guard_enabled is False  # pinned off for every other arm
+    assert arm.counts(COUNTS) == {"L1": 0, "L2": 0, "L3": 0, "ADV": 16}
+    adv = estimate_run(settings_for(arm.env), arm.counts(COUNTS))
+    full = estimate_run(settings_for(arm.env), COUNTS)
+    assert adv.n_tasks == 16 and adv.total_usd < full.total_usd / 3
+
+
+def test_judge_samples_multiply_only_the_l3_judge() -> None:
+    s = settings_for({})
+    one, three = estimate_run(s, COUNTS), estimate_run(s, COUNTS, judge_samples=3)
+    l3_judge = estimate_cost_usd(SONNET, Usage(4_000, 740), single_request=False) * 16
+    assert three.judge_usd == pytest.approx(one.judge_usd + 2 * l3_judge)
+    assert three.agent_usd == one.agent_usd
+    adv_only = {"L1": 0, "L2": 0, "L3": 0, "ADV": 16}
+    assert estimate_run(s, adv_only, judge_samples=3).judge_usd == pytest.approx(
+        estimate_run(s, adv_only).judge_usd
+    )
+    out = CliRunner().invoke(app, ["estimate", "--judge-samples", "3", "-d", "L3"])
+    assert json.loads(out.output)["n_tasks"] == 16
+
+
+def test_adv_only_arm_is_compared_with_the_controls_same_tasks(tmp_path: Path) -> None:
+    pii_fail = {
+        "method": "adversarial",
+        "rules": {"passed": False, "failures": ["39 email addresses in output (max 1)"]},
+    }
+    control = _write_run(
+        tmp_path / "control",
+        [
+            _row("l1", "L1", True, 0.1),
+            _row("l3", "L3", True, 0.1),
+            _row("adv_05", "ADV", False, 0.1, score_details=pii_fail),
+            _row("adv_07", "ADV", True, 0.1),
+        ],
+    )
+    guarded = _write_run(
+        tmp_path / "guarded",
+        [
+            _row("adv_05", "ADV", True, 0.1, trace=[{"type": "pii_guard", "source": "run_sql"}]),
+            _row("adv_07", "ADV", True, 0.1),
+        ],
+    )
+    meta = json.loads((guarded / "meta.json").read_text())
+    meta["config"]["filters"] = {"difficulty": ["ADV"], "limit": None}  # as eval run writes it
+    (guarded / "meta.json").write_text(json.dumps(meta))
+    manifest = _manifest(
+        tmp_path,
+        [
+            ("adv", "pii-guard-on", "treatment", guarded),
+            ("adv", CONTROL, "control", control),
+            ("structured", CONTROL, "control", control),
+        ],
+    )
+    md = render_summary(read_manifest(manifest))
+    table = md.split("### PII output guard")[1].split("###")[0]
+    lines = table.splitlines()
+    ctrl = next(ln for ln in lines if "sonnet (control)" in ln)
+    guard = next(ln for ln in lines if ln.startswith("| pii-guard-on"))
+    # The control is cut to its 2 ADV tasks (1 of 2 passed), not its 4 tasks (3 of 4).
+    assert "cfg (same 2 tasks)" in ctrl and "| 50.0% | – |" in ctrl
+    assert "| 100.0% | +50.0 pp |" in guard
+    assert "| 1 / 2 | 0 |" in guard and "| 0 / 2 | 1 |" in ctrl  # guard fired; PII failures
+    assert "pii-guard-on: ADV tasks only" in table  # the notes line under the table
+    overview = md.split("## Overview")[1].split("###")[0]
+    assert "| 75.0% |" in next(ln for ln in overview.splitlines() if "| sonnet |" in ln)
+    # A subset arm whose tasks already cover the control's leaves the control as it is.
+    small = _write_run(tmp_path / "small", [_row("adv_05", "ADV", True, 0.1)])
+    meta_small = {"git_sha": "abc123", "config": {"judge_model": "judge-x"}}
+    (small / "meta.json").write_text(json.dumps(meta_small))
+    (tmp_path / "sub").mkdir()
+    sub = _manifest(
+        tmp_path / "sub",
+        [("adv", "pii-guard-on", "treatment", guarded), ("adv", CONTROL, "control", small)],
+    )
+    assert "(same" not in render_summary(read_manifest(sub))
+
+
+def test_script_adv_only_arm_and_judge_samples(tmp_path: Path) -> None:
+    env = {**os.environ, "PYTHON": sys.executable, "NO_CAFFEINATE": "1"}
+    env.pop("ANTHROPIC_API_KEY", None)
+    control = _write_run(tmp_path / "control", [_row("a", "L1", True, 0.1)])
+    out = subprocess.run(
+        ["bash", str(SCRIPT), "--agent", "dry-run", "--print-commands", "--only", "adv"]
+        + ["--only", "critic", "--control", str(control), "--judge-samples", "3"],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=True,
+        cwd=REPO,
+    )
+    cmds = [ln for ln in out.stdout.splitlines() if "analyst_agent.eval run" in ln]
+    assert len(cmds) == 2  # the control is reused, not re-run
+    adv = next(c for c in cmds if "pii-guard-on" in c)
+    critic = next(c for c in cmds if "critic-off" in c)
+    assert "--difficulty ADV" in adv and "--difficulty" not in critic
+    assert all("--judge-samples 3" in c for c in cmds)
+    envs = [ln for ln in out.stdout.splitlines() if ln.startswith("AGENT_MODEL=")]
+    assert "AGENT_PII_GUARD_ENABLED=true" in envs[1] and "AGENT_PII_GUARD_ENABLED=false" in envs[0]
+    bad = subprocess.run(
+        ["bash", str(SCRIPT), "--agent", "dry-run", "--print-commands", "--judge-samples", "0"],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=REPO,
+    )
+    assert bad.returncode == 2 and "--judge-samples" in bad.stderr

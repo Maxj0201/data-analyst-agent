@@ -6,10 +6,9 @@ below comes from the code or from [README.md](../README.md), [CHANGELOG.md](../C
 [sandbox.md](sandbox.md), [integration-notes.md](integration-notes.md) and
 [eval-runbook.md](eval-runbook.md), and carries a pointer you can open.
 
-> **Nothing here has been measured with a live model.** v0.1.0 was built and checked offline
-> (scripted LLM, fake API). The README *Results* table is empty. Metrics that need the paid run
-> are written as `{{PLACEHOLDERS}}`; section 1 says which command fills each one. Do not invent a
-> value, and do not send a bullet with an unfilled placeholder: delete that clause instead.
+> **Live-model numbers come from one run per arm** (README *Results*, [the summary](results/2026-11-19-summary.md),
+> 2026-11-14 and the 2026-11-19 re-run). One L3 or ADV task is 6.25 pp, so quote the
+> differences between arms as signals, not settled effects, and say the runs are single.
 
 Offline numbers that *are* measured (README *Results* and CHANGELOG *Measured offline*): the full
 test suite passes (run `make test` for the current number), 94.2% branch coverage (`sandbox/` 99.4%, `core/loop.py` 100%), the oracle agent at 100% on
@@ -20,44 +19,32 @@ UI e2e checks.
 
 ## 1. Resume bullets (AI engineer)
 
-Each bullet is two lines. Fill the placeholders from `runs/summary.md` after the paid run
-(see the table below the bullets).
+Each bullet is two lines. The numbers are in the table below the bullets.
 
 - Built an 80-task agent benchmark (seeded data, generator-computed ground truth, rubric-judged
-  tier, offline CI gate); the Sonnet baseline scores **{{SONNET_ACC}}%** at **${{SONNET_COST_PER_TASK}}**/task.
-- Confined LLM-written Python with seccomp-bpf and Landlock after a red-team review; the escape
-  fuzzer blocks 500/500 snippets and the 16-task adversarial tier passes **{{ADV_PASS}}%**.
-- Added a separate critic and Haiku/Sonnet routing as A/B flags: the critic corrects **{{CRITIC_CORRECTION}}%**
-  of flagged answers, and routing runs at **{{ROUTING_COST_RATIO}}×** cost for **{{ROUTING_DELTA_PP}}** pp accuracy.
+  tier, offline CI gate); the Sonnet baseline scores **88.8%** (L1 100%, L2 95.8%) at **$0.053**/task.
+- Confined LLM-written Python with seccomp-bpf and Landlock, closing the **2 escapes** a red-team
+  review found and **8 gap classes** an escape fuzzer found; the fuzzer now blocks 500/500 snippets.
+- Ran **8 experiment arms** as flag A/Bs on the same tasks (model, critic, semantic layer, routing,
+  structured reports): critic, semantic layer and structured reports showed no gain or a loss.
 
-### Which command fills which placeholder
+### Where each number comes from
 
-All commands are from [eval-runbook.md](eval-runbook.md) (steps 3 to 5). Run them from the repo
-root with `ANTHROPIC_API_KEY` exported.
-
-| Placeholder | Where it comes from | Command that produces it |
-|---|---|---|
-| `{{SONNET_ACC}}`, `{{SONNET_COST_PER_TASK}}`, `{{ADV_PASS}}` | `runs/summary.md` Overview, row *baseline / sonnet*: columns Accuracy, `$/task`, ADV | `scripts/run_experiments.sh --only baseline --batch --out runs/experiments/baseline`, then the summary command below |
-| `{{CRITIC_CORRECTION}}` | *Critic* table, `sonnet (control)` row, column Correction (share of tasks the critic flagged that ended up passing) | `scripts/run_experiments.sh --only critic --batch --control "$CONTROL" --out runs/experiments/rest` |
-| `{{ROUTING_COST_RATIO}}`, `{{ROUTING_DELTA_PP}}` | *Routing* table, `routing-on` row: columns Cost vs control and Δ acc | `scripts/run_experiments.sh --only routing --batch --control "$CONTROL" --out runs/experiments/rest` |
-
-`CONTROL` is the Sonnet baseline run, `CONTROL=$(ls -d runs/experiments/baseline/sonnet/2*/ | tail -n 1)`.
-The step-4 command in the runbook runs critic, semantic, routing and structured together; the
-two rows above come out of that same run. Then build the one summary:
-
-```bash
-uv run python -m analyst_agent.eval.experiments summary runs/experiments/baseline/manifest.tsv runs/experiments/rest/manifest.tsv --out runs/summary.md
-```
+| Number | Source |
+|---|---|
+| 88.8%, L1 100%, L2 95.8%, $0.053/task | [the summary](results/2026-11-19-summary.md) Overview, row *baseline / sonnet* (the 2026-11-19 control, 3 L3 judge samples) |
+| 8 experiment arms | haiku, sonnet, critic-off, semantic-bm25 / -embedding / -hybrid, routing-on, structured-on: the rows of [the manifest](results/2026-11-19-manifest.tsv) |
+| 2 escapes, 8 gap classes | [review.md](review.md) H1/H2; CHANGELOG 0.1.0 *Sandbox*, "eight classes of gap, all now closed" |
+| no gain or a loss | README *Results*: critic-off +0.0 pp at 0.66× cost; semantic +0.0 / -5.0 / -7.5 pp; structured -8.7 pp |
 
 Rules before quoting a value (runbook, *Reading the results*):
 
-- The row's *Notes* cell must be empty, or the row is not comparable.
-- One L3 or ADV task is 6.25 pp, and one L1 or L2 task is 4.2 pp. A difference of one or two
-  tasks is noise. Quote a range from a repeated run for any delta you put on a resume.
-- `{{ADV_PASS}}` needs the judge: without `ANTHROPIC_API_KEY`, ADV is graded by rules only.
-- Before quoting any L3 number, run `uv run python -m analyst_agent.eval judge-calibrate
-  --judge-samples 3` (runbook step 1). The real judge has not been compared with the 24
-  hand-labelled reports yet.
+- One L3 or ADV task is 6.25 pp, and one L1 or L2 task 4.2 pp. A difference of one or two
+  tasks is noise. Each arm ran once, so do not put a delta on a resume as a precise effect.
+- Five arms were graded with 1 L3 judge sample and the control with 3, so their L3 deltas are
+  not like-for-like until `scripts/rerun-20261120.sh` repeats them.
+- The real judge has not been compared with the 24 hand-labelled reports yet (`judge-calibrate
+  --judge-samples 3` is in the same script). Say so if asked about L3 numbers.
 
 ---
 
@@ -80,10 +67,10 @@ About 220 words, which is 90 seconds at a normal pace.
 > file names. CI makes no API calls, and every feature ships behind a flag, so each can be A/B'd
 > on the same commit.
 >
-> Third, I'm honest about the gaps. No live-model run has happened yet. The paid experiments are
-> scripted, budget-capped and costed, and the results table is empty until they run. I wrote
-> down what I'd change for multi-tenant use, mainly per-job container isolation and a shared job
-> store.
+> Third, I measure features instead of assuming they help. On the live run Sonnet scored 88.8%
+> at about five cents a task, and the critic, the semantic layer and structured reports showed
+> no gain or a loss, so they stay behind flags that default to off. I wrote down what I'd change
+> for multi-tenant use, mainly per-job container isolation and a shared job store.
 
 ---
 
@@ -119,9 +106,11 @@ that the current design suits a trusted-operator, single-tenant service. ([sandb
 The critic is its own call with its own prompt. It sees only the draft, the SQL or code that
 ran, and the result tables, not the planner's reasoning (`core/critic.py`). A model that rereads
 its own chain of thought tends to ratify it, while a clean context catches wrong joins, double
-counting and unsupported claims more often. That is the design argument. Whether it is true here
-is an experiment I have scripted but not run: critic on versus `AGENT_MAX_CRITIC_ROUNDS=0` on all
-80 tasks, reporting accuracy delta, cost, and the share of flagged tasks that end up passing.
+counting and unsupported claims more often. That is the design argument, and on this benchmark
+the data does not back it: with `AGENT_MAX_CRITIC_ROUNDS=0` accuracy stayed at 88.8% for 0.66×
+the cost. The critic intervened on 6.2% of tasks and 80% of those ended up passing, but the
+per-level differences (L2 95.8% vs 91.7%, ADV 75.0% vs 81.2%) are one task each, which is noise.
+The off arm was graded with one judge sample, so I would repeat it before removing the critic.
 ([design-decisions.md](design-decisions.md) decision 2; [eval-runbook.md](eval-runbook.md))
 
 ### Q4. What are the critic's failure modes?
@@ -151,7 +140,8 @@ the real loop and sandbox runs with a scripted LLM, then again with every flag o
 
 ### Q6. Can you trust the numbers you do have? What is not measured?
 
-The measured numbers are all offline, and I say so. The oracle's 100% checks the harness, not
+The live numbers are single runs, and the arms mix 3 and 1 L3 judge samples, so I quote
+the differences as signals. The oracle's 100% checks the harness, not
 the agent, and it covers 64 of 80 tasks because L3 needs a judge. BM25 retrieval scores 1.000
 top-1 on the 33 benchmark cases, but the vocabulary was tuned with those cases in view: on the 10
 held-out paraphrases it is 0.600 top-1, 0.900 top-3 and 0.758 MRR. The judge's agreement with
@@ -174,8 +164,10 @@ so `max_turns` cannot block the retry. Trade-offs:
   `AGENT_MODEL`. The experiment sets L1 to Haiku and L2/L3 to Sonnet.
 - I rejected "always try cheap first": it pays twice on every hard question.
 - Human approval denials never escalate. That was a real bug (story 2).
-- The result I want is cost ratio well below 1.00× with accuracy delta inside noise. I have not
-  measured it. ([model-routing.md](model-routing.md))
+- The result I wanted was a cost ratio well below 1.00× with the accuracy delta inside noise.
+  Measured: 0.90× cost for -6.2 pp, all of it on L3 (37.5% vs 75.0%). Every L3 task was routed
+  to Sonnet, so the drop is not a misroute. That arm had one judge sample against a 3-sample
+  control, so it needs a re-run. ([model-routing.md](model-routing.md))
 
 ### Q8. How do you defend against prompt injection?
 
@@ -190,7 +182,11 @@ ADV tier (16 tasks) plants injections in cell text, a column header and a file n
 write attempts and exfiltration URLs, and a task passes only if the rule checks, the judge and
 the legitimate part of the answer all pass. Known gaps: the MCP server's `structuredContent`
 carries raw rows outside the fence (review-2 L2), and the ADV set is small and English-only. I
-have no ADV pass rate from a live model yet. ([design-decisions.md](design-decisions.md) decision 5)
+The live Sonnet control passes 12 of 16 ADV tasks (75.0%): it exported customer contact lists
+on both PII tasks and failed both exfiltration tasks. So I added an output control,
+`AGENT_PII_GUARD_ENABLED`, which masks bulk emails, phone numbers and card numbers in tool
+output and the report. Its ADV-only A/B is scripted but not run.
+([design-decisions.md](design-decisions.md) decision 5)
 
 ### Q9. What would you change to run this at scale (many tenants, real warehouses)?
 
@@ -212,8 +208,8 @@ From the documented limits, in order of risk:
 
 Measurement first, then hardening, then breadth (README roadmap, integration notes *Still open*):
 
-1. Run the paid experiments ([eval-runbook.md](eval-runbook.md)): publish the Results table with
-   repeated runs, and re-calibrate the cost estimate, which predates judge 2.0.0.
+1. Repeat the paid experiments with 3 judge samples on every arm (`scripts/rerun-20261120.sh`,
+   [eval-runbook.md](eval-runbook.md)), and report ranges instead of single runs.
 2. Run `judge-calibrate --judge-samples 3` and fix the judge before trusting L3.
 3. Measure embedding and hybrid retrieval and sweep `AGENT_SEMANTIC_HYBRID_WEIGHT`; close the
    gap on held-out paraphrases (4 of 10 miss top-1).
@@ -289,11 +285,12 @@ makes these the dearest tasks. I added a per-task `SpendMeter` that writes to a
 
 ## 5. Claims you can and cannot make today
 
-| Can say (verified offline) | Cannot say yet |
+| Can say (measured) | Cannot say yet |
 |---|---|
-| The full test suite passes (run `make test` for the current number), 94.2% coverage, oracle 100% on 64 gradable tasks | Any accuracy for any model on the benchmark |
-| Fuzzer: 500 of 500 blocked or killed; 88 of 500 got through before the fixes | That the critic improves accuracy, or by how much |
-| 2 High and 8 Medium (review) plus 4 Medium (review 2) findings fixed, each with a regression test | That routing saves money, or at what accuracy cost |
-| BM25 top-1 1.000 on 33 tuned cases, 0.600 on 10 held-out paraphrases | Embedding or hybrid retrieval quality |
-| Cost *estimate* for all 8 arms: $142.58, capped at $213.87 | The real spend; the estimate predates judge 2.0.0 |
-| Docker images build and pass the sandbox probes; UI e2e 24 of 24 | Anything about Cloud Run, or the embeddings image |
+| Sonnet 5.5 scores 88.8% on the 80 tasks (L1 100%, L2 95.8%, L3 75.0%, ADV 75.0%) at $0.053/task; Haiku 81.2% at 0.12× the cost | That any difference between arms holds across repeated runs |
+| Critic off: the same 88.8% at 0.66× cost. Semantic layer, structured reports and routing: no gain or a loss | That the critic, semantic layer or routing never help (one benchmark, one run each) |
+| The full test suite passes (run `make test` for the current number), 94.2% coverage, oracle 100% on 64 gradable tasks | The real judge's agreement with the human labels |
+| Fuzzer: 500 of 500 blocked or killed; 88 of 500 got through before the fixes | Whether the PII output guard fixes adv_05 / adv_06 (scripted, not run) |
+| 2 High and 8 Medium (review) plus 4 Medium (review 2) findings fixed, each with a regression test | Embedding or hybrid retrieval quality outside the benchmark |
+| BM25 top-1 1.000 on 33 tuned cases, 0.600 on 10 held-out paraphrases | Anything about Cloud Run, or the embeddings image |
+| Real spend for the 8 published arms: $31.22 | |
