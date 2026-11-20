@@ -934,10 +934,14 @@ def rescore_run(
         task = tasks.get(row["task_id"])
         new = dict(row)
         if task is not None and row.get("status") == "ok" and task.difficulty != "L3":
+            # The trace too: the ADV rules read it (write SQL, forbidden_trace_patterns), and
+            # without it they passed every rescored row.
             out = AgentOutput(
                 answer=row.get("answer") or "",
                 key_numbers=row.get("key_numbers") or {},
                 tables=row.get("tables") or [],
+                trace=row.get("trace") or [],
+                tool_calls=row.get("tool_calls"),
             )
             if task.difficulty == "ADV":
                 stored = (row.get("score_details") or {}).get("judge") or {}
