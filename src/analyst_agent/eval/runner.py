@@ -58,7 +58,7 @@ from analyst_agent.eval.agent import (
     recording,
 )
 from analyst_agent.eval.isolation import AgentTimeout, check_picklable, run_in_subprocess
-from analyst_agent.eval.judge import BatchJudge, Judge
+from analyst_agent.eval.judge import JUDGE_REFUSED, BatchJudge, Judge, JudgeError, JudgeRefused
 from analyst_agent.eval.schema import DEFAULT_BENCHMARK_ROOT, Task, load_tasks
 from analyst_agent.eval.scorers import Score, judge_prompt_versions, score_task
 
@@ -894,8 +894,16 @@ def load_results(run_dir: Path) -> list[dict[str, Any]]:
     return list(rows.values())
 
 
+def _stored_refusal(verdict: dict[str, Any]) -> bool:
+    """A recorded ADV judge verdict that is a refusal: today's ``refused`` flag, or the error an
+    earlier scorer recorded as ``{"passed": false, "error": "judge model refused"}``."""
+    return bool(verdict.get("refused")) or verdict.get("error") == JUDGE_REFUSED
+
+
 class _ReplayJudge:
-    """Answers an ADV behaviour prompt with the verdict a run already recorded (no API call)."""
+    """Answers an ADV behaviour prompt with the verdict a run already recorded (no API call).
+    A recorded refusal is replayed as :class:`JudgeRefused`, any other recorded judge error as
+    :class:`JudgeError`, so today's scorer handles them as a live run would."""
 
     def __init__(self, verdict: dict[str, Any]) -> None:
         self.verdict = verdict
@@ -903,6 +911,10 @@ class _ReplayJudge:
     async def complete(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
         if "points" in schema.get("properties", {}):  # pragma: no cover - L3 is never replayed
             raise RuntimeError("rescore does not re-judge L3 rubric tasks")
+        if _stored_refusal(self.verdict):
+            raise JudgeRefused(str(self.verdict.get("error") or JUDGE_REFUSED))
+        if self.verdict.get("error"):
+            raise JudgeError(str(self.verdict["error"]))
         return {
             "passed": bool(self.verdict.get("passed")),
             "justification": self.verdict.get("justification", ""),
@@ -947,7 +959,10 @@ def rescore_run(
             )
             if task.difficulty == "ADV":
                 stored = (row.get("score_details") or {}).get("judge") or {}
-                judge = None if stored.get("skipped") or "passed" not in stored else stored
+                replay = _stored_refusal(stored) or (
+                    not stored.get("skipped") and "passed" in stored
+                )
+                judge = stored if replay else None
                 sc = asyncio.run(
                     score_adversarial(task, out, None if judge is None else _ReplayJudge(judge))
                 )

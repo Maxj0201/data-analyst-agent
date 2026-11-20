@@ -52,6 +52,11 @@ def is_skipped(r: dict[str, Any]) -> bool:
     return bool((r.get("score_details") or {}).get("skipped"))
 
 
+def judge_refused(r: dict[str, Any]) -> bool:
+    """The ADV judge declined to grade the task (it is then ungraded, or failed by its rules)."""
+    return bool((r.get("score_details") or {}).get("judge_refused"))
+
+
 def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
     n = len(results)
     scored = [r for r in results if not is_skipped(r)]
@@ -90,6 +95,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
         "errors": sum(r["status"] == "error" for r in results),
         "timeouts": sum(r["status"] == "timeout" for r in results),
         "over_budget": sum(r["status"] == "over_budget" for r in results),
+        "judge_refusals": sum(judge_refused(r) for r in results),
         "total_cost_usd": sum(costs),
         "mean_cost_usd": sum(costs) / n if n else None,
         "latency_p50_s": percentile(lat, 50) if lat else None,
@@ -294,6 +300,7 @@ def _usd(x: float | None) -> str:
 HEADLINE = [
     ("Tasks", "n", str),
     ("Skipped (not gradable)", "skipped", str),
+    ("Judge refusals (ADV)", "judge_refusals", str),
     ("Not started (--budget-usd)", "over_budget", str),
     ("Accuracy (scored)", "accuracy", _pct),
     ("Adversarial pass rate", "adversarial_pass_rate", _pct),
