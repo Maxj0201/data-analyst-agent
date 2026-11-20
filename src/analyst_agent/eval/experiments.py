@@ -32,6 +32,7 @@ from analyst_agent.eval.report import (
     DIFFICULTIES,
     JUDGE_MODE_LABELS,
     JudgeModeMismatch,
+    cache_tokens,
     check_same_judge_mode,
     judge_mode,
     judge_refused,
@@ -333,6 +334,13 @@ PLAN: list[tuple[str, str, list[Arm]]] = [
         "PII output guard on vs off (Sonnet, the 16 ADV tasks)",
         [Arm("pii-guard-on", {"AGENT_PII_GUARD_ENABLED": "true"}, ("ADV",))],
     ),
+    (
+        # Same config as the control; what differs is the code (conversation caching in
+        # core/llm.py), so run it against a control from before that change.
+        "cache",
+        "Prompt caching: the control config re-run with conversation caching (Sonnet)",
+        [Arm("sonnet-cache", {})],
+    ),
 ]
 
 
@@ -491,8 +499,8 @@ def load_arm(row: ManifestRow) -> ArmStats:
 
 
 OVERVIEW_HEAD = (
-    "| Experiment | Arm | Accuracy | L1 | L2 | L3 | ADV | Judge refusals | $/task | "
-    "Total $ (incl. judge) | p50 latency | Notes |\n" + "|---" * 12 + "|"
+    "| Experiment | Arm | Accuracy | L1 | L2 | L3 | ADV | Judge refusals | $/task | Cache hit | "
+    "Total $ (incl. judge) | p50 latency | Notes |\n" + "|---" * 13 + "|"
 )
 
 
@@ -501,7 +509,8 @@ def _overview_row(exp: str, a: ArmStats) -> str:
     return (
         f"| {exp} | {a.row.arm} | {_pct(s['accuracy'])} | "
         + " | ".join(_pct(a.level_acc(d)) for d in DIFFICULTIES)
-        + f" | {s.get('judge_refusals', 0)} | {_usd(s['mean_cost_usd'])} | {_usd(a.total_usd)} | "
+        + f" | {s.get('judge_refusals', 0)} | {_usd(s['mean_cost_usd'])} | "
+        f"{_pct(s.get('cache_hit_rate'))} | {_usd(a.total_usd)} | "
         f"{s['latency_p50_s']:.1f}s | {a.notes} |"
     )
 
@@ -564,6 +573,24 @@ def _extra_columns(exp: str) -> list[tuple[str, Any]]:
             return str(sum(leaked(r) for r in a.results))
 
         return [("Guard fired (tasks)", fired), ("PII rule failures", pii_fails)]
+    if exp == "cache":
+
+        def split(a: ArmStats) -> str:
+            t = cache_tokens(a.results)
+            total = sum(t.values())
+            if not total:
+                return "–"
+            return " / ".join(f"{100 * t[k] / total:.0f}%" for k in ("read", "write", "uncached"))
+
+        def input_per_task(a: ArmStats) -> str:
+            n = len(a.results)
+            return f"{sum(cache_tokens(a.results).values()) / n:,.0f}" if n else "–"
+
+        return [
+            ("Input read / written / uncached", split),
+            ("Input tokens / task", input_per_task),
+            ("Mean tool calls", lambda a: f"{a.summary['mean_tool_calls']:.1f}"),
+        ]
     if exp == "structured":
         return [
             ("Numeric text-fallback", lambda a: _pct(a.summary["text_fallback_rate"])),
@@ -602,7 +629,7 @@ def _experiment_table(exp: str, title: str, arms: list[ArmStats]) -> list[str]:
     control_cost = control.summary["mean_cost_usd"]
     head = (
         "| Arm | Config | Accuracy | Δ acc | L1 | L2 | L3 | ADV | $/task | Cost vs control | "
-        "p50 / p95 latency | " + " | ".join(h for h, _ in extra) + " |"
+        "Cache hit | p50 / p95 latency | " + " | ".join(h for h, _ in extra) + " |"
     )
     lines = [f"### {title}", "", head, "|" + "---|" * (head.count("|") - 1)]
     for a in arms:
@@ -615,6 +642,7 @@ def _experiment_table(exp: str, title: str, arms: list[ArmStats]) -> list[str]:
             + " | ".join(_pct(a.level_acc(d)) for d in DIFFICULTIES)
             + f" | {_usd(s['mean_cost_usd'])} | "
             + ("1.00×" if is_control else _ratio(control_cost, s["mean_cost_usd"]))
+            + f" | {_pct(s.get('cache_hit_rate'))}"
             + f" | {s['latency_p50_s']:.1f}s / {s['latency_p95_s']:.1f}s | "
             + " | ".join(fn(a) for _, fn in extra)
             + " |"
@@ -656,7 +684,9 @@ def render_summary(rows: list[ManifestRow], header: dict[str, str] | None = None
         "refusals* counts both). One L3 "
         "or ADV task is 6.25 pp of that level, one L1/L2 task 4.2 pp. Differences of one or two "
         "tasks are within run-to-run noise.",
-        "- Cost is estimated from `core/llm.py`'s price table; `Total $` adds the judge.",
+        "- Cost is estimated from `core/llm.py`'s price table; `Total $` adds the judge. "
+        "*Cache hit* is the agent's cache-read input tokens over all its input tokens "
+        "(uncached + cache writes + cache reads), the judge excluded.",
         "",
         "## Overview",
         "",

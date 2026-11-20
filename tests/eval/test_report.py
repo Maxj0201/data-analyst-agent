@@ -268,6 +268,7 @@ def test_summarize_routing() -> None:
     assert rt["by_model"]["opus"] == {
         "calls": 3,
         "input_tokens": 150,
+        "cache_read": 50,
         "output_tokens": 10,
         "usd": 0.20,
     }
@@ -281,7 +282,7 @@ def test_render_report_routing_section() -> None:
     assert "| escalated | 3 | 2 | 66.7% | $0.1100 | $0.3300 | 3 |" in md
     assert "| trigger: tool_error | 2 |" in md
     assert "| L2 | 1 | 1 | 0 |" in md  # routed tier vs labelled difficulty
-    assert "| opus | 3 | 150 | 10 | $0.2000 |" in md
+    assert "| opus | 3 | 150 | 33.3% | 10 | $0.2000 |" in md  # 50 of 150 input tokens read
     assert "router fallbacks: 1" in md
     assert "## Routing" not in render_report(RUN_A)
 

@@ -5,6 +5,7 @@
 #   scripts/run_experiments.sh                              # real models, all 80 tasks, judge on
 #   scripts/run_experiments.sh --only semantic --control runs/experiments/<stamp>/sonnet/<run>
 #   scripts/run_experiments.sh --only adv --control <run>   # 16 ADV tasks, PII guard on
+#   scripts/run_experiments.sh --only cache --control <run> # control config re-run (caching)
 #
 # Every arm is one `python -m analyst_agent.eval run` (over all tasks, except the ADV-only
 # `adv` experiment) with every AGENT_* feature
@@ -35,9 +36,11 @@ Options:
   --agent core|dry-run   core = real models (needs ANTHROPIC_API_KEY; the LLM judge grades
                          L3 and ADV). dry-run = scripted offline LLM, no API calls. [core]
   --only EXP             run only this experiment; repeatable. One of: baseline critic semantic
-                         routing structured adv. [all six] adv = the 16 ADV tasks with the PII
-                         output guard on (AGENT_PII_GUARD_ENABLED=true), else the control config;
-                         its table compares against the control's same 16 tasks
+                         routing structured adv cache. [all but cache] adv = the 16 ADV tasks with
+                         the PII output guard on (AGENT_PII_GUARD_ENABLED=true), else the control
+                         config; its table compares against the control's same 16 tasks.
+                         cache = the control config re-run at this commit, to compare $/task and
+                         cache hit rate with an older --control
   --control RUN_DIR      reuse an existing Sonnet-baseline run as the control of experiments
                          2-5 instead of running it again
   --cap-factor F         per-arm --budget-usd = estimate x F [1.5]
@@ -128,11 +131,12 @@ done
 
 [[ $AGENT == core || $AGENT == dry-run ]] || die "--agent must be core or dry-run"
 [[ $JUDGE_SAMPLES =~ ^[1-9][0-9]*$ ]] || die "--judge-samples must be a positive integer"
-EXPERIMENTS=(baseline critic semantic routing structured adv)
+EXPERIMENTS=(baseline critic semantic routing structured adv cache)
 for e in ${ONLY[@]+"${ONLY[@]}"}; do
   [[ " ${EXPERIMENTS[*]} " == *" $e "* ]] || die "unknown experiment '$e'"
 done
-[[ ${#ONLY[@]} -gt 0 ]] || ONLY=("${EXPERIMENTS[@]}")
+# cache repeats the control config, so it runs only when asked for.
+[[ ${#ONLY[@]} -gt 0 ]] || ONLY=(baseline critic semantic routing structured adv)
 selected() { [[ " ${ONLY[*]} " == *" $1 "* ]]; }
 if [[ -n $CONTROL_DIR ]]; then
   [[ -f $CONTROL_DIR/results.jsonl ]] || die "--control $CONTROL_DIR has no results.jsonl"
@@ -194,6 +198,11 @@ fi
 if selected adv; then
   add adv pii-guard-on treatment "PII guard on, ADV tasks only" "AGENT_PII_GUARD_ENABLED=true" \
     "--difficulty ADV"
+fi
+if selected cache; then
+  # The control config again, at this commit (conversation caching in core/llm.py): compare
+  # $/task and Cache hit with a --control from before that change.
+  add cache sonnet-cache treatment "Sonnet, all features off, conversation cached" ""
 fi
 
 arm_env() {  # $1 = overrides; prints BASE_ENV with the overrides applied, one per line
@@ -356,7 +365,7 @@ done
 
 # The shared control appears in each selected experiment's table.
 if [[ -n $CONTROL_RUN ]]; then
-  for e in critic semantic routing structured adv; do
+  for e in critic semantic routing structured adv cache; do
     selected "$e" || continue
     printf '%s\t%s\t%s\t%s\t%s\n' "$e" sonnet control "$CONTROL_RUN" "Sonnet, all features off" \
       >> "$MANIFEST"

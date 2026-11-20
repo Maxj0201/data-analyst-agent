@@ -463,6 +463,41 @@ its rule or answer checks already fail it, in which case the checks decide. The 
 *Judge refusals* column counts both kinds, so compare it before reading an ADV delta. A judge
 verdict whose justification opens with "I cannot evaluate ..." counts as a refusal too.
 
+## Prompt caching arm (`--only cache`)
+
+`core/llm.py` sets up to two cache breakpoints per request. The first sits on the system
+prompt, so the tool schemas and the system prompt are cached; render order is tools, then
+system, then messages. In the agent loop (`cache_history=True`), the second sits on the last
+block of the conversation. Each turn then reads the previous turn's prefix from the cache and
+writes only the new tool calls and results.
+
+The router puts the schema summary in a cached block ahead of the question. It stays in the user
+turn because it is dataset content, not instructions.
+
+The critic, report writer and judge cache only their system prompts. Their input is new on every
+call, and a breakpoint after it would pay the 1.25× write price for tokens that are never read
+back.
+
+Nothing per-run (run id, timestamps) is in a cached prefix, and `tests/test_prompt_caching.py`
+checks that each turn's request extends the previous one byte for byte.
+
+A prefix shorter than the model's minimum (512 tokens on the current models) is not cached, and
+no error is raised. `CRITIC_SYSTEM` is about 520 tokens and `ROUTER_SYSTEM` about 270, so the
+critic's cache depends on the exact token count. The router reaches the minimum only on datasets
+whose schema summary is long enough (about 440 to 530 tokens with the summary, by a 4-characters
+-per-token estimate).
+
+`--only cache` re-runs the control config, all features off, as arm `sonnet-cache`. Compare it
+with a `--control` run from before the change. Plain runs leave it out.
+
+*Cache hit* is the agent's cache-read input tokens over all its input tokens (uncached input,
+cache writes and cache reads). It excludes the judge and is the same ratio the Console shows.
+The column appears in every table. The cache table adds the read / written / uncached split and
+input tokens per task.
+
+The 2026-11-19 control, from before the change, read 40.2% of its input from the cache. It wrote
+0.6% to the cache, and the other 59.2% was uncached conversation history.
+
 ## Running by hand
 
 The script only wraps the commands below. Run them from the repo root; every `eval run` writes
@@ -558,6 +593,9 @@ All runs at once: write a manifest (tab-separated, header
 - **Routing experiment.** *Routed tiers* shows how the router split the 80 tasks; compare it
   with the labelled difficulty in that run's `report.md`. A cost ratio well below 1.00× with
   Δ acc within noise is the result routing is for.
+- **Cache hit.** Compare it within one model. Routing mixes models, and caches are per model,
+  so an escalated task starts a new cache. A cache hit rate that rises while `$/task` does not
+  fall means the cache writes cost more than the reads saved.
 - **Structured experiment.** *Numeric text-fallback* is the share of numeric tasks graded from
   the report text rather than `key_numbers`; the structured schema should push it toward 0.
 

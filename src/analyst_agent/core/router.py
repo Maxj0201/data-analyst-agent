@@ -26,7 +26,7 @@ from enum import StrEnum
 from typing import Any, Literal
 
 from analyst_agent.core.config import Settings, get_settings
-from analyst_agent.core.llm import LLM, CostTracker
+from analyst_agent.core.llm import LLM, CostTracker, cached_text
 from analyst_agent.core.prompts import ROUTER_SYSTEM
 from analyst_agent.sandbox import quote_ident
 from analyst_agent.tools.base import ToolContext
@@ -149,13 +149,25 @@ def schema_summary(ctx: ToolContext, max_chars: int = MAX_SCHEMA_SUMMARY_CHARS) 
     return out
 
 
-def build_router_input(question: str, summary: str) -> str:
-    return (
-        f"## Question\n{question}\n\n"
-        "## Loaded tables\n"
-        + wrap_untrusted("schema_summary", summary, max_chars=MAX_SCHEMA_SUMMARY_CHARS + 200)
-        + '\n\nRespond with JSON: {"tier": "L1"|"L2"|"L3", "reason": "..."}'
+def build_router_content(question: str, summary: str) -> list[dict[str, Any]]:
+    """The router's user message: the schema summary first, as a cached block, then the question.
+
+    The summary is the same for every question on a dataset, so ``ROUTER_SYSTEM`` + summary is a
+    prefix that later router calls on that dataset read from the cache. It stays in the user
+    turn (wrapped as untrusted data), not in the system prompt: it is dataset content.
+    """
+    tables = "## Loaded tables\n" + wrap_untrusted(
+        "schema_summary", summary, max_chars=MAX_SCHEMA_SUMMARY_CHARS + 200
     )
+    ask = (
+        f'## Question\n{question}\n\nRespond with JSON: {{"tier": "L1"|"L2"|"L3", "reason": "..."}}'
+    )
+    return [cached_text(tables), {"type": "text", "text": ask}]
+
+
+def build_router_input(question: str, summary: str) -> str:
+    """:func:`build_router_content` as one string (logs, tests)."""
+    return "\n\n".join(b["text"] for b in build_router_content(question, summary))
 
 
 class Router:
@@ -176,7 +188,7 @@ class Router:
         try:
             resp = self.llm.create(
                 system=ROUTER_SYSTEM,
-                messages=[{"role": "user", "content": build_router_input(question, summary)}],
+                messages=[{"role": "user", "content": build_router_content(question, summary)}],
                 output_format={"type": "json_schema", "schema": ROUTER_SCHEMA},
                 model=s.router_model,
                 role="router",

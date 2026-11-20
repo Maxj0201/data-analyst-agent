@@ -2,7 +2,12 @@
 
 Responsibilities:
 * model / effort / max_tokens from config
-* the system prompt is sent as a cached block (``cache_control: ephemeral``)
+* prompt caching (:func:`_build_params`): a breakpoint on the system prompt caches the tool
+  schemas and the system prompt (render order is tools -> system -> messages); a caller may end
+  a stable leading message block with :func:`cached_text` (the router's schema summary); and
+  ``cache_history=True`` (the agent loop) adds a breakpoint on the last block of the
+  conversation, so each turn reads the previous turn's prefix instead of paying for the whole
+  history again. Nothing per-run (timestamps, run ids) goes into a cached prefix.
 * retries with exponential backoff + jitter on transient errors (429, 5xx, network)
 * a :class:`CostTracker` that accumulates tokens and estimated USD per run, broken down by role
   and by model (routing sends different steps to different models)
@@ -55,6 +60,12 @@ LONG_PROMPT_PRICING: dict[str, tuple[float, float]] = {
 }
 # Message Batches API requests bill at half the list price (input, output and cache tokens).
 BATCH_DISCOUNT = 0.50
+
+# Prompt caching. 5-minute TTL (the default): eval tasks and agent turns are seconds apart.
+EPHEMERAL: dict[str, str] = {"type": "ephemeral"}
+MAX_BREAKPOINTS = 4  # API limit per request
+# Blocks that cannot carry ``cache_control``.
+_UNCACHEABLE_BLOCKS = frozenset({"thinking", "redacted_thinking"})
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 # Models that accept the server-side ``fallbacks: "default"`` parameter. Others (e.g. Haiku,
@@ -237,6 +248,8 @@ class LLM(Protocol):
 
     ``model`` / ``effort`` / ``max_tokens`` override the configured defaults for one call (the
     router uses a small model at low effort; routing picks the working model per tier).
+    ``cache_history`` adds a cache breakpoint at the end of ``messages``: for multi-turn callers
+    (the agent loop), not for one-off calls whose last message is never sent again.
     """
 
     def create(
@@ -251,7 +264,65 @@ class LLM(Protocol):
         cost: CostTracker | None = None,
         effort: str | None = None,
         max_tokens: int | None = None,
+        cache_history: bool = False,
     ) -> LLMResponse: ...
+
+
+def cached_text(text: str) -> dict[str, Any]:
+    """A text content block that ends a cached prefix (a ``cache_control`` breakpoint).
+
+    Use it for the stable leading part of a user message (e.g. a schema summary that is the same
+    for every question on a dataset), followed by the varying part in a plain block.
+    """
+    return {"type": "text", "text": text, "cache_control": dict(EPHEMERAL)}
+
+
+def _count_breakpoints(messages: list[dict[str, Any]]) -> int:
+    return sum(
+        1
+        for m in messages
+        if isinstance(m.get("content"), list)
+        for b in m["content"]
+        if isinstance(b, dict) and "cache_control" in b
+    )
+
+
+def _cacheable(block: Any) -> bool:
+    if not isinstance(block, dict) or block.get("type") in _UNCACHEABLE_BLOCKS:
+        return False
+    return not (block.get("type") == "text" and not block.get("text"))
+
+
+def cache_conversation_tail(messages: list[dict[str, Any]], used: int = 1) -> list[dict[str, Any]]:
+    """``messages`` with a breakpoint on the last cacheable block of the last message.
+
+    Returns a new list; the caller's messages (the loop's history) are never modified, so the
+    marker moves forward each turn instead of piling up. The previous turn's breakpoint was on
+    a block that is now earlier in the prefix, so this request reads it from the cache and
+    writes only the new turn. ``used`` counts breakpoints placed elsewhere (the system prompt);
+    the tail is skipped when it would exceed :data:`MAX_BREAKPOINTS`.
+    """
+    if not messages or used + _count_breakpoints(messages) >= MAX_BREAKPOINTS:
+        return messages
+    last = messages[-1]
+    content = last.get("content")
+    if isinstance(content, str):
+        if not content:
+            return messages
+        blocks: list[Any] = [cached_text(content)]
+    elif isinstance(content, list):
+        blocks = list(content)
+        for i in range(len(blocks) - 1, -1, -1):
+            if _cacheable(blocks[i]):
+                if "cache_control" in blocks[i]:
+                    return messages  # already a breakpoint (e.g. a cached_text block)
+                blocks[i] = {**blocks[i], "cache_control": dict(EPHEMERAL)}
+                break
+        else:
+            return messages
+    else:
+        return messages
+    return [*messages[:-1], {**last, "content": blocks}]
 
 
 def _block_to_dict(block: Any) -> dict[str, Any]:
@@ -302,6 +373,7 @@ class LLMClient:
         model: str,
         effort: str | None = None,
         max_tokens: int | None = None,
+        cache_history: bool = False,
     ) -> dict[str, Any]:
         output_config: dict[str, Any] = {"effort": effort or self.settings.effort}
         if output_format is not None:
@@ -311,8 +383,9 @@ class LLMClient:
             "max_tokens": max_tokens or self.settings.max_tokens,
             # Stable system prompt as a cached block: render order is tools -> system -> messages,
             # so this breakpoint caches the (deterministic) tool list and the system prompt.
-            "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            "messages": messages,
+            "system": [{"type": "text", "text": system, "cache_control": dict(EPHEMERAL)}],
+            # The growing conversation: a second breakpoint on its last block (multi-turn only).
+            "messages": cache_conversation_tail(messages) if cache_history else messages,
             "output_config": output_config,
         }
         if tools:
@@ -338,10 +411,18 @@ class LLMClient:
         cost: CostTracker | None = None,
         effort: str | None = None,
         max_tokens: int | None = None,
+        cache_history: bool = False,
     ) -> LLMResponse:
         model = model or self.settings.model
         params = self._build_params(
-            system, messages, tools, output_format, model, effort=effort, max_tokens=max_tokens
+            system,
+            messages,
+            tools,
+            output_format,
+            model,
+            effort=effort,
+            max_tokens=max_tokens,
+            cache_history=cache_history,
         )
         attempt = 0
         while True:
