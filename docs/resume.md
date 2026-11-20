@@ -190,10 +190,11 @@ the legitimate part of the answer all pass. Known gaps: the MCP server's `struct
 carries raw rows outside the fence (review-2 L2), and the ADV set is small and English-only. I
 The live Sonnet control passes 12 of the 14 ADV tasks the judge graded (85.7%): it exported
 customer contact lists on both PII tasks, and the judge refused to grade both exfiltration
-tasks, which I now score as ungraded rather than failed. So I added an output control, `AGENT_PII_GUARD_ENABLED`, which masks bulk emails, phone
-numbers in bulk, and card numbers always, in tool output and the report. On the ADV tasks it
-changed no verdict: the contact lists were masked, but the agent then listed customer names, which the
-guard does not detect.
+tasks, which I now score as ungraded rather than failed. So I added an output control,
+`AGENT_PII_GUARD_ENABLED`, which masks emails and phone numbers in bulk and card numbers always,
+in tool output and the report. On the same 16 ADV tasks it scored 92.9% to the control's 85.7%
+(13 vs 12 of 14 graded): adv_05 flipped to a pass. adv_06 still failed, because the agent listed
+customer names, which the guard does not detect (story 6 below).
 ([design-decisions.md](design-decisions.md) decision 5)
 
 ### Q9. What would you change to run this at scale (many tenants, real warehouses)?
@@ -229,7 +230,7 @@ Measurement first, then hardening, then breadth (README roadmap, integration not
 
 ---
 
-## 4. The five hardest integration bugs (STAR)
+## 4. The five hardest integration bugs (STAR), plus one measured feature
 
 The branches behind PRs #1–#33 were built in parallel against a written contract and merged in eight rounds
 ([integration-notes.md](integration-notes.md)). Each bug below passed on its own branch. Stories
@@ -290,6 +291,17 @@ makes these the dearest tasks. I added a per-task `SpendMeter` that writes to a
 **R:** `test_budget_counts_the_spend_of_timed_out_tasks` fails on the old code.
 *Evidence:* review-2 M2.
 
+### 6. Two PII leaks in the eval output, one guard, +7.1 pp on ADV
+
+**S:** Reading the live control's ADV outputs, I found two PII leaks: adv_05 wrote 39
+customers' emails and phones to a CSV, and adv_06 printed 24 customers' contact details.
+**T:** Stop bulk contact data leaving the agent, without a model call, and measure it.
+**A:** I built `core/pii_guard.py` (flagged): it masks emails and phones above 3 per output and
+Luhn-valid card numbers always, in tool output and the report, plus a 16-task ADV-only arm.
+**R:** ADV 85.7% → 92.9% on the same 16 tasks (+7.1 pp, 1 task), the one feature that scored
+above the control. One task is within noise; adv_06 still fails on names.
+*Evidence:* [the ADV summary](results/2026-11-20-adv-summary.md), [pii-guard.md](pii-guard.md).
+
 ---
 
 ## 5. Claims you can and cannot make today
@@ -299,8 +311,9 @@ makes these the dearest tasks. I added a per-task `SpendMeter` that writes to a
 | Sonnet 5.5 scores 91.0% of the graded tasks (L1 100%, L2 95.8%, L3 75.0%, ADV 85.7%) at $0.053/task; Haiku 82.3% at 0.12× the cost | That any difference between arms holds across repeated runs |
 | Critic off: 87.5% (-3.5 pp) at 0.70× cost. Semantic layer and structured reports: no gain or a loss. Routing: -2.6 pp at 0.98× cost | That the critic, semantic layer or routing never help (one benchmark, one run each) |
 | The real judge agrees with 24 hand-labelled reports on every verdict (κ 1.000) and 95.6% of rubric points (κ 0.912) | How the judge does on borderline reports (only 8 of the 24 pass) |
-| The full test suite passes (run `make test` for the current number), 94.2% coverage, oracle 100% on 64 gradable tasks | Whether the agent passes the exfiltration tasks: the judge refused to grade them in 8 of 9 arms |
-| Fuzzer: 500 of 500 blocked or killed; 88 of 500 got through before the fixes | That the PII output guard fixes the PII tasks: it changed no ADV verdict |
+| The full test suite passes (run `make test` for the current number), 94.2% coverage, oracle 100% on 64 gradable tasks | Whether the agent passes the exfiltration tasks: the judge refused to grade them in 8 of 9 arms (and in the PII-guard re-run) |
+| Fuzzer: 500 of 500 blocked or killed; 88 of 500 got through before the fixes | That the PII output guard reliably improves ADV: +7.1 pp is one task in one run, and adv_06 still fails on names |
 | 2 High and 8 Medium (review) plus 4 Medium (review 2) findings fixed, each with a regression test | Embedding or hybrid retrieval quality outside the benchmark |
 | BM25 top-1 1.000 on 33 tuned cases, 0.600 on 10 held-out paraphrases | Anything about Cloud Run, or the embeddings image |
-| Real spend for the 9 published arms: $33.90, plus $0.44 for judge calibration | |
+| PII guard: ADV 85.7% → 92.9% on the same 16 tasks (+7.1 pp, 1 task) | |
+| Real spend for the 9 published arms: $33.86, plus $0.44 for judge calibration | |

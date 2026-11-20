@@ -1,0 +1,3 @@
+experiment	arm	role	run_dir	config
+adv	pii-guard-on	treatment	runs/experiments/adv-20261120-cards/pii-guard-on/20261120T063200Z	PII guard on, ADV tasks only
+adv	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z/rescored	Sonnet, all features off
