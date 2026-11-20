@@ -21,7 +21,10 @@ All notable changes to this project. Versions follow [SemVer](https://semver.org
   Recorded per run in the eval trace and `meta.json`.
 - `scripts/run_experiments.sh --only adv`: the 16 ADV tasks with the PII guard on, compared with
   the control's same 16 tasks; `--judge-samples N` for every arm (the caps are priced for it).
-- README *Results*: the live-model results of the 2026-11-14 run and the 2026-11-19 re-run.
+- README *Results*: the live-model results of the 2026-11-14 run and the 2026-11-19 and
+  2026-11-20 re-runs (all arms with 3 L3 judge samples except haiku and semantic-embedding),
+  the PII-guard ADV arm, and the real judge's calibration (verdict κ 1.000, rubric points 95.6%,
+  κ 0.912).
 
 ### Changed
 - CI now runs `make lint`, `make coverage` and `make eval`; `make check` runs `install` first, so
