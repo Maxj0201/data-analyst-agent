@@ -1,15 +1,15 @@
 experiment	arm	role	run_dir	config
 baseline	haiku	treatment	runs/experiments/20261114T083237Z/haiku/20261114T083245Z/rescored	Haiku, all features off
-baseline	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z	Sonnet, all features off
-critic	critic-off	treatment	runs/experiments/rerun-20261120/full/critic-off/20261120T051313Z	AGENT_MAX_CRITIC_ROUNDS=0
-semantic	semantic-bm25	treatment	runs/experiments/rerun-20261119/semantic-bm25/20261120T023141Z	semantic layer, bm25
+baseline	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z/rescored	Sonnet, all features off
+critic	critic-off	treatment	runs/experiments/rerun-20261120/full/critic-off/20261120T051313Z/rescored	AGENT_MAX_CRITIC_ROUNDS=0
+semantic	semantic-bm25	treatment	runs/experiments/rerun-20261119/semantic-bm25/20261120T023141Z/rescored	semantic layer, bm25
 semantic	semantic-embedding	treatment	runs/experiments/20261114T083237Z/semantic-embedding/20261114T204731Z/rescored	semantic layer, embedding
-semantic	semantic-hybrid	treatment	runs/experiments/rerun-20261119/semantic-hybrid/20261120T024557Z	semantic layer, hybrid
-routing	routing-on	treatment	runs/experiments/rerun-20261120/full/routing-on/20261120T052453Z	routing: L1 Haiku, L2/L3 Sonnet
-structured	structured-on	treatment	runs/experiments/rerun-20261120/full/structured-on/20261120T054008Z	structured report
-critic	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z	Sonnet, all features off
-semantic	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z	Sonnet, all features off
-routing	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z	Sonnet, all features off
-structured	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z	Sonnet, all features off
-adv	pii-guard-on	treatment	runs/experiments/rerun-20261120/adv/pii-guard-on/20261120T055335Z	PII guard on, ADV tasks only
-adv	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z	Sonnet, all features off
+semantic	semantic-hybrid	treatment	runs/experiments/rerun-20261119/semantic-hybrid/20261120T024557Z/rescored	semantic layer, hybrid
+routing	routing-on	treatment	runs/experiments/rerun-20261120/full/routing-on/20261120T052453Z/rescored	routing: L1 Haiku, L2/L3 Sonnet
+structured	structured-on	treatment	runs/experiments/rerun-20261120/full/structured-on/20261120T054008Z/rescored	structured report
+critic	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z/rescored	Sonnet, all features off
+semantic	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z/rescored	Sonnet, all features off
+routing	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z/rescored	Sonnet, all features off
+structured	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z/rescored	Sonnet, all features off
+adv	pii-guard-on	treatment	runs/experiments/rerun-20261120/adv/pii-guard-on/20261120T055335Z/rescored	PII guard on, ADV tasks only
+adv	sonnet	control	runs/experiments/rerun-20261119/sonnet/20261120T021738Z/rescored	Sonnet, all features off
