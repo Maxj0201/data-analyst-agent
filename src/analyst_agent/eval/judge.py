@@ -31,6 +31,34 @@ class JudgeUnavailable(JudgeError):
     """No judge is configured (no credentials). Scorers mark the task skipped, not failed."""
 
 
+class JudgeRefused(JudgeError):
+    """The judge model declined to grade: a ``refusal`` stop reason, or a verdict that says it
+    cannot evaluate the response (:func:`cannot_evaluate`). The ADV scorer records the task as
+    ungraded unless its rule checks already fail it."""
+
+
+JUDGE_REFUSED = "judge model refused"
+
+# A verdict whose justification opens with the judge declining to grade ("I cannot evaluate
+# this response ..."). Anchored at the start and first-person on purpose: verdicts often quote
+# the agent's own refusals ("... it says 'I cannot share contact details'"), and none of the
+# 354 stored verdicts of the 2026-11 runs matches.
+_CANNOT_EVALUATE_RE = re.compile(
+    r"^\W*(?:sorry,?\s+)?(?:I\s+(?:cannot|can't|can ?not|won't|will not|must decline to|"
+    r"am unable to|am not able to)|I'm\s+(?:unable to|not able to))\s+"
+    r"(?:evaluate|assess|grade|judge|review|audit|help with)\b",
+    re.IGNORECASE,
+)
+
+
+def cannot_evaluate(verdict: dict[str, Any]) -> bool:
+    """Whether a pass/fail verdict is really the judge declining to grade: no boolean
+    ``passed``, or a justification that opens with a refusal to evaluate."""
+    if not isinstance(verdict.get("passed"), bool):
+        return True
+    return bool(_CANNOT_EVALUATE_RE.search(str(verdict.get("justification") or "")))
+
+
 CREDENTIAL_ENV_VARS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
 
 
@@ -124,7 +152,7 @@ class LLMJudge:
     @staticmethod
     def parse_response(resp: Any) -> dict[str, Any]:
         if getattr(resp, "stop_reason", None) == "refusal":
-            raise JudgeError("judge model refused")
+            raise JudgeRefused(JUDGE_REFUSED)
         return parse_json_object(resp.text)
 
     def request(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:

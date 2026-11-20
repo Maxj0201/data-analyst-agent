@@ -154,9 +154,10 @@ pass only if rule checks, an LLM judge and the legitimate part of the answer all
 output reaches the model inside an untrusted-data fence that a cell cannot close: the fence is
 matched case- and whitespace-insensitively, which closed review M1. The UI renders no images from
 untrusted Markdown except this job's own charts (review M2: zero-click exfiltration). An
-optional PII output guard (`AGENT_PII_GUARD_ENABLED`) masks emails, phone numbers and card
-numbers in SQL and Python output before the model sees them, and in the final report, whenever
-one output holds more than `AGENT_PII_MAX_ITEMS` (3) of them (`core/pii_guard.py`).
+optional PII output guard (`AGENT_PII_GUARD_ENABLED`) masks card numbers in SQL and Python
+output before the model sees them, and in the final report, and does the same for emails and
+phone numbers once one output holds more than `AGENT_PII_MAX_ITEMS` (3) of them. It does not
+detect names ([docs/pii-guard.md](docs/pii-guard.md) says why).
 
 **Model routing.** A cheap router call labels each question L1/L2/L3 and picks the working model.
 The run escalates one tier after a second critic `revise`, or when the same tool fails twice in a

@@ -34,6 +34,7 @@ from analyst_agent.eval.report import (
     JudgeModeMismatch,
     check_same_judge_mode,
     judge_mode,
+    judge_refused,
     load_meta,
     semantic_retrieval,
     summarize,
@@ -459,8 +460,15 @@ class ArmStats:
         judged = (self.meta.get("config") or {}).get("judge_model")
         if not judged and any(r["difficulty"] == "L3" for r in self.results):
             out.append("no judge: L3 skipped")
-        elif s["skipped"] > s["over_budget"]:
-            out.append(f"{s['skipped'] - s['over_budget']} ungraded")
+        else:
+            # Judge refusals have their own column; other ungraded tasks are a note.
+            refused_ungraded = sum(
+                judge_refused(r) and (r.get("score_details") or {}).get("skipped")
+                for r in self.results
+            )
+            other = s["skipped"] - s["over_budget"] - refused_ungraded
+            if other > 0:
+                out.append(f"{other} ungraded")
         errs = sum(
             1
             for r in self.results
@@ -483,8 +491,8 @@ def load_arm(row: ManifestRow) -> ArmStats:
 
 
 OVERVIEW_HEAD = (
-    "| Experiment | Arm | Accuracy | L1 | L2 | L3 | ADV | $/task | Total $ (incl. judge) | "
-    "p50 latency | Notes |\n|---|---|---|---|---|---|---|---|---|---|---|"
+    "| Experiment | Arm | Accuracy | L1 | L2 | L3 | ADV | Judge refusals | $/task | "
+    "Total $ (incl. judge) | p50 latency | Notes |\n" + "|---" * 12 + "|"
 )
 
 
@@ -493,7 +501,7 @@ def _overview_row(exp: str, a: ArmStats) -> str:
     return (
         f"| {exp} | {a.row.arm} | {_pct(s['accuracy'])} | "
         + " | ".join(_pct(a.level_acc(d)) for d in DIFFICULTIES)
-        + f" | {_usd(s['mean_cost_usd'])} | {_usd(a.total_usd)} | "
+        + f" | {s.get('judge_refusals', 0)} | {_usd(s['mean_cost_usd'])} | {_usd(a.total_usd)} | "
         f"{s['latency_p50_s']:.1f}s | {a.notes} |"
     )
 
@@ -643,7 +651,9 @@ def render_summary(rows: list[ManifestRow], header: dict[str, str] | None = None
             + (f" ({JUDGE_MODE_LABELS[mode]})" if mode else "")
         )
     lines += [
-        "- Accuracy is over scored tasks (ungraded and over-budget tasks are excluded); one L3 "
+        "- Accuracy is over scored tasks (ungraded and over-budget tasks are excluded). An ADV "
+        "task the judge refused to grade is ungraded unless its rule checks fail it (*Judge "
+        "refusals* counts both). One L3 "
         "or ADV task is 6.25 pp of that level, one L1/L2 task 4.2 pp. Differences of one or two "
         "tasks are within run-to-run noise.",
         "- Cost is estimated from `core/llm.py`'s price table; `Total $` adds the judge.",

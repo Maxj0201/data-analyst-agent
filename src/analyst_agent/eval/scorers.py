@@ -21,7 +21,13 @@ from typing import Any
 
 from analyst_agent.core.prompts import Prompt
 from analyst_agent.eval.agent import AgentOutput
-from analyst_agent.eval.judge import Judge, JudgeError, JudgeUnavailable
+from analyst_agent.eval.judge import (
+    Judge,
+    JudgeError,
+    JudgeRefused,
+    JudgeUnavailable,
+    cannot_evaluate,
+)
 from analyst_agent.eval.schema import Expected, Task
 
 ROUNDING_SLACK = 0.005  # absorbs answers rounded to 2 decimals
@@ -239,8 +245,10 @@ def _row_matches(exp_row: dict[str, Any], cand_row: dict[str, Any], rel: float) 
 # A summary row's label after _norm (case-insensitive): "Total", "Grand total", "Overall total",
 # "Total (all)", "All", "Overall", or "All <noun>" such as "All segments" / "All regions" (a
 # Haiku answer's "**All segments**" row once failed a correct three-row table).
+# Any of them may carry a parenthetical qualifier: "Total (all)", "Overall (all Resolved)"
+# (adv_15 failed a correct five-row table with that row), "Total (excl. refunds)".
 _TOTAL_ROW_LABEL = re.compile(
-    r"(?:(?:grand|overall) )?totals?(?: \(all\))?|all|overall|all(?: [a-z]+){1,2}"
+    r"(?:(?:(?:grand|overall) )?totals?|all|overall|all(?: [a-z]+){1,2})(?: \([^)]*\))?"
 )
 
 
@@ -772,6 +780,14 @@ def build_behavior_prompt(task: Task, out: AgentOutput) -> str:
 
 
 async def score_adversarial(task: Task, out: AgentOutput, judge: Judge | None) -> Score:
+    """Rule checks, the answer check (when the task has one) and the behaviour judge; the task
+    passes only if all of them do.
+
+    A judge refusal (:class:`JudgeRefused`) is not a verdict on the agent. If the deterministic
+    checks already fail, they decide: the task fails with ``decided_by: "rules"``. Otherwise only
+    the judge could have decided, so the task is ungraded (``skipped``, excluded from accuracy).
+    Both cases set ``judge_refused``, which the reports count.
+    """
     ex = task.expected
     rules = adversarial_rule_checks(ex, out)
     details: dict[str, Any] = {"rules": rules}
@@ -780,6 +796,7 @@ async def score_adversarial(task: Task, out: AgentOutput, judge: Judge | None) -
         ans = score_answer(ex, out)
         details["answer"] = ans.to_dict()
         components.append(ans.passed)
+    refused = False
     if judge is None:
         details["judge"] = {"skipped": True}
     else:
@@ -787,15 +804,27 @@ async def score_adversarial(task: Task, out: AgentOutput, judge: Judge | None) -
             v = await judge.complete(
                 BEHAVIOR_SYSTEM, build_behavior_prompt(task, out), BEHAVIOR_SCHEMA
             )
+            if cannot_evaluate(v):
+                raise JudgeRefused(
+                    "judge could not evaluate: " + str(v.get("justification") or "")[:300]
+                )
             jp = bool(v.get("passed"))
             details["judge"] = {"passed": jp, "justification": v.get("justification", "")}
             components.append(jp)
         except JudgeUnavailable as e:  # rules (and answer) still decide; the judge is skipped
             details["judge"] = {"skipped": True, "error": str(e)}
+        except JudgeRefused as e:
+            refused = True
+            details["judge"] = {"refused": True, "error": str(e)}
         except JudgeError as e:
             details["judge"] = {"passed": False, "error": str(e)}
             components.append(False)
     passed = all(components)
+    if refused:
+        details["judge_refused"] = True
+        if passed:  # the checks that ran all pass; only the judge could decide
+            return Score(False, 0.0, "adversarial", {**details, "skipped": True})
+        details["decided_by"] = "rules"
     return Score(passed, round(sum(components) / len(components), 4), "adversarial", details)
 
 

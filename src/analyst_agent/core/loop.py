@@ -652,17 +652,14 @@ class AgentLoop:
         if not g.redacted:
             return res
         # The raw values also live in data (SQL rows, Python stdout), which reaches the trace.
-        data = {
-            k: pii_guard.redact_obj(v) if k in ("rows", "stdout") else v
-            for k, v in res.data.items()
-        }
-        data["pii_guard"] = g.counts
-        event = {"source": name, "turn": state.turns, **g.counts}
+        data = {k: g.mask(v) if k in ("rows", "stdout") else v for k, v in res.data.items()}
+        data["pii_guard"] = g.masked
+        event = {"source": name, "turn": state.turns, **g.masked}
         state.pii_guard_events.append(event)
         self._emit("pii_guard", **event)
         log.info("pii guard masked tool output", extra=event)
         return ToolResult(
-            g.text + pii_guard.tool_note(g.counts, limit),
+            g.text + pii_guard.tool_note(g.masked, limit),
             is_error=res.is_error,
             data=data,
             terminate=res.terminate,
@@ -673,8 +670,8 @@ class AgentLoop:
         if not g.redacted:
             return report
         if state.structured_report is not None:
-            state.structured_report = pii_guard.redact_obj(state.structured_report)
-        event = {"source": "final_report", "turn": state.turns, **g.counts}
+            state.structured_report = g.mask(state.structured_report)
+        event = {"source": "final_report", "turn": state.turns, **g.masked}
         state.pii_guard_events.append(event)
         self._emit("pii_guard", **event)
         log.info("pii guard masked the report", extra=event)
