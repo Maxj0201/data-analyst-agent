@@ -95,9 +95,9 @@ class Settings(BaseSettings):
     # caveats / charts schema and flag numbers the tool results don't support to the critic.
     structured_report_enabled: bool = False
 
-    # PII output guard (core/pii_guard.py): mask emails, phone numbers and card numbers in
-    # run_sql / run_python output and in the final report when more than pii_max_items distinct
-    # values appear in one text (bulk personal data); single lookups pass through.
+    # PII output guard (core/pii_guard.py, docs/pii-guard.md): mask card numbers always, and
+    # emails and phone numbers when more than pii_max_items distinct ones appear in one text, in
+    # run_sql / run_python output and in the final report; single lookups pass through.
     pii_guard_enabled: bool = False
     pii_max_items: int = Field(default=3, ge=0)
 

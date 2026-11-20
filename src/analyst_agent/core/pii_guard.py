@@ -1,17 +1,18 @@
 """PII output guard (``AGENT_PII_GUARD_ENABLED``): keep bulk personal data out of the output.
 
 The agent loop runs :func:`guard_text` over every ``run_sql`` / ``run_python`` result before the
-model (and the critic) sees it, and :func:`guard_report` over the final report. When one text
-holds more than ``AGENT_PII_MAX_ITEMS`` distinct email addresses, phone numbers and card numbers
-(counted together), every one of them is masked:
+model (and the critic) sees it, and :func:`guard_report` over the final report. Card numbers are
+masked wherever they appear: one is already a leak. Email addresses and phone numbers are masked
+when one text holds more than ``AGENT_PII_MAX_ITEMS`` distinct ones (counted together), i.e. in
+bulk:
 
 - email ``ines.larsen156@example.com`` -> ``i***@example.com``
 - phone ``+1-555-741-4013`` -> ``***-***-4013``
 - card ``4111 1111 1111 1111`` -> ``**** **** **** 1111`` (only Luhn-valid 13-19 digit runs)
 
-At or below the threshold the text passes unchanged, so a single-customer lookup still works.
-This is an output control, not a guarantee: names are not detected, and files that ``run_python``
-writes to the artifacts directory are not scanned.
+At or below the threshold, emails and phones pass unchanged, so a single-customer lookup still
+works. This is an output control, not a guarantee: names are not detected (docs/pii-guard.md says
+why), and files that ``run_python`` writes to the artifacts directory are not scanned.
 """
 
 from __future__ import annotations
@@ -81,6 +82,11 @@ class PiiScan:
     def total(self) -> int:
         return len(self.emails) + len(self.phones) + len(self.cards)
 
+    @property
+    def contacts(self) -> int:
+        """Distinct emails and phone numbers: what ``AGENT_PII_MAX_ITEMS`` is compared with."""
+        return len(self.emails) + len(self.phones)
+
     def counts(self) -> dict[str, int]:
         return {k: len(getattr(self, k)) for k in KINDS}
 
@@ -104,9 +110,14 @@ def _card_sub(m: re.Match[str]) -> str:
     return mask_card(digits) if 13 <= len(digits) <= 19 and _luhn_ok(digits) else m.group()
 
 
+def redact_cards(text: str) -> str:
+    """Mask every (Luhn-valid) card number in ``text``."""
+    return CARD_RE.sub(_card_sub, text)
+
+
 def redact(text: str) -> str:
     """Mask every email address, phone number and card number in ``text`` (no threshold)."""
-    text = CARD_RE.sub(_card_sub, text)
+    text = redact_cards(text)
     text = EMAIL_RE.sub(lambda m: mask_email(m.group()), text)
     return PHONE_RE.sub(lambda m: mask_phone(m.group()), text)
 
@@ -129,18 +140,38 @@ class GuardResult:
     text: str
     redacted: bool
     counts: dict[str, int]  # distinct items found per kind (emails / phones / cards)
+    bulk: bool = False  # emails and phones were masked too (more than max_items of them)
 
     @property
     def total(self) -> int:
         return sum(self.counts.values())
 
+    @property
+    def masked(self) -> dict[str, int]:
+        """Distinct items masked per kind: cards always, emails and phones only in bulk."""
+        if not self.redacted:
+            return {k: 0 for k in KINDS}
+        if self.bulk:
+            return dict(self.counts)
+        return {"emails": 0, "phones": 0, "cards": self.counts.get("cards", 0)}
+
+    def mask(self, value: Any) -> Any:
+        """Apply the same masking to another value holding the same data (SQL rows, stdout)."""
+        if not self.redacted:
+            return value
+        return redact_obj(value, redact if self.bulk else redact_cards)
+
 
 def guard_text(text: str, max_items: int) -> GuardResult:
-    """Mask all PII in ``text`` if it holds more than ``max_items`` distinct items."""
+    """Mask card numbers in ``text``, and every email and phone number too when it holds more
+    than ``max_items`` distinct ones."""
     found = scan(text)
-    if found.total <= max_items:
-        return GuardResult(text, False, found.counts())
-    return GuardResult(redact(text), True, found.counts())
+    bulk = found.contacts > max_items
+    if bulk:
+        return GuardResult(redact(text), True, found.counts(), bulk=True)
+    if found.cards:
+        return GuardResult(redact_cards(text), True, found.counts())
+    return GuardResult(text, False, found.counts())
 
 
 def describe(counts: dict[str, int]) -> str:
@@ -155,19 +186,28 @@ def describe(counts: dict[str, int]) -> str:
     return ", ".join(parts[:-1]) + " and " + parts[-1]
 
 
-def tool_note(counts: dict[str, int], max_items: int) -> str:
+def _reason(masked: dict[str, int], max_items: int) -> str:
+    parts = []
+    if masked.get("emails") or masked.get("phones"):
+        parts.append(f"more than {max_items} distinct email addresses and phone numbers")
+    if masked.get("cards"):
+        parts.append("card numbers are always masked")
+    return "; ".join(parts)
+
+
+def tool_note(masked: dict[str, int], max_items: int) -> str:
     """Appended to a masked tool result, so the model knows why the values look like that."""
     return (
-        f"\n[pii_guard: {describe(counts)} in this output were masked as bulk personal data "
-        f"(more than {max_items} distinct values).]"
+        f"\n[pii_guard: {describe(masked)} in this output were masked as personal data "
+        f"({_reason(masked, max_items)}).]"
     )
 
 
-def report_note(counts: dict[str, int], max_items: int) -> str:
+def report_note(masked: dict[str, int], max_items: int) -> str:
     return (
-        "\n\n> **Note:** bulk personal data was withheld from this report. The PII output guard "
-        f"masked {describe(counts)} (more than {max_items} distinct values). Use an "
-        "access-controlled export for contact details."
+        "\n\n> **Note:** personal data was withheld from this report. The PII output guard "
+        f"masked {describe(masked)} ({_reason(masked, max_items)}). Use an access-controlled "
+        "export for contact or payment details."
     )
 
 
@@ -176,4 +216,4 @@ def guard_report(report: str, max_items: int) -> GuardResult:
     g = guard_text(report, max_items)
     if not g.redacted:
         return g
-    return GuardResult(g.text + report_note(g.counts, max_items), True, g.counts)
+    return GuardResult(g.text + report_note(g.masked, max_items), True, g.counts, bulk=g.bulk)
