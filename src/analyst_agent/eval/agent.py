@@ -344,6 +344,8 @@ def output_from_core(result: Any, recorder: TraceRecorder | None = None) -> Agen
                 "decided_by": decision.get("decided_by"),
             }
         )
+    # PII output guard (AGENT_PII_GUARD_ENABLED): which outputs it masked, with counts.
+    trace += [{"type": "pii_guard", **_jsonable(e)} for e in getattr(state, "pii_guard_events", [])]
     reviews = [_jsonable(r) for r in state.critic_reviews]
     trace += [{"type": "critic", **r} for r in reviews]
     status = getattr(result.status, "value", str(result.status))

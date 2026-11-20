@@ -23,6 +23,7 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from analyst_agent.core import pii_guard
 from analyst_agent.core.approval import (
     ApprovalDecision,
     ApprovalPolicy,
@@ -140,6 +141,9 @@ class AgentState:
     extra_critic_rounds: int = 0
     critic_revisions: int = 0
     last_tool_error: dict[str, bool] = field(default_factory=dict)  # tool name -> last errored
+    # PII output guard (AGENT_PII_GUARD_ENABLED): one event per masked tool result or report.
+    pii_guard_enabled: bool = False
+    pii_guard_events: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def current_plan(self) -> str | None:
@@ -208,6 +212,7 @@ class AgentResult:
             "cost": s.cost.to_dict(),
             "prompts": prompt_versions(),
             "routing": s.routing_summary(),
+            "pii_guard": {"enabled": s.pii_guard_enabled, "events": s.pii_guard_events},
         }
 
 
@@ -267,6 +272,7 @@ class AgentLoop:
                     "approval": s.approval_enabled,
                     "structured_report": s.structured_report_enabled,
                     "memory": s.memory_enabled,
+                    "pii_guard": s.pii_guard_enabled,
                 },
                 prompts=prompt_versions(),
             )
@@ -500,6 +506,7 @@ class AgentLoop:
 
     def _run(self, state: AgentState) -> None:
         s = self.settings
+        state.pii_guard_enabled = s.pii_guard_enabled
         if self.router is not None:
             self._route(state)
         reference = self._retrieve_metrics(state) if s.semantic_layer_enabled else ""
@@ -570,6 +577,8 @@ class AgentLoop:
                 self._emit("tool_call", name=name, input=args, turn=state.turns)
                 denied = self._gate(state, name, args)
                 res = denied or self.registry.execute(name, args, self.ctx)
+                if denied is None and s.pii_guard_enabled and name in pii_guard.GUARDED_TOOLS:
+                    res = self._guard_tool_output(state, name, res)
                 if name == TERMINAL_TOOL and s.structured_report_enabled and not res.is_error:
                     res = self._enforce_structured_report(state, res)
                 record = ToolCallRecord(
@@ -635,6 +644,41 @@ class AgentLoop:
                 continue  # Revise: the agent re-plans with the critic's feedback
 
             state.messages.append({"role": "user", "content": result_blocks})
+
+    def _guard_tool_output(self, state: AgentState, name: str, res: ToolResult) -> ToolResult:
+        """Mask bulk PII in a run_sql / run_python result before the model or critic sees it."""
+        limit = self.settings.pii_max_items
+        g = pii_guard.guard_text(res.content, limit)
+        if not g.redacted:
+            return res
+        # The raw values also live in data (SQL rows, Python stdout), which reaches the trace.
+        data = {
+            k: pii_guard.redact_obj(v) if k in ("rows", "stdout") else v
+            for k, v in res.data.items()
+        }
+        data["pii_guard"] = g.counts
+        event = {"source": name, "turn": state.turns, **g.counts}
+        state.pii_guard_events.append(event)
+        self._emit("pii_guard", **event)
+        log.info("pii guard masked tool output", extra=event)
+        return ToolResult(
+            g.text + pii_guard.tool_note(g.counts, limit),
+            is_error=res.is_error,
+            data=data,
+            terminate=res.terminate,
+        )
+
+    def _guard_report(self, state: AgentState, report: str) -> str:
+        g = pii_guard.guard_report(report, self.settings.pii_max_items)
+        if not g.redacted:
+            return report
+        if state.structured_report is not None:
+            state.structured_report = pii_guard.redact_obj(state.structured_report)
+        event = {"source": "final_report", "turn": state.turns, **g.counts}
+        state.pii_guard_events.append(event)
+        self._emit("pii_guard", **event)
+        log.info("pii guard masked the report", extra=event)
+        return g.text
 
     def _gate(self, state: AgentState, name: str, args: Any) -> ToolResult | None:
         """Human-in-the-loop check. Returns an error result if the step was denied."""
@@ -758,6 +802,8 @@ class AgentLoop:
                 report = _banner(status, state.detail) + report
         else:
             report = self._partial_report(state, status)
+        if state.pii_guard_enabled:
+            report = self._guard_report(state, report)
         return AgentResult(status=status, report=report, key_numbers=state.key_numbers, state=state)
 
     def _partial_report(self, state: AgentState, status: RunStatus) -> str:
